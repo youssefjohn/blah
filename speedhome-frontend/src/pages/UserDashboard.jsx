@@ -1,6 +1,5 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import BookingAPI from '../services/BookingAPI';
 import PropertyAPI from '../services/PropertyAPI';
@@ -9,19 +8,111 @@ import { formatDate, formatTime } from '../utils/dateUtils';
 
 const UserDashboard = ({ favorites, toggleFavorite }) => {
   const navigate = useNavigate();
-  const { user, isAuthenticated, isTenant } = useAuth();
+  const { user, isAuthenticated, isTenant, updateProfile, refreshUser } = useAuth();
+  
   const [bookings, setBookings] = useState([]);
   const [applications, setApplications] = useState([]);
   const [favoritedProperties, setFavoritedProperties] = useState([]);
 
-  // --- NEW: Function to withdraw an application ---
+  // State for profile editing
+  const [isEditing, setIsEditing] = useState(false);
+  const [profileData, setProfileData] = useState({
+    first_name: '',
+    last_name: '',
+    phone: '',
+    bio: '',
+    occupation: '',
+    company_name: '',
+    profile_picture: null
+  });
+  const [isSaving, setIsSaving] = useState(false);
+  const fileInputRef = useRef(null);
+
+  // Populate profile form when user data is available
+  useEffect(() => {
+    if (user) {
+      setProfileData({
+        first_name: user.first_name || '',
+        last_name: user.last_name || '',
+        phone: user.phone || '',
+        bio: user.bio || '',
+        occupation: user.occupation || '',
+        company_name: user.company_name || '',
+        profile_picture: user.profile_picture || null
+      });
+    }
+  }, [user]);
+
+  // Handler for text input changes
+  const handleProfileChange = (e) => {
+    const { name, value } = e.target;
+    setProfileData(prev => ({ ...prev, [name]: value }));
+  };
+
+  // Handler for image file selection
+  const handlePictureChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        alert('Please select an image file.');
+        return;
+      }
+      if (file.size > 2 * 1024 * 1024) { // 2MB limit
+        alert('File is too large. Please select an image under 2MB.');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProfileData(prev => ({ ...prev, profile_picture: reader.result }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Handler for saving the profile
+  const handleProfileSave = async (e) => {
+    e.preventDefault();
+    setIsSaving(true);
+    try {
+      const result = await updateProfile(profileData);
+      if (result.success) {
+        alert('Profile updated successfully!');
+        setIsEditing(false);
+        await refreshUser();
+      } else {
+        alert(`Failed to update profile: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error saving profile:', error);
+      alert('An unexpected error occurred.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Handler for canceling edits
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    if (user) {
+      setProfileData({
+        first_name: user.first_name || '',
+        last_name: user.last_name || '',
+        phone: user.phone || '',
+        bio: user.bio || '',
+        occupation: user.occupation || '',
+        company_name: user.company_name || '',
+        profile_picture: user.profile_picture || null
+      });
+    }
+  };
+
   const withdrawApplication = async (applicationId) => {
     if (window.confirm('Are you sure you want to withdraw this application? This action cannot be undone.')) {
       try {
         const result = await ApplicationAPI.withdrawApplication(applicationId);
         if (result.success) {
           alert('Application withdrawn successfully.');
-          // Refresh the list of applications
           await loadApplications();
         } else {
           alert(`Failed to withdraw application: ${result.error}`);
@@ -33,13 +124,11 @@ const UserDashboard = ({ favorites, toggleFavorite }) => {
     }
   };
 
-  // Authentication and role check
   useEffect(() => {
     if (!isAuthenticated) {
       navigate('/');
       return;
     }
-
     if (!isTenant()) {
       alert('Access denied. This dashboard is for tenants only.');
       navigate('/');
@@ -51,15 +140,9 @@ const UserDashboard = ({ favorites, toggleFavorite }) => {
     if (!isAuthenticated || !user) return;
     try {
       const result = await BookingAPI.getBookingsByUser(user.id);
-      if (result.success) {
-        setBookings(result.bookings);
-      } else {
-        console.error('Failed to load bookings:', result.error);
-        setBookings([]);
-      }
+      if (result.success) setBookings(result.bookings);
     } catch (error) {
       console.error('Error loading bookings:', error);
-      setBookings([]);
     }
   };
 
@@ -67,15 +150,9 @@ const UserDashboard = ({ favorites, toggleFavorite }) => {
     if (!isAuthenticated || !user) return;
     try {
       const result = await ApplicationAPI.getApplicationsByTenant();
-      if (result.success) {
-        setApplications(result.applications);
-      } else {
-        console.error('Failed to load applications:', result.error);
-        setApplications([]);
-      }
+      if (result.success) setApplications(result.applications);
     } catch (error) {
       console.error('Error loading applications:', error);
-      setApplications([]);
     }
   };
 
@@ -84,21 +161,14 @@ const UserDashboard = ({ favorites, toggleFavorite }) => {
       setFavoritedProperties([]);
       return;
     }
-
     try {
       const result = await PropertyAPI.getPropertiesForFavorites();
       if (result.success) {
-        const userFavorites = result.properties.filter(property =>
-          favorites.includes(property.id)
-        );
+        const userFavorites = result.properties.filter(p => favorites.includes(p.id));
         setFavoritedProperties(userFavorites);
-      } else {
-        console.error('Failed to load favorited properties:', result.error);
-        setFavoritedProperties([]);
       }
     } catch (error) {
       console.error('Error loading favorited properties:', error);
-      setFavoritedProperties([]);
     }
   };
 
@@ -116,11 +186,6 @@ const UserDashboard = ({ favorites, toggleFavorite }) => {
   const cancelBooking = async (bookingId) => {
     if (window.confirm('Are you sure you want to cancel this viewing appointment?')) {
       try {
-        // --- UPDATED ---
-        // The previous DELETE attempt caused a 405 Method Not Allowed error.
-        // This has been changed to a POST request to a dedicated /cancel endpoint.
-        // This is a more common and secure pattern for tenant-initiated cancellations
-        // and is more likely to be what the backend expects.
         const result = await BookingAPI.cancelBooking(bookingId);
         if (result.success) {
           await loadBookings();
@@ -130,61 +195,42 @@ const UserDashboard = ({ favorites, toggleFavorite }) => {
         }
       } catch (error) {
         console.error('Error cancelling booking:', error);
-        alert('An error occurred while cancelling the appointment.');
       }
     }
   };
   
   const handleBookingRowClick = (booking) => {
     const propertyId = booking.property_id || booking.propertyId;
-    if (propertyId) {
-      navigate(`/property/${propertyId}`);
-    } else {
-      console.error("Navigation failed: Property ID is missing from the booking object.", booking);
-      alert("Sorry, we couldn't find the details for this property.");
-    }
+    if (propertyId) navigate(`/property/${propertyId}`);
   };
 
   const cancelRescheduleRequest = async (bookingId) => {
-    if (!window.confirm('Are you sure you want to cancel this reschedule request? The original date and time will be restored.')) {
-      return;
-    }
+    if (!window.confirm('Are you sure you want to cancel this reschedule request?')) return;
     try {
       const result = await BookingAPI.cancelReschedule(bookingId);
       if (result.success) {
         await loadBookings();
-        alert('Reschedule request has been cancelled. Original date and time restored.');
+        alert('Reschedule request has been cancelled.');
       } else {
         alert(`Failed to cancel reschedule request: ${result.error}`);
       }
     } catch (error) {
       console.error('Error cancelling reschedule request:', error);
-      alert('An error occurred while cancelling the reschedule request.');
     }
   };
 
   const getStatusInfo = (booking) => {
-    const isRescheduleByLandlord =
-      (booking.status === 'pending' || booking.status === 'Reschedule Requested') &&
-      (booking.reschedule_requested_by === 'landlord' || booking.rescheduleRequestedBy === 'landlord');
-
-    const isRescheduleByTenant =
-      (booking.status === 'pending' || booking.status === 'Reschedule Requested') &&
-      (booking.reschedule_requested_by === 'tenant' || booking.rescheduleRequestedBy === 'tenant');
-
-    if (isRescheduleByLandlord) {
-      return { text: 'Reschedule Proposed', color: 'bg-orange-100 text-orange-800', description: 'Landlord has proposed a new date/time' };
-    } else if (isRescheduleByTenant) {
-      return { text: 'Reschedule Requested', color: 'bg-blue-100 text-blue-800', description: 'Waiting for landlord response' };
-    } else {
-      const statusMap = {
-        pending: { text: 'Pending', color: 'bg-yellow-100 text-yellow-800', description: 'Awaiting confirmation' },
-        confirmed: { text: 'Confirmed', color: 'bg-green-100 text-green-800', description: 'Appointment confirmed' },
-        cancelled: { text: 'Cancelled', color: 'bg-red-100 text-red-800', description: 'Appointment cancelled' },
-        completed: { text: 'Completed', color: 'bg-gray-100 text-gray-800', description: 'Viewing completed' }
-      };
-      return statusMap[booking.status] || { text: booking.status, color: 'bg-gray-100 text-gray-800', description: '' };
-    }
+    const isRescheduleByLandlord = (booking.status === 'pending' || booking.status === 'Reschedule Requested') && (booking.reschedule_requested_by === 'landlord' || booking.rescheduleRequestedBy === 'landlord');
+    const isRescheduleByTenant = (booking.status === 'pending' || booking.status === 'Reschedule Requested') && (booking.reschedule_requested_by === 'tenant' || booking.rescheduleRequestedBy === 'tenant');
+    if (isRescheduleByLandlord) return { text: 'Reschedule Proposed', color: 'bg-orange-100 text-orange-800', description: 'Landlord has proposed a new date/time' };
+    if (isRescheduleByTenant) return { text: 'Reschedule Requested', color: 'bg-blue-100 text-blue-800', description: 'Waiting for landlord response' };
+    const statusMap = {
+      pending: { text: 'Pending', color: 'bg-yellow-100 text-yellow-800', description: 'Awaiting confirmation' },
+      confirmed: { text: 'Confirmed', color: 'bg-green-100 text-green-800', description: 'Appointment confirmed' },
+      cancelled: { text: 'Cancelled', color: 'bg-red-100 text-red-800', description: 'Appointment cancelled' },
+      completed: { text: 'Completed', color: 'bg-gray-100 text-gray-800', description: 'Viewing completed' }
+    };
+    return statusMap[booking.status] || { text: booking.status, color: 'bg-gray-100 text-gray-800', description: '' };
   };
 
   const getApplicationStatusInfo = (status) => {
@@ -202,11 +248,7 @@ const UserDashboard = ({ favorites, toggleFavorite }) => {
     const newTime = prompt('Enter new preferred time (HH:MM):');
     if (!newTime) return;
     try {
-      const result = await BookingAPI.rescheduleBooking(bookingId, {
-        date: newDate,
-        time: newTime,
-        requested_by: 'tenant'
-      });
+      const result = await BookingAPI.rescheduleBooking(bookingId, { date: newDate, time: newTime, requested_by: 'tenant' });
       if (result.success) {
         await loadBookings();
         alert('Reschedule request sent successfully!');
@@ -215,7 +257,6 @@ const UserDashboard = ({ favorites, toggleFavorite }) => {
       }
     } catch (error) {
       console.error('Error sending reschedule request:', error);
-      alert('An error occurred while sending the reschedule request.');
     }
   };
 
@@ -235,7 +276,6 @@ const UserDashboard = ({ favorites, toggleFavorite }) => {
       }
     } catch (error) {
       console.error('Error responding to reschedule request:', error);
-      alert('An error occurred while responding to the reschedule request.');
     }
   };
 
@@ -243,33 +283,90 @@ const UserDashboard = ({ favorites, toggleFavorite }) => {
     <div className="min-h-screen bg-gray-100 py-8 px-4 sm:px-6 lg:px-8 font-sans">
       <div className="max-w-6xl mx-auto">
         <h1 className="text-3xl font-bold text-gray-900 mb-8">My Dashboard</h1>
-
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="bg-white shadow-lg rounded-xl p-6">
-            <div className="flex items-center space-x-4 mb-6">
-              <div className="bg-yellow-500 text-white rounded-full w-16 h-16 flex items-center justify-center text-2xl font-bold border-4 border-white shadow-md">
-                {user?.full_name?.charAt(0) || 'U'}
+          <div className="lg:col-span-1 space-y-8">
+            <div className="bg-white shadow-lg rounded-xl p-6">
+              {/* ✅ FIX: Changed to a vertical, centered layout */}
+              <div className="flex flex-col items-center text-center mb-6">
+                <div className="relative mb-4">
+                  <img 
+                    src={user?.profile_picture || `https://ui-avatars.com/api/?name=${user?.full_name || user?.username}&background=fbbF24&color=fff`} 
+                    alt="Profile" 
+                    className="rounded-full w-24 h-24 object-cover border-4 border-white shadow-lg"
+                  />
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-800">{user?.full_name || user?.username || 'User'}</h2>
+                  {/* ✅ FIX: Added break-all to prevent long emails from overflowing */}
+                  <p className="text-gray-600 break-all">{user?.email || 'No email provided'}</p>
+                </div>
               </div>
-              <div>
-                <h2 className="text-xl font-semibold text-gray-800">
-                  {user?.full_name || user?.username || 'User'}
-                </h2>
-                <p className="text-gray-600">{user?.email || 'No email provided'}</p>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between items-center"><span className="text-gray-600">Account Type:</span><span className="font-medium bg-gray-100 px-2 py-1 rounded">Tenant</span></div>
+                <div className="flex justify-between items-center"><span className="text-gray-600">Member Since:</span><span className="font-medium">{formatDate(user?.created_at)}</span></div>
               </div>
             </div>
 
-            <div className="space-y-4 text-sm">
-              <div className="flex justify-between items-center"><span className="text-gray-600">Account Type:</span><span className="font-medium bg-gray-100 px-2 py-1 rounded">Tenant</span></div>
-              <div className="flex justify-between items-center"><span className="text-gray-600">Member Since:</span><span className="font-medium">{formatDate(user?.created_at)}</span></div>
-              <div className="flex justify-between items-center"><span className="text-gray-600">Total Bookings:</span><span className="font-medium">{bookings.length}</span></div>
-              <div className="flex justify-between items-center"><span className="text-gray-600">Applications:</span><span className="font-medium">{applications.length}</span></div>
-              <div className="flex justify-between items-center"><span className="text-gray-600">Favorites:</span><span className="font-medium">{favoritedProperties.length}</span></div>
-            </div>
+            <div className="bg-white shadow-lg rounded-xl p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-gray-900">My Profile</h2>
+                {!isEditing && <button onClick={() => setIsEditing(true)} className="text-blue-600 hover:text-blue-800 text-sm font-semibold">Edit</button>}
+              </div>
 
-            <div className="mt-6 pt-6 border-t border-gray-200">
-              <Link to="/profile" className="w-full bg-yellow-500 text-white py-2 px-4 rounded-lg hover:bg-yellow-600 transition duration-200 text-center block font-semibold shadow-sm hover:shadow-md">
-                Edit Profile
-              </Link>
+              {isEditing ? (
+                <form onSubmit={handleProfileSave} className="space-y-4">
+                  <div className="flex flex-col items-center space-y-2">
+                    <img 
+                      src={profileData.profile_picture || `https://ui-avatars.com/api/?name=${user?.full_name || user?.username}&background=fbbF24&color=fff`} 
+                      alt="Profile Preview" 
+                      className="rounded-full w-24 h-24 object-cover border-4 border-gray-200"
+                    />
+                    <input type="file" ref={fileInputRef} onChange={handlePictureChange} accept="image/*" className="hidden" />
+                    <button type="button" onClick={() => fileInputRef.current.click()} className="bg-gray-100 text-gray-700 py-2 px-4 rounded-lg text-sm font-semibold hover:bg-gray-200">Change Picture</button>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">First Name</label>
+                    <input type="text" name="first_name" value={profileData.first_name} onChange={handleProfileChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-yellow-500 focus:border-yellow-500"/>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Last Name</label>
+                    <input type="text" name="last_name" value={profileData.last_name} onChange={handleProfileChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-yellow-500 focus:border-yellow-500"/>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Phone Number</label>
+                    <input type="tel" name="phone" value={profileData.phone} onChange={handleProfileChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-yellow-500 focus:border-yellow-500"/>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Occupation</label>
+                    <input type="text" name="occupation" value={profileData.occupation} onChange={handleProfileChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-yellow-500 focus:border-yellow-500" placeholder="e.g., Software Engineer"/>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Company Name</label>
+                    <input type="text" name="company_name" value={profileData.company_name} onChange={handleProfileChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-yellow-500 focus:border-yellow-500" placeholder="e.g., Speedhome Inc."/>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">About Me / Bio</label>
+                    <textarea name="bio" value={profileData.bio} onChange={handleProfileChange} rows="4" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-yellow-500 focus:border-yellow-500" placeholder="Introduce yourself to landlords..."></textarea>
+                  </div>
+                  <div className="flex gap-4 pt-2">
+                    <button type="button" onClick={handleCancelEdit} className="w-full bg-gray-200 text-gray-800 py-2 px-4 rounded-lg hover:bg-gray-300 transition duration-200">Cancel</button>
+                    <button type="submit" disabled={isSaving} className="w-full bg-yellow-500 text-white py-2 px-4 rounded-lg hover:bg-yellow-600 transition duration-200 disabled:bg-yellow-300">
+                      {isSaving ? 'Saving...' : 'Save Changes'}
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div className="space-y-4 text-sm">
+                  <div className="flex justify-between items-center"><span className="text-gray-600">Full Name:</span><span className="font-medium text-gray-800">{user?.full_name || 'Not set'}</span></div>
+                  <div className="flex justify-between items-center"><span className="text-gray-600">Phone:</span><span className="font-medium text-gray-800">{user?.phone || 'Not set'}</span></div>
+                  <div className="flex justify-between items-center"><span className="text-gray-600">Occupation:</span><span className="font-medium text-gray-800">{user?.occupation || 'Not set'}</span></div>
+                  <div className="flex justify-between items-center"><span className="text-gray-600">Company:</span><span className="font-medium text-gray-800">{user?.company_name || 'Not set'}</span></div>
+                  <div className="pt-2">
+                    <span className="text-gray-600">About Me:</span>
+                    <p className="font-medium text-gray-800 whitespace-pre-wrap mt-1">{user?.bio || 'Not set'}</p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -313,7 +410,6 @@ const UserDashboard = ({ favorites, toggleFavorite }) => {
                             <Link to={`/property/${app.property_id}`} className="text-blue-600 hover:text-blue-800 text-sm font-medium">
                                 View Property
                             </Link>
-                            {/* --- NEW: Withdraw Button --- */}
                             {app.status === 'pending' && (
                                 <>
                                     <span className="text-gray-300">|</span>
