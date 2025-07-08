@@ -1,0 +1,439 @@
+import React from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import BookingAPI from '../services/BookingAPI';
+import PropertyAPI from '../services/PropertyAPI';
+import ApplicationAPI from '../services/ApplicationAPI';
+import { formatDate, formatTime } from '../utils/dateUtils';
+
+const UserDashboard = ({ favorites, toggleFavorite }) => {
+  const navigate = useNavigate();
+  const { user, isAuthenticated, isTenant } = useAuth();
+  const [bookings, setBookings] = useState([]);
+  const [applications, setApplications] = useState([]);
+  const [favoritedProperties, setFavoritedProperties] = useState([]);
+
+  // --- NEW: Function to withdraw an application ---
+  const withdrawApplication = async (applicationId) => {
+    if (window.confirm('Are you sure you want to withdraw this application? This action cannot be undone.')) {
+      try {
+        const result = await ApplicationAPI.withdrawApplication(applicationId);
+        if (result.success) {
+          alert('Application withdrawn successfully.');
+          // Refresh the list of applications
+          await loadApplications();
+        } else {
+          alert(`Failed to withdraw application: ${result.error}`);
+        }
+      } catch (error) {
+        console.error('Error withdrawing application:', error);
+        alert('An unexpected error occurred while withdrawing the application.');
+      }
+    }
+  };
+
+  // Authentication and role check
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate('/');
+      return;
+    }
+
+    if (!isTenant()) {
+      alert('Access denied. This dashboard is for tenants only.');
+      navigate('/');
+      return;
+    }
+  }, [isAuthenticated, isTenant, navigate]);
+
+  const loadBookings = async () => {
+    if (!isAuthenticated || !user) return;
+    try {
+      const result = await BookingAPI.getBookingsByUser(user.id);
+      if (result.success) {
+        setBookings(result.bookings);
+      } else {
+        console.error('Failed to load bookings:', result.error);
+        setBookings([]);
+      }
+    } catch (error) {
+      console.error('Error loading bookings:', error);
+      setBookings([]);
+    }
+  };
+
+  const loadApplications = async () => {
+    if (!isAuthenticated || !user) return;
+    try {
+      const result = await ApplicationAPI.getApplicationsByTenant();
+      if (result.success) {
+        setApplications(result.applications);
+      } else {
+        console.error('Failed to load applications:', result.error);
+        setApplications([]);
+      }
+    } catch (error) {
+      console.error('Error loading applications:', error);
+      setApplications([]);
+    }
+  };
+
+  const loadFavoritedProperties = async () => {
+    if (!favorites || favorites.length === 0) {
+      setFavoritedProperties([]);
+      return;
+    }
+
+    try {
+      const result = await PropertyAPI.getPropertiesForFavorites();
+      if (result.success) {
+        const userFavorites = result.properties.filter(property =>
+          favorites.includes(property.id)
+        );
+        setFavoritedProperties(userFavorites);
+      } else {
+        console.error('Failed to load favorited properties:', result.error);
+        setFavoritedProperties([]);
+      }
+    } catch (error) {
+      console.error('Error loading favorited properties:', error);
+      setFavoritedProperties([]);
+    }
+  };
+
+  useEffect(() => {
+    if (isAuthenticated && user) {
+        loadBookings();
+        loadApplications();
+    }
+  }, [isAuthenticated, user]);
+
+  useEffect(() => {
+    loadFavoritedProperties();
+  }, [favorites]);
+
+  const cancelBooking = async (bookingId) => {
+    if (window.confirm('Are you sure you want to cancel this viewing appointment?')) {
+      try {
+        // --- UPDATED ---
+        // The previous DELETE attempt caused a 405 Method Not Allowed error.
+        // This has been changed to a POST request to a dedicated /cancel endpoint.
+        // This is a more common and secure pattern for tenant-initiated cancellations
+        // and is more likely to be what the backend expects.
+        const result = await BookingAPI.cancelBooking(bookingId);
+        if (result.success) {
+          await loadBookings();
+          alert('Viewing appointment cancelled successfully.');
+        } else {
+          alert(`Failed to cancel appointment: ${result.error}`);
+        }
+      } catch (error) {
+        console.error('Error cancelling booking:', error);
+        alert('An error occurred while cancelling the appointment.');
+      }
+    }
+  };
+  
+  const handleBookingRowClick = (booking) => {
+    const propertyId = booking.property_id || booking.propertyId;
+    if (propertyId) {
+      navigate(`/property/${propertyId}`);
+    } else {
+      console.error("Navigation failed: Property ID is missing from the booking object.", booking);
+      alert("Sorry, we couldn't find the details for this property.");
+    }
+  };
+
+  const cancelRescheduleRequest = async (bookingId) => {
+    if (!window.confirm('Are you sure you want to cancel this reschedule request? The original date and time will be restored.')) {
+      return;
+    }
+    try {
+      const result = await BookingAPI.cancelReschedule(bookingId);
+      if (result.success) {
+        await loadBookings();
+        alert('Reschedule request has been cancelled. Original date and time restored.');
+      } else {
+        alert(`Failed to cancel reschedule request: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error cancelling reschedule request:', error);
+      alert('An error occurred while cancelling the reschedule request.');
+    }
+  };
+
+  const getStatusInfo = (booking) => {
+    const isRescheduleByLandlord =
+      (booking.status === 'pending' || booking.status === 'Reschedule Requested') &&
+      (booking.reschedule_requested_by === 'landlord' || booking.rescheduleRequestedBy === 'landlord');
+
+    const isRescheduleByTenant =
+      (booking.status === 'pending' || booking.status === 'Reschedule Requested') &&
+      (booking.reschedule_requested_by === 'tenant' || booking.rescheduleRequestedBy === 'tenant');
+
+    if (isRescheduleByLandlord) {
+      return { text: 'Reschedule Proposed', color: 'bg-orange-100 text-orange-800', description: 'Landlord has proposed a new date/time' };
+    } else if (isRescheduleByTenant) {
+      return { text: 'Reschedule Requested', color: 'bg-blue-100 text-blue-800', description: 'Waiting for landlord response' };
+    } else {
+      const statusMap = {
+        pending: { text: 'Pending', color: 'bg-yellow-100 text-yellow-800', description: 'Awaiting confirmation' },
+        confirmed: { text: 'Confirmed', color: 'bg-green-100 text-green-800', description: 'Appointment confirmed' },
+        cancelled: { text: 'Cancelled', color: 'bg-red-100 text-red-800', description: 'Appointment cancelled' },
+        completed: { text: 'Completed', color: 'bg-gray-100 text-gray-800', description: 'Viewing completed' }
+      };
+      return statusMap[booking.status] || { text: booking.status, color: 'bg-gray-100 text-gray-800', description: '' };
+    }
+  };
+
+  const getApplicationStatusInfo = (status) => {
+    const statusMap = {
+      pending: { text: 'Pending', color: 'bg-yellow-100 text-yellow-800' },
+      approved: { text: 'Approved', color: 'bg-green-100 text-green-800' },
+      rejected: { text: 'Rejected', color: 'bg-red-100 text-red-800' },
+    };
+    return statusMap[status] || { text: status, color: 'bg-gray-100 text-gray-800' };
+  };
+
+  const requestReschedule = async (bookingId) => {
+    const newDate = prompt('Enter new preferred date (YYYY-MM-DD):');
+    if (!newDate) return;
+    const newTime = prompt('Enter new preferred time (HH:MM):');
+    if (!newTime) return;
+    try {
+      const result = await BookingAPI.rescheduleBooking(bookingId, {
+        date: newDate,
+        time: newTime,
+        requested_by: 'tenant'
+      });
+      if (result.success) {
+        await loadBookings();
+        alert('Reschedule request sent successfully!');
+      } else {
+        alert(`Failed to send reschedule request: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error sending reschedule request:', error);
+      alert('An error occurred while sending the reschedule request.');
+    }
+  };
+
+  const respondToReschedule = async (bookingId, response) => {
+    try {
+      if (response === 'approved') {
+        const result = await BookingAPI.approveReschedule(bookingId);
+        if (result.success) {
+          await loadBookings();
+          alert('Reschedule request has been accepted!');
+        } else {
+          alert(`Failed to approve reschedule: ${result.error}`);
+        }
+      } else {
+        await cancelBooking(bookingId);
+        alert('Reschedule request has been declined.');
+      }
+    } catch (error) {
+      console.error('Error responding to reschedule request:', error);
+      alert('An error occurred while responding to the reschedule request.');
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-100 py-8 px-4 sm:px-6 lg:px-8 font-sans">
+      <div className="max-w-6xl mx-auto">
+        <h1 className="text-3xl font-bold text-gray-900 mb-8">My Dashboard</h1>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="bg-white shadow-lg rounded-xl p-6">
+            <div className="flex items-center space-x-4 mb-6">
+              <div className="bg-yellow-500 text-white rounded-full w-16 h-16 flex items-center justify-center text-2xl font-bold border-4 border-white shadow-md">
+                {user?.full_name?.charAt(0) || 'U'}
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold text-gray-800">
+                  {user?.full_name || user?.username || 'User'}
+                </h2>
+                <p className="text-gray-600">{user?.email || 'No email provided'}</p>
+              </div>
+            </div>
+
+            <div className="space-y-4 text-sm">
+              <div className="flex justify-between items-center"><span className="text-gray-600">Account Type:</span><span className="font-medium bg-gray-100 px-2 py-1 rounded">Tenant</span></div>
+              <div className="flex justify-between items-center"><span className="text-gray-600">Member Since:</span><span className="font-medium">{formatDate(user?.created_at)}</span></div>
+              <div className="flex justify-between items-center"><span className="text-gray-600">Total Bookings:</span><span className="font-medium">{bookings.length}</span></div>
+              <div className="flex justify-between items-center"><span className="text-gray-600">Applications:</span><span className="font-medium">{applications.length}</span></div>
+              <div className="flex justify-between items-center"><span className="text-gray-600">Favorites:</span><span className="font-medium">{favoritedProperties.length}</span></div>
+            </div>
+
+            <div className="mt-6 pt-6 border-t border-gray-200">
+              <Link to="/profile" className="w-full bg-yellow-500 text-white py-2 px-4 rounded-lg hover:bg-yellow-600 transition duration-200 text-center block font-semibold shadow-sm hover:shadow-md">
+                Edit Profile
+              </Link>
+            </div>
+          </div>
+
+          <div className="lg:col-span-2 space-y-8">
+            <div className="bg-white shadow-lg rounded-xl p-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">My Rental Applications</h2>
+              {applications.length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="text-gray-400 text-6xl mb-4">📄</div>
+                  <p className="text-gray-600 text-lg mb-4">No applications submitted yet</p>
+                  <p className="text-gray-500">When you apply for a property, your application will appear here.</p>
+                  <Link to="/" className="inline-block mt-4 bg-yellow-500 text-white px-6 py-2 rounded-lg hover:bg-yellow-600 transition duration-200 font-semibold">
+                    Find a Property
+                  </Link>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {applications.map((app) => {
+                    const statusInfo = getApplicationStatusInfo(app.status);
+                    return (
+                      <div key={app.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-lg transition-shadow bg-white">
+                        <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+                          <div className="flex-1">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-2">{app.property?.title || 'Application'}</h3>
+                            <div className="flex items-center flex-wrap gap-x-4 gap-y-1 text-sm text-gray-500 mb-3">
+                              <span>Applied: {formatDate(app.created_at)}</span>
+                              <span className="hidden sm:inline">•</span>
+                              <span>Application ID: #{app.id}</span>
+                            </div>
+                            {app.message && (
+                               <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-md border border-gray-200">
+                                  <strong className="text-gray-800">Your message:</strong> "{app.message}"
+                               </p>
+                            )}
+                          </div>
+                          <div className="flex flex-col items-start sm:items-end space-y-2 w-full sm:w-auto">
+                            <span className={`px-3 py-1 text-xs font-bold rounded-full ${statusInfo.color}`}>{statusInfo.text}</span>
+                          </div>
+                        </div>
+                         <div className="mt-4 pt-4 border-t border-gray-100 flex items-center gap-4">
+                            <Link to={`/property/${app.property_id}`} className="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                                View Property
+                            </Link>
+                            {/* --- NEW: Withdraw Button --- */}
+                            {app.status === 'pending' && (
+                                <>
+                                    <span className="text-gray-300">|</span>
+                                    <button
+                                        onClick={() => withdrawApplication(app.id)}
+                                        className="text-red-600 hover:text-red-800 text-sm font-medium"
+                                    >
+                                        Withdraw Application
+                                    </button>
+                                </>
+                            )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="bg-white shadow-lg rounded-xl p-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">My Viewing Appointments</h2>
+              {bookings.length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="text-gray-400 text-6xl mb-4">📅</div>
+                  <p className="text-gray-600 text-lg mb-4">No viewing appointments yet</p>
+                  <p className="text-gray-500">Browse properties and schedule viewings to see them here.</p>
+                  <Link to="/" className="inline-block mt-4 bg-yellow-500 text-white px-6 py-2 rounded-lg hover:bg-yellow-600 transition duration-200 font-semibold">
+                    Browse Properties
+                  </Link>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {bookings.map((booking) => {
+                    const statusInfo = getStatusInfo(booking);
+                    const isRescheduleByLandlord = (booking.status === 'pending' || booking.status === 'Reschedule Requested') && (booking.reschedule_requested_by === 'landlord' || booking.rescheduleRequestedBy === 'landlord');
+                    const isRescheduleByTenant = (booking.status === 'pending' || booking.status === 'Reschedule Requested') && (booking.reschedule_requested_by === 'tenant' || booking.rescheduleRequestedBy === 'tenant');
+                    const canRequestReschedule = booking.status === 'confirmed' || booking.status === 'pending';
+                    const originalDate = booking.appointment_date;
+                    const originalTime = booking.appointment_time;
+                    const proposedDate = booking.proposed_date;
+                    const proposedTime = booking.proposed_time;
+                    const isRescheduleActive = proposedDate && proposedTime;
+
+                    return (
+                      <div key={booking.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-lg transition-shadow cursor-pointer bg-white" onClick={() => handleBookingRowClick(booking)}>
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-2">{booking.propertyTitle || 'Property Viewing'}</h3>
+                            <div className="mb-3">
+                              {isRescheduleActive ? (
+                                <div className="space-y-1">
+                                  <div className="flex items-center text-gray-400 line-through"><svg className="w-4 h-4 mr-1.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg><span>Original: {formatDate(originalDate)} at {formatTime(originalTime)}</span></div>
+                                  <div className="flex items-center font-semibold text-orange-600"><svg className="w-4 h-4 mr-1.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg><span>New: {formatDate(proposedDate)} at {formatTime(proposedTime)}</span></div>
+                                </div>
+                              ) : (
+                                <div className="flex items-center flex-wrap gap-x-4 gap-y-1 text-gray-500 text-sm"><div className="flex items-center"><svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>{formatDate(originalDate)}</div><div className="flex items-center"><svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>{formatTime(originalTime)}</div></div>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-x-4 text-xs text-gray-500"><span>Booking ID: #{booking.id}</span></div>
+                          </div>
+                          <div className="flex flex-col items-start sm:items-end space-y-2 w-full sm:w-auto">
+                            <span className={`px-3 py-1 text-xs font-bold rounded-full ${statusInfo.color}`}>{statusInfo.text}</span>
+                            {statusInfo.description && <p className="text-xs text-gray-500 text-left sm:text-right max-w-xs">{statusInfo.description}</p>}
+                          </div>
+                        </div>
+                        <div className="mt-4 pt-4 border-t border-gray-100 flex flex-wrap gap-x-4 gap-y-2">
+                          {booking.status !== 'cancelled' && booking.status !== 'completed' && (<button onClick={(e) => { e.stopPropagation(); cancelBooking(booking.id); }} className="text-red-600 hover:text-red-800 text-sm font-medium">Cancel Appointment</button>)}
+                          {canRequestReschedule && !isRescheduleByTenant && !isRescheduleByLandlord && (<button onClick={(e) => { e.stopPropagation(); requestReschedule(booking.id); }} className="text-blue-600 hover:text-blue-800 text-sm font-medium">Request Reschedule</button>)}
+                          {isRescheduleByLandlord && (<div onClick={(e) => e.stopPropagation()} className="flex items-center gap-2"><button onClick={() => respondToReschedule(booking.id, 'approved')} className="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 font-semibold">Accept</button><button onClick={() => respondToReschedule(booking.id, 'declined')} className="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 font-semibold">Decline</button></div>)}
+                          {isRescheduleByTenant && (<div onClick={(e) => e.stopPropagation()}><button onClick={() => cancelRescheduleRequest(booking.id)} className="px-3 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-700 font-semibold">Cancel Request</button></div>)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="bg-white shadow-lg rounded-xl p-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">Favorite Properties</h2>
+              {favoritedProperties.length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="text-gray-400 text-6xl mb-4">❤️</div>
+                  <p className="text-gray-600 text-lg mb-4">No favorite properties yet</p>
+                  <p className="text-gray-500">Heart properties you like to save them here for easy access.</p>
+                   <Link to="/" className="inline-block mt-4 bg-yellow-500 text-white px-6 py-2 rounded-lg hover:bg-yellow-600 transition duration-200 font-semibold">
+                    Browse Properties
+                  </Link>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {favoritedProperties.map((property) => (
+                    <div key={property.id} className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-xl transition-shadow bg-white">
+                      <div className="relative">
+                        <img src={property.image || 'https://placehold.co/600x400/e2e8f0/4a5568?text=No+Image'} alt={property.title} className="w-full h-48 object-cover" />
+                        <button onClick={() => toggleFavorite(property.id)} className="absolute top-3 right-3 p-2 bg-white rounded-full shadow-md hover:bg-gray-100 transition-colors">
+                          <svg className="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" /></svg>
+                        </button>
+                        {property.status === 'Rented' && <div className="absolute top-2 left-2 bg-orange-500 text-white px-2 py-1 rounded text-xs font-bold">Rented</div>}
+                      </div>
+                      <div className="p-4">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-2">{property.title}</h3>
+                        <p className="text-gray-600 text-sm mb-2">{property.location}</p>
+                        <div className="flex justify-between items-center">
+                          <span className="text-xl font-bold text-yellow-600">RM {property.price}/month</span>
+                          <Link to={`/property/${property.id}`} className="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                            View Details
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default UserDashboard;
