@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify, session
 from src.models.user import db, User
 from src.models.property import Property
 from src.models.application import Application
-from src.models.notification import Notification  # ✅ Import Notification model
+from src.models.notification import Notification
 
 application_bp = Blueprint('application_bp', __name__, url_prefix='/api/applications')
 
@@ -42,18 +42,14 @@ def submit_application():
     )
     db.session.add(new_app)
     
-    # ✅ --- START NOTIFICATION LOGIC ---
-    # Get the tenant's name for the message
     tenant = User.query.get(session['user_id'])
     
-    # Create a notification for the landlord
     landlord_notification = Notification(
         recipient_id=prop.owner_id,
         message=f"New application for '{prop.title}' from {tenant.get_full_name()}.",
-        link="/landlord"  # Link to the landlord dashboard
+        link="/landlord"
     )
     db.session.add(landlord_notification)
-    # ✅ --- END NOTIFICATION LOGIC ---
     
     db.session.commit()
     
@@ -77,7 +73,7 @@ def get_tenant_applications():
     apps = Application.query.filter_by(tenant_id=session['user_id']).order_by(Application.created_at.desc()).all()
     return jsonify({'success': True, 'applications': [app.to_dict() for app in apps]})
 
-# --- NEW: Route for a tenant to withdraw (DELETE) an application ---
+# Route for a tenant to withdraw (DELETE) an application
 @application_bp.route('/<int:application_id>', methods=['DELETE'])
 def withdraw_application(application_id):
     if 'user_id' not in session:
@@ -120,18 +116,42 @@ def update_application_status(application_id):
         
     app.status = new_status
     
-    # ✅ --- START NOTIFICATION LOGIC ---
-    # Get property to include its title in the message
     prop = Property.query.get(app.property_id)
     
-    # Create a notification for the tenant
+    # Create a notification for the tenant whose application status changed
     tenant_notification = Notification(
         recipient_id=app.tenant_id,
         message=f"Your application for '{prop.title}' has been {new_status}.",
-        link="/dashboard" # Link to the tenant dashboard
+        link="/dashboard"
     )
     db.session.add(tenant_notification)
-    # ✅ --- END NOTIFICATION LOGIC ---
+
+    # ✅ --- START: NEW AUTOMATION LOGIC ---
+    if new_status == 'approved':
+        # 1. Update the property status to 'Rented'
+        if prop:
+            prop.status = 'Rented'
+            db.session.add(prop)
+
+        # 2. Find all other pending applications for this same property
+        other_pending_apps = Application.query.filter(
+            Application.property_id == app.property_id,
+            Application.id != application_id, # Exclude the application we just approved
+            Application.status == 'pending'
+        ).all()
+
+        # 3. Reject other applications and notify the applicants
+        for other_app in other_pending_apps:
+            other_app.status = 'rejected'
+            db.session.add(other_app)
+            
+            rejection_notification = Notification(
+                recipient_id=other_app.tenant_id,
+                message=f"A property you applied for, '{prop.title}', is no longer available.",
+                link="/dashboard"
+            )
+            db.session.add(rejection_notification)
+    # ✅ --- END: NEW AUTOMATION LOGIC ---
 
     db.session.commit()
     
