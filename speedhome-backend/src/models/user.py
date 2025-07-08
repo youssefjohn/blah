@@ -19,6 +19,9 @@ class User(db.Model):
     last_name = db.Column(db.String(50), nullable=True)
     phone = db.Column(db.String(20), nullable=True)
     profile_picture = db.Column(db.Text, nullable=True)  # Base64 or URL
+    bio = db.Column(db.Text, nullable=True)
+    occupation = db.Column(db.String(100), nullable=True)
+    company_name = db.Column(db.String(100), nullable=True)
     
     # Role and status
     role = db.Column(db.String(20), nullable=False, default='tenant')  # 'landlord' or 'tenant'
@@ -119,6 +122,9 @@ class User(db.Model):
             'last_name': self.last_name,
             'phone': self.phone,
             'profile_picture': self.profile_picture,
+            'bio': self.bio,
+            'occupation': self.occupation, 
+            'company_name': self.company_name, 
             'role': self.role,
             'is_active': self.is_active,
             'is_verified': self.is_verified,
@@ -145,6 +151,8 @@ class User(db.Model):
             'first_name': self.first_name,
             'last_name': self.last_name,
             'profile_picture': self.profile_picture,
+            'bio': self.bio,
+            'occupation': self.occupation,
             'role': self.role,
             'full_name': self.get_full_name(),
             'created_at': self.created_at.isoformat() if self.created_at else None

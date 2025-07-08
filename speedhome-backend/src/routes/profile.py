@@ -57,6 +57,12 @@ def update_profile():
             user.last_name = data['last_name'].strip()
         if 'phone' in data:
             user.phone = data['phone'].strip()
+        if 'bio' in data:
+            user.bio = data['bio']
+        if 'occupation' in data:
+            user.occupation = data['occupation']
+        if 'company_name' in data:
+            user.company_name = data['company_name']
         if 'profile_picture' in data:
             user.profile_picture = data['profile_picture']
         if 'preferences' in data:
