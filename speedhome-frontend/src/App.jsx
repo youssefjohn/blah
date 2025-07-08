@@ -781,8 +781,8 @@ function AppContent() {
 
       {/* Apply Modal */}
       {showApplyModal && selectedProperty && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-md w-full">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-xl max-w-md w-full shadow-2xl">
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-gray-900">Apply for Property</h2>
@@ -809,8 +809,8 @@ function AppContent() {
 
       {/* Schedule Viewing Modal */}
       {showScheduleModal && selectedProperty && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-lg w-full">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-xl max-w-lg w-full shadow-2xl">
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-gray-900">Schedule a Viewing</h2>
@@ -879,15 +879,15 @@ function AppContent() {
       
       {/* More Filters Modal */}
       {showMoreFiltersModal && (
-            <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
-                <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] flex flex-col">
-                    <div className="p-6 border-b flex justify-between items-center">
-                        <h2 className="text-2xl font-bold text-gray-900">All Filters</h2>
-                        <button onClick={() => setShowMoreFiltersModal(false)} className="text-gray-400 hover:text-gray-600">
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                        </button>
-                    </div>
-                    <div className="p-6 space-y-6 overflow-y-auto">
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl">
+                <div className="p-6 border-b flex justify-between items-center">
+                    <h2 className="text-2xl font-bold text-gray-900">All Filters</h2>
+                    <button onClick={() => setShowMoreFiltersModal(false)} className="text-gray-400 hover:text-gray-600">
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+                <div className="p-6 space-y-6 overflow-y-auto">
                         {/* Bedrooms */}
                         <div>
                             <h3 className="font-semibold mb-2">Number of Bedrooms</h3>
@@ -941,11 +941,11 @@ function AppContent() {
                             </div>
                         </div>
                     </div>
-                    <div className="p-6 border-t mt-auto flex justify-between items-center">
-                        <button onClick={clearAllFilters} className="text-gray-600 hover:text-black font-semibold">Reset Filter</button>
-                        <button onClick={() => setShowMoreFiltersModal(false)} className="px-6 py-3 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 font-semibold">
-                            Filter ({filteredProperties.length})
-                        </button>
+                    <div className="p-6 border-t mt-auto flex justify-between items-center bg-gray-50 rounded-b-xl">
+                    <button onClick={clearAllFilters} className="text-gray-600 hover:text-black font-semibold">Reset Filter</button>
+                    <button onClick={() => setShowMoreFiltersModal(false)} className="px-6 py-3 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 font-semibold">
+                        Filter ({filteredProperties.length})
+                    </button>
                     </div>
                 </div>
             </div>

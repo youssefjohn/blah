@@ -22,7 +22,6 @@ const RegisterModal = ({ isOpen, onClose, onSuccess, onSwitchToLogin }) => {
       ...prev,
       [name]: value
     }));
-    // Clear error when user starts typing
     if (errors[name]) {
       setErrors(prev => ({
         ...prev,
@@ -34,21 +33,18 @@ const RegisterModal = ({ isOpen, onClose, onSuccess, onSwitchToLogin }) => {
   const validateForm = () => {
     const newErrors = {};
     
-    // Username validation
     if (!formData.username.trim()) {
       newErrors.username = 'Username is required';
     } else if (formData.username.length < 3) {
       newErrors.username = 'Username must be at least 3 characters';
     }
     
-    // Email validation
     if (!formData.email.trim()) {
       newErrors.email = 'Email is required';
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = 'Please enter a valid email address';
     }
     
-    // Password validation
     if (!formData.password) {
       newErrors.password = 'Password is required';
     } else if (formData.password.length < 8) {
@@ -57,14 +53,12 @@ const RegisterModal = ({ isOpen, onClose, onSuccess, onSwitchToLogin }) => {
       newErrors.password = 'Password must contain at least one uppercase letter, one lowercase letter, and one number';
     }
     
-    // Confirm password validation
     if (!formData.confirmPassword) {
       newErrors.confirmPassword = 'Please confirm your password';
     } else if (formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = 'Passwords do not match';
     }
     
-    // Role validation
     if (!formData.role) {
       newErrors.role = 'Please select your role';
     }
@@ -75,17 +69,11 @@ const RegisterModal = ({ isOpen, onClose, onSuccess, onSwitchToLogin }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (!validateForm()) {
-      return;
-    }
+    if (!validateForm()) return;
     
     setIsLoading(true);
-    
     try {
-      // Remove confirmPassword from data sent to API
       const { confirmPassword, ...registrationData } = formData;
-      
       const result = await register(registrationData);
       
       if (result.success) {
@@ -102,8 +90,6 @@ const RegisterModal = ({ isOpen, onClose, onSuccess, onSwitchToLogin }) => {
         setErrors({});
         onSuccess(result.user);
         onClose();
-        
-        // Show success message
         alert('Registration successful! Welcome to SpeedHome!');
       } else {
         setErrors({ general: result.error });
@@ -133,8 +119,9 @@ const RegisterModal = ({ isOpen, onClose, onSuccess, onSwitchToLogin }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4 max-h-screen overflow-y-auto">
+    // ✅ UPDATED: Added glassmorphism background effect
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4 max-h-screen overflow-y-auto shadow-2xl">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-2xl font-bold text-gray-900">Sign Up</h2>
           <button
@@ -152,7 +139,6 @@ const RegisterModal = ({ isOpen, onClose, onSuccess, onSwitchToLogin }) => {
             </div>
           )}
           
-          {/* Role Selection */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               I am a:
@@ -186,7 +172,6 @@ const RegisterModal = ({ isOpen, onClose, onSuccess, onSwitchToLogin }) => {
             )}
           </div>
           
-          {/* Username */}
           <div>
             <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
               Username *
@@ -207,7 +192,6 @@ const RegisterModal = ({ isOpen, onClose, onSuccess, onSwitchToLogin }) => {
             )}
           </div>
           
-          {/* Email */}
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
               Email *
@@ -228,7 +212,6 @@ const RegisterModal = ({ isOpen, onClose, onSuccess, onSwitchToLogin }) => {
             )}
           </div>
           
-          {/* Name Fields */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label htmlFor="first_name" className="block text-sm font-medium text-gray-700 mb-1">
@@ -260,7 +243,6 @@ const RegisterModal = ({ isOpen, onClose, onSuccess, onSwitchToLogin }) => {
             </div>
           </div>
           
-          {/* Phone */}
           <div>
             <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
               Phone Number
@@ -276,7 +258,6 @@ const RegisterModal = ({ isOpen, onClose, onSuccess, onSwitchToLogin }) => {
             />
           </div>
           
-          {/* Password */}
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
               Password *
@@ -297,7 +278,6 @@ const RegisterModal = ({ isOpen, onClose, onSuccess, onSwitchToLogin }) => {
             )}
           </div>
           
-          {/* Confirm Password */}
           <div>
             <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
               Confirm Password *
@@ -348,4 +328,3 @@ const RegisterModal = ({ isOpen, onClose, onSuccess, onSwitchToLogin }) => {
 };
 
 export default RegisterModal;
-

@@ -17,7 +17,6 @@ const LoginModal = ({ isOpen, onClose, onSuccess, onSwitchToRegister }) => {
       ...prev,
       [name]: value
     }));
-    // Clear error when user starts typing
     if (errors[name]) {
       setErrors(prev => ({
         ...prev,
@@ -28,32 +27,23 @@ const LoginModal = ({ isOpen, onClose, onSuccess, onSwitchToRegister }) => {
 
   const validateForm = () => {
     const newErrors = {};
-    
     if (!formData.username.trim()) {
       newErrors.username = 'Username or email is required';
     }
-    
     if (!formData.password) {
       newErrors.password = 'Password is required';
     }
-    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (!validateForm()) {
-      return;
-    }
+    if (!validateForm()) return;
     
     setIsLoading(true);
-    
     try {
-      // Use AuthContext login function instead of direct API call
       const result = await login(formData);
-      
       if (result.success) {
         setFormData({ username: '', password: '' });
         setErrors({});
@@ -78,8 +68,9 @@ const LoginModal = ({ isOpen, onClose, onSuccess, onSwitchToRegister }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+    // ✅ UPDATED: Added glassmorphism background effect
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4 shadow-2xl">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-2xl font-bold text-gray-900">Login</h2>
           <button
@@ -142,7 +133,6 @@ const LoginModal = ({ isOpen, onClose, onSuccess, onSwitchToRegister }) => {
               type="button"
               className="text-sm text-blue-600 hover:text-blue-800"
               onClick={() => {
-                // TODO: Implement forgot password
                 alert('Forgot password functionality will be implemented soon!');
               }}
             >
@@ -180,4 +170,3 @@ const LoginModal = ({ isOpen, onClose, onSuccess, onSwitchToRegister }) => {
 };
 
 export default LoginModal;
-
