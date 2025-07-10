@@ -32,10 +32,6 @@ def create_booking():
         if not property_obj:
             print(f"--- ERROR: Property with id {property_id} not found. ---")
             return jsonify({'success': False, 'error': 'Property not found'}), 404
-        
-        # ✅ --- ADDED DEBUGGING PRINT STATEMENTS ---
-        print(f"--- Property Found: '{property_obj.title}' ---")
-        print(f"--- Landlord/Owner ID for this property is: {property_obj.owner_id} ---")
 
         # ... (rest of your validation and booking creation logic) ...
         appointment_date = datetime.strptime(data['appointment_date'], '%Y-%m-%d').date()
@@ -53,7 +49,8 @@ def create_booking():
             status='pending',
             occupation=data.get('occupation'),
             monthly_income=data.get('monthly_income'),
-            number_of_occupants=data.get('number_of_occupants')
+            number_of_occupants=data.get('number_of_occupants'),
+            is_seen_by_landlord=False
         )
         
         db.session.add(booking)
@@ -313,7 +310,6 @@ def get_booking(booking_id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-
 @booking_bp.route('/bookings/<int:booking_id>/reschedule', methods=['PUT'])
 def reschedule_booking(booking_id):
     """Request to reschedule a booking"""
@@ -361,6 +357,27 @@ def reschedule_booking(booking_id):
         booking.reschedule_requested_by = requested_by
         booking.status = 'pending'  # Reset to pending for approval
         booking.updated_at = datetime.utcnow()
+
+        # --- THIS IS THE MODIFIED LOGIC ---
+        if requested_by == 'tenant':
+            # Notify the LANDLORD about the tenant's request
+            booking.is_seen_by_landlord = False
+            tenant = User.query.get(booking.user_id)
+            landlord_notification = Notification(
+                recipient_id=property_obj.owner_id,
+                message=f"{tenant.get_full_name()} requested to reschedule the viewing for '{property_obj.title}'.",
+                link="/landlord"
+            )
+            db.session.add(landlord_notification)
+        
+        elif requested_by == 'landlord':
+            # Notify the TENANT about the landlord's request
+            tenant_notification = Notification(
+                recipient_id=booking.user_id,
+                message=f"The landlord has proposed a new viewing time for '{property_obj.title}'.",
+                link="/dashboard" # Link to tenant dashboard
+            )
+            db.session.add(tenant_notification)
         
         db.session.commit()
         
@@ -373,6 +390,58 @@ def reschedule_booking(booking_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
+    
+@booking_bp.route('/bookings/<int:booking_id>/decline-reschedule', methods=['POST'])
+def decline_reschedule(booking_id):
+    """Decline a reschedule request and revert to original date/time"""
+    try:
+        if 'user_id' not in session:
+            return jsonify({'success': False, 'error': 'Authentication required'}), 401
+        
+        booking = Booking.query.get(booking_id)
+        if not booking:
+            return jsonify({'success': False, 'error': 'Booking not found'}), 404
+        
+        property_obj = Property.query.get(booking.property_id)
+        user_id = session['user_id']
+        
+        if property_obj.owner_id != user_id:
+            return jsonify({'success': False, 'error': 'Unauthorized access'}), 403
+        
+        # Revert to original date/time if available
+        if booking.original_date and booking.original_time:
+            booking.appointment_date = booking.original_date
+            booking.appointment_time = booking.original_time
+        
+        # Clear reschedule fields and set status back to confirmed
+        booking.proposed_date = None
+        booking.proposed_time = None
+        booking.reschedule_requested_by = None
+        booking.original_date = None
+        booking.original_time = None
+        booking.status = 'confirmed'
+        booking.updated_at = datetime.utcnow()
+
+        # Notify the tenant that their request was declined
+        tenant_notification = Notification(
+            recipient_id=booking.user_id,
+            message=f"Your reschedule request for '{property_obj.title}' was declined. The original appointment is still active.",
+            link="/dashboard"
+        )
+        db.session.add(tenant_notification)
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Reschedule request declined successfully',
+            'booking': booking.to_dict()
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 
 @booking_bp.route('/bookings/<int:booking_id>/approve-reschedule', methods=['PUT'])
 def approve_reschedule(booking_id):
@@ -507,3 +576,23 @@ def has_scheduled_for_property(property_id):
         return jsonify({'success': True, 'has_scheduled': True})
     else:
         return jsonify({'success': True, 'has_scheduled': False})
+    
+@booking_bp.route('/bookings/<int:booking_id>/mark-as-seen', methods=['POST'])
+def mark_booking_as_seen(booking_id):
+    """Marks a specific booking as seen by the landlord."""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+    
+    booking = Booking.query.get(booking_id)
+    if not booking:
+        return jsonify({'success': False, 'error': 'Booking not found'}), 404
+
+    # Security check: ensure the user is the landlord for this property
+    prop = Property.query.get(booking.property_id)
+    if not prop or prop.owner_id != session['user_id']:
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+
+    booking.is_seen_by_landlord = True
+    db.session.commit()
+    
+    return jsonify({'success': True, 'message': 'Booking marked as seen.'})

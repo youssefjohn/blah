@@ -17,6 +17,21 @@ const LandlordDashboard = ({ onAddProperty }) => {
   const [expandedRequestId, setExpandedRequestId] = useState(null);
 
   
+  const handleMarkAsSeen = async (bookingId) => {
+    try {
+      await BookingAPI.markAsSeen(bookingId);
+      // Optimistically update the UI to remove the highlight
+      setViewingRequests(prevRequests => 
+        prevRequests.map(req => 
+          req.id === bookingId ? { ...req, is_seen_by_landlord: true } : req
+        )
+      );
+    } catch (error) {
+      console.error("Failed to mark booking as seen:", error);
+    }
+  };
+
+  
 
   // Authentication check
   useEffect(() => {
@@ -131,6 +146,8 @@ const LandlordDashboard = ({ onAddProperty }) => {
     cookingReady: false,
     hotProperty: false,
   });
+
+  const hasNewViewingRequests = viewingRequests.some(req => !req.is_seen_by_landlord);
 
   // State for tenant applications
   const [tenantApplications, setTenantApplications] = useState([]);
@@ -319,22 +336,32 @@ const handleStatusChange = async (propertyId, newStatus) => {
   // Handle reschedule response
   const handleRescheduleResponse = async (bookingId, response) => {
     try {
+      let result;
       if (response === 'approved') {
-        const result = await BookingAPI.approveReschedule(bookingId);
-
+        result = await BookingAPI.approveReschedule(bookingId);
         if (result.success) {
-          const updatedResult = await BookingAPI.getBookingsByLandlord(user.id);
-          if (updatedResult.success) {
-            setViewingRequests(updatedResult.bookings);
-          }
-
           alert('Reschedule request has been accepted!');
         } else {
           alert(`Failed to approve reschedule: ${result.error}`);
+          return; // Stop if it failed
         }
-      } else {
-        alert('Reschedule request has been declined!');
+      } else if (response === 'declined') {
+        // This now calls your existing, correct BookingAPI function
+        result = await BookingAPI.declineReschedule(bookingId); 
+        if (result.success) {
+          alert('Reschedule request has been declined!');
+        } else {
+          alert(`Failed to decline reschedule: ${result.error}`);
+          return; // Stop if it failed
+        }
       }
+  
+      // If either action was successful, refresh the data
+      const updatedResult = await BookingAPI.getBookingsByLandlord(user.id);
+      if (updatedResult.success) {
+        setViewingRequests(updatedResult.bookings);
+      }
+  
     } catch (error) {
       console.error('Error responding to reschedule request:', error);
       alert('An error occurred while responding to the reschedule request');
@@ -804,9 +831,12 @@ const handleApplicationResponse = async (applicationId, response) => {
                   activeTab === 'viewings'
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm`}
+                } relative whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm flex items-center`}
               >
-                Viewing Requests
+                <span>Viewing Requests</span>
+                {hasNewViewingRequests && (
+                  <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-500 text-white">New</span>
+                )}
               </button>
               <button
                 onClick={() => setActiveTab('applications')}
@@ -1049,19 +1079,18 @@ const handleApplicationResponse = async (applicationId, response) => {
                                 
                                 // Use the ID to find the matching property in your `properties` state array
                                 const property = properties.find(p => p.id == propertyId);
+                                const isNew = !request.is_seen_by_landlord;
                                 
-                                // ✅ WRAP everything in a React.Fragment and move the key here
                                 return (
                                   <React.Fragment key={request.id}>
                                     <tr
                                       // The key={request.id} is removed from here
-                                      className="hover:bg-gray-50 cursor-pointer transition-colors duration-200"
+                                      className={`transition-colors duration-300 ${isNew ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-gray-50'}`}
                                       onClick={() => {
-                                        if (propertyId) {
-                                          handlePropertyRowClick(propertyId);
-                                        } else {
-                                          console.error('Property ID not found in request:', request);
+                                        if (isNew) {
+                                          handleMarkAsSeen(request.id);
                                         }
+                                        toggleRequestDetails(request.id);
                                       }}
                                     >
                                       <td className="px-6 py-4 whitespace-nowrap">

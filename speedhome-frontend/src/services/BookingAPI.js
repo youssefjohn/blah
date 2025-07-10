@@ -208,7 +208,6 @@ class BookingAPI {
     }
   }
 
-  // --- NEW METHOD ---
   static async hasScheduled(propertyId) {
     try {
       // ✅ CORRECTED THE URL TO MATCH THE BACKEND ROUTE
@@ -230,6 +229,47 @@ class BookingAPI {
       return { success: false, has_scheduled: false };
     }
   }
+
+  static async markAsSeen(bookingId) {
+    try {
+      const response = await fetch(`/api/bookings/${bookingId}/mark-as-seen`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include'
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to mark booking as seen');
+      }
+      return data;
+    } catch (error) {
+      console.error('Error marking booking as seen:', error);
+      return { success: false };
+    }
+  }
+
+  static async declineReschedule(bookingId) {
+    try {
+      const response = await fetch(`/api/bookings/${bookingId}/decline-reschedule`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include'
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to decline reschedule');
+      }
+      return data;
+    } catch (error) {
+      console.error('Error declining reschedule:', error);
+      throw error;
+    }
+  }
+
 }
 
 export default BookingAPI;

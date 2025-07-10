@@ -30,6 +30,9 @@ class Booking(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
+    # ✅ ADDED: Flag to track if the landlord has seen the latest update
+    is_seen_by_landlord = db.Column(db.Boolean, default=False, nullable=False)
+    
     # Reschedule information
     reschedule_requested_by = db.Column(db.String(20), nullable=True)
     proposed_date = db.Column(db.Date, nullable=True)
@@ -41,7 +44,6 @@ class Booking(db.Model):
         return f'<Booking {self.id} - {self.name}>'
 
     def to_dict(self):
-        # ✅ REVERTED THIS METHOD TO MATCH THE MODEL DEFINITION
         return {
             'id': self.id,
             'user_id': self.user_id,
@@ -63,4 +65,5 @@ class Booking(db.Model):
             'occupation': self.occupation,
             'monthly_income': self.monthly_income,
             'number_of_occupants': self.number_of_occupants,
+            'is_seen_by_landlord': self.is_seen_by_landlord, # ✅ ADDED: Include the new flag in the API response
         }
