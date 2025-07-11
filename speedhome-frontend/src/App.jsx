@@ -14,17 +14,27 @@ import BookingAPI from './services/BookingAPI';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import ApplicationAPI from './services/ApplicationAPI';
 import NotificationAPI from './services/NotificationAPI';
+import Lightbox from "yet-another-react-lightbox";
+import "yet-another-react-lightbox/styles.css";
 
-const PropertyDetailPage = ({ properties, isFavorite, toggleFavorite, setSelectedProperty, onApplyClick, onScheduleClick })  => {
+const PropertyDetailPage = ({ properties, isFavorite, toggleFavorite, setSelectedProperty, onApplyClick, onScheduleClick }) => {
   const { propertyId } = useParams();
   
   const [property, setProperty] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasApplied, setHasApplied] = useState(false);
-  const [showImageLightbox, setShowImageLightbox] = useState(false);
   const [hasScheduledViewing, setHasScheduledViewing] = useState(false);
+  const [mainImage, setMainImage] = useState(null);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   
   const { isTenant, user } = useAuth();
+
+  useEffect(() => {
+    if (property) {
+      const initialImage = property.gallery_images?.[0] || property.image || null;
+      setMainImage(initialImage);
+    }
+  }, [property]);
 
   useEffect(() => {
     const fetchPropertyAndStatus = async () => {
@@ -41,17 +51,11 @@ const PropertyDetailPage = ({ properties, isFavorite, toggleFavorite, setSelecte
           setProperty(propData.property);
 
           if (user && isTenant()) {
-            // Check application status
             const appStatus = await ApplicationAPI.hasApplied(propertyId);
-            if (appStatus.success) {
-              setHasApplied(appStatus.has_applied);
-            }
+            if (appStatus.success) setHasApplied(appStatus.has_applied);
 
-            // Check booking status
             const bookingStatus = await BookingAPI.hasScheduled(propertyId);
-            if (bookingStatus.success) {
-                setHasScheduledViewing(bookingStatus.has_scheduled);
-            }
+            if (bookingStatus.success) setHasScheduledViewing(bookingStatus.has_scheduled);
           }
         } else {
           setProperty(null);
@@ -73,6 +77,8 @@ const PropertyDetailPage = ({ properties, isFavorite, toggleFavorite, setSelecte
     }
   }, [property, setSelectedProperty]);
 
+  const slides = property?.gallery_images?.map(src => ({ src })) || [];
+
   if (isLoading) {
     return <div className="text-center py-12 text-xl">Loading property...</div>;
   }
@@ -89,125 +95,84 @@ const PropertyDetailPage = ({ properties, isFavorite, toggleFavorite, setSelecte
   const scheduleButtonText = hasScheduledViewing ? "✓ Viewing Requested" : "Schedule Viewing";
   
   return (
-    <div className="bg-gray-100 min-h-screen py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto">
+    <div className="bg-gray-100 min-h-screen">
+      <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         <Link to="/" className="text-yellow-500 hover:text-yellow-600 mb-6 inline-block">
           ← Back to Search Results
         </Link>
         
-        <div className="bg-white shadow-xl rounded-lg overflow-hidden">
-          <div className="relative">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4">
-              <div className="relative">
-                <img 
-                  src={property.image || property.main_image || 'https://placehold.co/800x600/e2e8f0/4a5568?text=Property+Image'} 
-                  alt={property.title}
-                  className="w-full h-64 md:h-80 object-cover rounded-lg cursor-pointer"
-                  onClick={() => setShowImageLightbox(true)}
-                />
-                <div className="absolute top-4 right-4">
-                  <button 
-                    onClick={(e) => toggleFavorite(property.id, e)} 
-                    className={`p-2 rounded-full transition-colors ${
-                      isFavorite(property.id) ? 'bg-red-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'
-                    }`}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
-                    </svg>
-                  </button>
-                </div>
+        <div className="bg-white shadow-xl rounded-lg">
+          
+          {/* --- IMAGE GALLERY (Full width block) --- */}
+          {/* FIX: Removed rounding and overflow from the grid container itself. */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-1">
+            <div className="md:col-span-2 relative group aspect-video max-h-[450px]">
+              <img 
+                src={mainImage || 'https://placehold.co/800x600/e2e8f0/cccccc?text=Property+Image'} 
+                alt={property.title}
+                // FIX: Added 'rounded-tl-lg' to round the top-left corner of the main image.
+                className="w-full h-full object-cover cursor-pointer rounded-tl-lg"
+                onClick={() => setLightboxOpen(true)}
+              />
+              <div className="absolute top-4 right-4 z-10">
+                <button 
+                  onClick={(e) => toggleFavorite(property.id, e)} 
+                  className={`p-2 rounded-full transition-colors ${
+                    isFavorite(property.id) ? 'bg-red-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
+                  </svg>
+                </button>
               </div>
-              
-              <div className="grid grid-cols-2 gap-2">
-                {(() => {
-                  const galleryImages = property.gallery_images || property.images || [];
-                  const imagesToShow = galleryImages.slice(0, 4);
-                  
-                  return imagesToShow.map((img, index) => (
-                    <img 
-                      key={index}
-                      src={img || 'https://placehold.co/400x300/e2e8f0/4a5568?text=Gallery'} 
-                      alt={`${property.title} ${index + 1}`}
-                      className="w-full h-32 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
-                      onClick={() => setShowImageLightbox(true)}
-                    />
-                  ));
-                })()}
-              </div>
+            </div>
+            
+            <div className="hidden md:grid col-span-1 grid-rows-2 gap-1">
+              {(property.gallery_images && property.gallery_images.length > 2) ? (
+                property.gallery_images.slice(1, 3).map((img, index) => (
+                  <div key={index} className="relative group cursor-pointer" onClick={() => { setMainImage(img); setLightboxOpen(true); }}>
+                    {/* FIX: Conditionally adding 'rounded-tr-lg' to the first thumbnail image. */}
+                    <img src={img} alt={`${property.title} thumbnail ${index + 1}`} className={`w-full h-full object-cover ${index === 0 ? 'rounded-tr-lg' : ''}`}/>
+                    <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-all flex items-center justify-center">
+                       {index === 1 && property.gallery_images.length > 3 && (<span className="text-white text-3xl font-bold">+{property.gallery_images.length - 3}</span>)}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                Array(2).fill(0).map((_, index) => (
+                  // FIX: Conditionally adding 'rounded-tr-lg' to the placeholder div.
+                  <div key={index} className={`bg-gray-200 w-full h-full ${index === 0 ? 'rounded-tr-lg' : ''}`}></div>
+                ))
+              )}
             </div>
           </div>
 
-          <div className="p-6">
-            <div className="mb-6">
-              <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-6">
-                <div className="flex-1">
-                  <h1 className="text-3xl font-bold text-gray-900 mb-2">{property.title}</h1>
-                  <p className="text-lg text-gray-600 mb-2">{property.location}</p>
-                  <p className="text-3xl font-bold text-yellow-500 mb-4">RM {property.price}/month</p>
-                  
-                  {(property.zeroDeposit || property.cookingReady || property.hotProperty) && (
-                    <div className="flex gap-2 mb-4">
-                      {property.zeroDeposit && <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">💰 Zero Deposit</span>}
-                      {property.cookingReady && <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">🍳 Cooking Ready</span>}
-                      {property.hotProperty && <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">🔥 Hot Property</span>}
-                    </div>
-                  )}
-                  
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                    <div className="text-center p-4 bg-gray-50 rounded-lg"><div className="text-2xl font-bold text-gray-900">{property.bedrooms}</div><div className="text-sm text-gray-600">Bedrooms</div></div>
-                    <div className="text-center p-4 bg-gray-50 rounded-lg"><div className="text-2xl font-bold text-gray-900">{property.bathrooms}</div><div className="text-sm text-gray-600">Bathrooms</div></div>
-                    <div className="text-center p-4 bg-gray-50 rounded-lg"><div className="text-2xl font-bold text-gray-900">{property.sqft}</div><div className="text-sm text-gray-600">Sq Ft</div></div>
-                    <div className="text-center p-4 bg-gray-50 rounded-lg"><div className="text-2xl font-bold text-gray-900">{property.parking}</div><div className="text-sm text-gray-600">Parking</div></div>
-                  </div>
-                </div>
-                
-                <div className="lg:w-80">
-                  <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-lg sticky top-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Contact Property</h3>
-                    <div className="space-y-3">
-                      <button onClick={() => alert('Chat modal coming soon!')} className="w-full bg-yellow-500 text-white px-6 py-3 rounded-lg hover:bg-yellow-600 transition-colors font-semibold flex items-center justify-center gap-2"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>Contact Landlord</button>
-                      
-                      <button 
-                          onClick={onScheduleClick} 
-                          disabled={isScheduleButtonDisabled} 
-                          className={`w-full text-white px-6 py-3 rounded-lg transition-colors font-semibold flex items-center justify-center gap-2 ${
-                          isScheduleButtonDisabled 
-                          ? 'bg-gray-400 cursor-not-allowed' 
-                          : 'bg-blue-500 hover:bg-blue-600'
-                          }`}
-                      >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                          {scheduleButtonText}
-                      </button>
-
-                      <button onClick={() => alert('Video modal coming soon!')} className="w-full bg-green-500 text-white px-6 py-3 rounded-lg hover:bg-green-600 transition-colors font-semibold flex items-center justify-center gap-2"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>Virtual Tour</button>
-                      
-                      {isTenant() && property.status === 'Active' && !hasApplied && (
-                        <button
-                        onClick={onApplyClick}
-                        className="w-full bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition-colors font-semibold flex items-center justify-center gap-2"
-                      >
-                        Apply Now
-                      </button>
-                      )}
-                      {isTenant() && hasApplied && (
-                        <div className="text-center p-3 bg-green-100 text-green-800 rounded-lg font-semibold">
-                          ✓ You have applied
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="mt-6 pt-4 border-t border-gray-200">
-                       <div className="flex items-center gap-3 mb-3"><div className="w-10 h-10 bg-yellow-500 rounded-full flex items-center justify-center text-white font-semibold">L</div><div><div className="font-semibold text-gray-900">Property Owner</div><div className="text-sm text-gray-600">Verified Landlord</div></div></div>
-                       <div className="grid grid-cols-2 gap-2"><button className="bg-yellow-500 text-white px-4 py-2 rounded-lg hover:bg-yellow-600 transition-colors text-sm font-medium">Message</button><button className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors text-sm font-medium">Call</button></div>
-                    </div>
-                  </div>
-                </div>
+          {/* --- TWO-COLUMN LAYOUT (Starts below the gallery) --- */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 p-6">
+            
+            <div className="lg:col-span-2 space-y-8">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 mb-2">{property.title}</h1>
+                <p className="text-lg text-gray-600 mb-2">{property.location}</p>
+                <p className="text-3xl font-bold text-yellow-500 mb-4">RM {property.price}/month</p>
               </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              
+              {(property.zeroDeposit || property.cookingReady || property.hotProperty) && (
+                <div className="flex flex-wrap gap-2">
+                  {property.zeroDeposit && <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">💰 Zero Deposit</span>}
+                  {property.cookingReady && <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">🍳 Cooking Ready</span>}
+                  {property.hotProperty && <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">🔥 Hot Property</span>}
+                </div>
+              )}
+              
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="text-center p-4 bg-gray-50 rounded-lg"><div className="text-2xl font-bold text-gray-900">{property.bedrooms}</div><div className="text-sm text-gray-600">Bedrooms</div></div>
+                <div className="text-center p-4 bg-gray-50 rounded-lg"><div className="text-2xl font-bold text-gray-900">{property.bathrooms}</div><div className="text-sm text-gray-600">Bathrooms</div></div>
+                <div className="text-center p-4 bg-gray-50 rounded-lg"><div className="text-2xl font-bold text-gray-900">{property.sqft}</div><div className="text-sm text-gray-600">Sq Ft</div></div>
+                <div className="text-center p-4 bg-gray-50 rounded-lg"><div className="text-2xl font-bold text-gray-900">{property.parking}</div><div className="text-sm text-gray-600">Parking</div></div>
+              </div>
+            
               <div>
                 <h2 className="text-2xl font-bold text-gray-900 mb-4">Description</h2>
                 <p className="text-gray-600 leading-relaxed mb-6">
@@ -233,41 +198,70 @@ const PropertyDetailPage = ({ properties, isFavorite, toggleFavorite, setSelecte
                   ))}
                 </div>
               </div>
-            </div>
 
-            <div className="mt-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Location</h2>
-              <div className="bg-gray-200 h-64 rounded-lg flex items-center justify-center">
-                <div className="text-center">
-                  <p className="text-gray-600 mb-2">📍 {property.location}</p>
-                  <p className="text-sm text-gray-500">Interactive map coming soon</p>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">Location</h2>
+                <div className="bg-gray-200 h-64 rounded-lg flex items-center justify-center">
+                  <div className="text-center">
+                    <p className="text-gray-600 mb-2">📍 {property.location}</p>
+                    <p className="text-sm text-gray-500">Interactive map coming soon</p>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">Similar Properties</h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {properties.filter(p => p.id !== property.id && p.location === property.location).slice(0, 3).map((similarProperty) => (
+                    <Link key={similarProperty.id} to={`/property/${similarProperty.id}`} className="block">
+                      <div className="bg-white rounded-lg overflow-hidden hover:shadow-md transition-shadow">
+                        <img src={similarProperty.image || 'https://placehold.co/400x300/e2e8f0/4a5568?text=Similar'} alt={similarProperty.title} className="w-full h-32 object-cover"/>
+                        <div className="p-3">
+                          <h3 className="font-semibold text-gray-900 text-sm mb-1">{similarProperty.title}</h3>
+                          <p className="text-yellow-500 font-bold text-sm">RM {property.price}/month</p>
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
                 </div>
               </div>
             </div>
 
-            <div className="mt-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Similar Properties</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {properties.filter(p => p.id !== property.id && p.location === property.location).slice(0, 3).map((similarProperty) => (
-                  <Link key={similarProperty.id} to={`/property/${similarProperty.id}`} className="block">
-                    <div className="bg-white rounded-lg overflow-hidden hover:shadow-md transition-shadow">
-                      <img 
-                        src={similarProperty.image || 'https://placehold.co/400x300/e2e8f0/4a5568?text=Similar'} 
-                        alt={similarProperty.title}
-                        className="w-full h-32 object-cover"
-                      />
-                      <div className="p-3">
-                        <h3 className="font-semibold text-gray-900 text-sm mb-1">{similarProperty.title}</h3>
-                        <p className="text-yellow-500 font-bold text-sm">RM {property.price}/month</p>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
+            <div className="lg:col-span-1">
+              <div className="sticky top-[72px]">
+                <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-lg">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Contact Property</h3>
+                  <div className="space-y-3">
+                    <button onClick={() => alert('Chat modal coming soon!')} className="w-full bg-yellow-500 text-white px-6 py-3 rounded-lg hover:bg-yellow-600 transition-colors font-semibold flex items-center justify-center gap-2"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>Contact Landlord</button>
+                    <button onClick={onScheduleClick} disabled={isScheduleButtonDisabled} className={`w-full text-white px-6 py-3 rounded-lg transition-colors font-semibold flex items-center justify-center gap-2 ${ isScheduleButtonDisabled ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-600' }`}><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>{scheduleButtonText}</button>
+                    <button onClick={() => alert('Video modal coming soon!')} className="w-full bg-green-500 text-white px-6 py-3 rounded-lg hover:bg-green-600 transition-colors font-semibold flex items-center justify-center gap-2"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>Virtual Tour</button>
+                    {isTenant() && property.status === 'Active' && !hasApplied && (<button onClick={onApplyClick} className="w-full bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition-colors font-semibold flex items-center justify-center gap-2">Apply Now</button>)}
+                    {isTenant() && hasApplied && (<div className="text-center p-3 bg-green-100 text-green-800 rounded-lg font-semibold">✓ You have applied</div>)}
+                  </div>
+                  <div className="mt-6 pt-4 border-t border-gray-200">
+                     <div className="flex items-center gap-3 mb-3">
+                        <div className="w-10 h-10 bg-yellow-500 rounded-full flex items-center justify-center text-white font-semibold">L</div>
+                        <div>
+                           <div className="font-semibold text-gray-900">Property Owner</div>
+                           <div className="text-sm text-gray-600">Verified Landlord</div>
+                        </div>
+                     </div>
+                     <div className="grid grid-cols-2 gap-2">
+                        <button className="bg-yellow-500 text-white px-4 py-2 rounded-lg hover:bg-yellow-600 transition-colors text-sm font-medium">Message</button>
+                        <button className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors text-sm font-medium">Call</button>
+                     </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
+      <Lightbox
+        open={lightboxOpen}
+        close={() => setLightboxOpen(false)}
+        slides={slides}
+      />
     </div>
   );
 };
@@ -962,4 +956,4 @@ function App() {
   );
 }
 
-export default App;
+export default App
