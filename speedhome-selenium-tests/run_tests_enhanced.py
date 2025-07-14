@@ -38,7 +38,7 @@ class SpeedHomeTestRunner:
         """
         
         # Build pytest command
-        cmd = ["python", "-m", "pytest"]
+        cmd = ["python3", "-m", "pytest"]
         
         # Add test suite
         if test_suite:

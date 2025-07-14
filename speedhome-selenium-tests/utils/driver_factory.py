@@ -42,44 +42,24 @@ class DriverFactory:
     
     @staticmethod
     def _create_chrome_driver(headless):
-        """Create Chrome WebDriver instance"""
+        """Create a clean and robust Chrome WebDriver instance."""
         options = ChromeOptions()
         
+        # Set headless mode if requested
         if headless:
-            options.add_argument('--headless')
+            options.add_argument("--headless")
         
-        # Common Chrome options
-        options.add_argument('--no-sandbox')
-        options.add_argument('--disable-dev-shm-usage')
-        options.add_argument('--disable-gpu')
-        options.add_argument('--disable-extensions')
-        options.add_argument('--disable-infobars')
-        options.add_argument('--disable-notifications')
-        options.add_argument('--disable-popup-blocking')
-        options.add_argument(f'--window-size={TestConfig.WINDOW_SIZE}')
+        # Standard options for stability in automated environments
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--disable-gpu")
+        options.add_argument(f"--window-size={TestConfig.WINDOW_SIZE}")
         
-        # Performance optimizations
-        options.add_argument('--disable-background-timer-throttling')
-        options.add_argument('--disable-backgrounding-occluded-windows')
-        options.add_argument('--disable-renderer-backgrounding')
+        # This is the modern, recommended way for Selenium 4+.
+        # It automatically downloads and manages the correct driver for your browser version.
+        service = ChromeService(ChromeDriverManager().install())
         
-        # Security settings
-        options.add_argument('--disable-web-security')
-        options.add_argument('--allow-running-insecure-content')
-        
-        # Additional options to avoid conflicts
-        options.add_argument('--remote-debugging-port=0')
-        options.add_argument('--disable-features=VizDisplayCompositor')
-        
-        # Use system ChromeDriver instead of webdriver-manager
-        try:
-            # Try to use system ChromeDriver first
-            service = ChromeService('/usr/local/bin/chromedriver')
-            driver = webdriver.Chrome(service=service, options=options)
-        except Exception:
-            # Fallback to webdriver-manager if system driver fails
-            service = ChromeService(ChromeDriverManager().install())
-            driver = webdriver.Chrome(service=service, options=options)
+        driver = webdriver.Chrome(service=service, options=options)
         
         return DriverFactory._configure_driver(driver)
     
