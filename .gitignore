@@ -16,3 +16,17 @@ venv/
 .DS_Store
 
 node_modules
+
+# Selenium Test Artifacts
+speedhome-selenium-tests/reports/screenshots/*.png
+speedhome-selenium-tests/reports/screenshots/*.jpg
+speedhome-selenium-tests/reports/*.html
+speedhome-selenium-tests/reports/*.xml
+speedhome-selenium-tests/.pytest_cache/
+speedhome-selenium-tests/__pycache__/
+speedhome-selenium-tests/**/__pycache__/
+speedhome-selenium-tests/test_env/
+
+# But keep these important files
+!speedhome-selenium-tests/reports/.gitkeep
+!speedhome-selenium-tests/reports/screenshots/.gitkeep
