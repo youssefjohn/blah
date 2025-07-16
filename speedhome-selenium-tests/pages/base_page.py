@@ -4,7 +4,7 @@ Base page class for Page Object Model implementation
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
-from selenium.common.exceptions import TimeoutException, NoSuchElementException
+from selenium.common.exceptions import TimeoutException, NoSuchElementException, ElementClickInterceptedException # <-- ADDED
 from config.test_config import TestConfig
 import time
 
@@ -23,11 +23,22 @@ class BasePage:
         """Find multiple elements"""
         return self.driver.find_elements(*locator)
     
+    # --- THIS FUNCTION HAS BEEN UPDATED ---
     def click_element(self, locator):
-        """Click element with wait"""
-        element = self.wait.until(EC.element_to_be_clickable(locator))
-        self.scroll_to_element(element)
-        element.click()
+        """
+        Click element with wait, with a fallback to JavaScript click for intercepted elements.
+        """
+        try:
+            # First, wait for the element to be clickable and scroll to it
+            element = self.wait.until(EC.element_to_be_clickable(locator))
+            self.scroll_to_element(element)
+            # Try a normal, user-like click
+            element.click()
+        except ElementClickInterceptedException:
+            # If the normal click is intercepted, fall back to a more forceful JavaScript click
+            print(f"WARN: Normal click intercepted for locator {locator}. Falling back to JavaScript click.")
+            element = self.find_element(locator) # Re-find the element to be safe
+            self.driver.execute_script("arguments[0].click();", element)
         return element
     
     def send_keys_to_element(self, locator, text):
@@ -71,7 +82,7 @@ class BasePage:
     
     def scroll_to_element(self, element):
         """Scroll to element"""
-        self.driver.execute_script("arguments[0].scrollIntoView(true);", element)
+        self.driver.execute_script("arguments[0].scrollIntoView({block: 'center', inline: 'center'});", element)
         time.sleep(0.5)
     
     def scroll_to_top(self):
@@ -194,4 +205,3 @@ class BasePage:
     def switch_to_window(self, handle):
         """Switch to specific window"""
         self.driver.switch_to.window(handle)
-

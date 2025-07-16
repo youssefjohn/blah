@@ -10,17 +10,17 @@ class HeaderPage(BasePage):
     """Page Object Model for SpeedHome header navigation"""
     
     # Header elements
-    LOGO = (By.XPATH, "//img[contains(@alt, 'SpeedHome')]")
+    LOGO = (By.CSS_SELECTOR, "a[href='/'] div")
     LANDLORD_BUTTON = (By.XPATH, "//button[contains(text(), 'Landlord')]")
     TENANT_BUTTON = (By.XPATH, "//button[contains(text(), 'Tenant')]")
-    SEARCH_BAR = (By.XPATH, "//input[@placeholder='Search by area/property name...']")
+    SEARCH_BAR = (By.XPATH, "//input[@placeholder='Search by property name or location...']")
     
     # Authentication buttons (when not logged in)
-    LOGIN_BUTTON = (By.XPATH, "//button[contains(text(), 'Login')]")
-    REGISTER_BUTTON = (By.XPATH, "//button[contains(text(), 'Register')]")
+    LOGIN_BUTTON = (By.XPATH, "//button[normalize-space()='Login']")
+    REGISTER_BUTTON = (By.XPATH, "//button[normalize-space()='Sign Up']")
     
     # User account dropdown (when logged in)
-    USER_ACCOUNT_BUTTON = (By.XPATH, "//button[contains(@class, 'user-account')]")
+    USER_ACCOUNT_BUTTON = (By.XPATH, "//button[contains(text(),'👤')]")
     USER_NAME_DISPLAY = (By.XPATH, "//span[contains(@class, 'user-name')]")
     ACCOUNT_DROPDOWN = (By.XPATH, "//div[contains(@class, 'account-dropdown')]")
     LOGOUT_BUTTON = (By.XPATH, "//button[contains(text(), 'Logout')]")
@@ -427,4 +427,3 @@ class HeaderPage(BasePage):
         except Exception as e:
             print(f"Failed to take screenshot: {e}")
             return False
-
