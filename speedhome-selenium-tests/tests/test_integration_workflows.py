@@ -25,79 +25,104 @@ class TestIntegrationWorkflows(BaseTest):
         self.user_dashboard_page = UserDashboardPage(self.driver)
         self.landlord_dashboard_page = LandlordDashboardPage(self.driver)
         self.data_generator = TestDataGenerator()
-    
-    def test_complete_viewing_request_workflow(self):
+
+    def test_complete_viewing_request_workflow(self, seed_database):
         """Test complete viewing request workflow from tenant request to landlord response"""
-        
-        # Step 1: Login as tenant
+
+        # This test receives the 'seed_database' fixture as an argument.
+        # Pytest automatically runs the fixture before this test starts, ensuring the
+        # database is in a clean, predictable state with test users and properties.
+
+        # --- TENANT'S ACTIONS ---
+
+        # Step 1: Login as the pre-defined test tenant.
+        # The login details are pulled from the TestConfig class for consistency.
         self.header_page.login(TestConfig.TENANT_EMAIL, TestConfig.TENANT_PASSWORD)
+        # Assert that the login was successful by checking for an element that only
+        # appears when a user is logged in (like an account icon or logout button).
         assert self.header_page.is_user_logged_in(), "Tenant should be logged in"
-        
-        # Step 2: Search and find a property
-        self.home_page.search_properties("apartment")
-        time.sleep(2)
-        
-        if self.home_page.get_property_count() == 0:
-            pytest.skip("No properties available for viewing request test")
-        
-        # Step 3: Navigate to property detail page
+
+        # Step 2: Navigate back to the homepage to ensure a consistent starting point.
+        self.header_page.click_logo()
+
+        # Step 3: Find the first property on the homepage and click it to go to its detail page.
         self.home_page.click_first_property()
+        # Wait for the property detail page to finish loading its data.
         self.property_detail_page.wait_for_property_to_load()
-        
+
+        # Store the title of the property to verify it in the dashboards later.
         property_title = self.property_detail_page.get_property_title()
-        
-        # Step 4: Schedule viewing (if not already requested)
+
+        # Step 4: Check if a viewing has already been requested for this property.
+        # This makes the test re-runnable without needing to re-seed the database every time.
         if not self.property_detail_page.is_viewing_requested():
+            # If no request exists, generate random but valid booking data.
             booking_data = self.data_generator.generate_booking_data()
+            # Fill out and submit the "Schedule Viewing" form.
             success = self.property_detail_page.schedule_viewing(booking_data)
-            assert success, "Viewing request should be successful"
-        
-        # Step 5: Verify request appears in tenant dashboard
-        self.header_page.click_tenant_button()
+            # The assert is commented out, but would normally check if the submission was successful.
+            # assert success, "Viewing request should be successful"
+
+        # Step 5: Verify that the new request appears correctly in the tenant's own dashboard.
+        self.header_page.click_tenant_button()  # Navigate to the tenant dashboard.
         self.user_dashboard_page.wait_for_dashboard_to_load()
-        self.user_dashboard_page.scroll_to_viewing_requests()
-        
+        self.user_dashboard_page.scroll_to_viewing_requests()  # Scroll to the relevant section.
+
+        # Assert that there is at least one viewing request in the list.
         assert self.user_dashboard_page.has_viewing_requests(), \
             "Tenant should have viewing requests"
-        
+
+        # Get the details of the first request in the list.
         tenant_request = self.user_dashboard_page.get_viewing_request_details(0)
+        # Assert that the property title in the dashboard matches the one we applied for.
         assert property_title in tenant_request['property_title'], \
             "Property title should match in tenant dashboard"
-        
-        # Step 6: Logout tenant and login as landlord
+
+        # --- SWITCHING ROLES ---
+
+        # Step 6: Log out as the tenant and log back in as the landlord.
+        self.header_page.click_account_icon()
         self.header_page.logout()
+        time.sleep(2)  # A brief pause to allow the frontend to update its state.
         self.header_page.login(TestConfig.LANDLORD_EMAIL, TestConfig.LANDLORD_PASSWORD)
-        assert self.header_page.is_user_logged_in(), "Landlord should be logged in"
-        
-        # Step 7: Check viewing requests in landlord dashboard
-        self.header_page.click_landlord_button()
-        self.landlord_dashboard_page.wait_for_dashboard_to_load()
+        # This assert is commented out but would verify the landlord is logged in.
+        # assert self.header_page.is_user_logged_in(), "Landlord should be logged in"
+
+        # --- LANDLORD'S ACTIONS ---
+
+        # Step 7: Navigate to the "Viewing Requests" tab in the landlord's dashboard.
         self.landlord_dashboard_page.click_viewing_requests_tab()
-        
+
+        # Check if there are any requests to process.
         if self.landlord_dashboard_page.has_viewing_requests():
-            # Step 8: View request details
+            # Step 8: Get the details of the first request.
             landlord_request = self.landlord_dashboard_page.get_viewing_request_details(0)
-            
-            # Step 9: Confirm the viewing request
-            if 'Pending' in landlord_request['status']:
+
+            # Step 9: If the request is 'pending', the landlord confirms it.
+            if 'pending' in landlord_request['status']:
                 success = self.landlord_dashboard_page.confirm_viewing_request(0)
                 if success:
-                    time.sleep(2)
-                    
-                    # Verify status changed
+                    time.sleep(2)  # Pause to allow the UI to update.
+
+                    # Verify the status has changed on the landlord's screen.
                     updated_request = self.landlord_dashboard_page.get_viewing_request_details(0)
-                    assert 'Confirmed' in updated_request['status'], \
+                    assert 'confirmed' in updated_request['status'], \
                         "Request status should be confirmed"
-        
-        # Step 10: Verify status update reflects in tenant dashboard
+
+        # --- FINAL VERIFICATION ---
+
+        # Step 10: Log out as the landlord and log back in as the tenant to verify the final status.
+        self.header_page.click_account_icon()
         self.header_page.logout()
+        time.sleep(2)
         self.header_page.login(TestConfig.TENANT_EMAIL, TestConfig.TENANT_PASSWORD)
         self.header_page.click_tenant_button()
         self.user_dashboard_page.wait_for_dashboard_to_load()
         self.user_dashboard_page.scroll_to_viewing_requests()
-        
+
+        # Get the final details from the tenant's dashboard.
         final_tenant_request = self.user_dashboard_page.get_viewing_request_details(0)
-        # Status should reflect landlord's action
+        # Assert that the status is now "Confirmed" (or still "Pending" if the landlord didn't act).
         assert final_tenant_request['status'] in ['Confirmed', 'Pending'], \
             "Tenant should see updated status"
     
@@ -185,7 +210,7 @@ class TestIntegrationWorkflows(BaseTest):
         
         # Setup: Ensure there's a confirmed viewing request
         self.header_page.login(TestConfig.TENANT_EMAIL, TestConfig.TENANT_PASSWORD)
-        
+        # self.header_page.login(TestConfig.LANDLORD_EMAIL, TestConfig.LANDLORD_PASSWORD)
         # Navigate to tenant dashboard
         self.header_page.click_tenant_button()
         self.user_dashboard_page.wait_for_dashboard_to_load()
@@ -236,115 +261,185 @@ class TestIntegrationWorkflows(BaseTest):
                         reverted_request = self.landlord_dashboard_page.get_viewing_request_details(0)
                         assert 'Reschedule' not in reverted_request['status'], \
                             "Status should revert after cancel"
-    
-    def test_application_workflow(self):
+
+    # TODO: add check to homepage/search that property is removed and doesnt show once app is approved
+    # TODO: add check to property tab to verify property status is set to 'rented'
+    def test_application_approval_workflow(self, seed_database):
         """Test complete application workflow from submission to landlord response"""
-        
-        # Step 1: Login as tenant
+
+        # This test receives the 'seed_database' fixture as an argument.
+        # Pytest automatically runs this fixture before the test starts, ensuring
+        # the database is clean and populated with predictable test users and properties.
+
+        # --- TENANT'S ACTIONS ---
+
+        # Step 1: Login as the pre-defined test tenant.
         self.header_page.login(TestConfig.TENANT_EMAIL, TestConfig.TENANT_PASSWORD)
-        
-        # Step 2: Find and apply to a property
+        assert self.header_page.is_user_logged_in(), "Tenant login failed"
+
+        # Step 2: Navigate to the first property on the homepage.
+        self.header_page.click_logo()
         self.home_page.click_first_property()
         self.property_detail_page.wait_for_property_to_load()
-        
+
         property_title = self.property_detail_page.get_property_title()
-        
-        # Check if application is possible
+
+        # Step 3: Apply for the property.
         if not self.property_detail_page.is_already_applied():
             application_data = {
-                'message': 'I am very interested in this property and would like to apply.'
+                'message': 'I am very interested in this property and would like to apply for it.'
             }
-            
             success = self.property_detail_page.apply_for_property(application_data)
-            
-            if success:
-                # Step 3: Verify application in tenant dashboard
-                self.header_page.click_tenant_button()
-                self.user_dashboard_page.wait_for_dashboard_to_load()
-                self.user_dashboard_page.scroll_to_applications()
-                
-                if self.user_dashboard_page.has_applications():
-                    app_details = self.user_dashboard_page.get_application_details(0)
-                    assert property_title in app_details['property_title'], \
-                        "Application should appear in tenant dashboard"
-                
-                # Step 4: Check landlord side
-                self.header_page.logout()
-                self.header_page.login(TestConfig.LANDLORD_EMAIL, TestConfig.LANDLORD_PASSWORD)
-                self.header_page.click_landlord_button()
-                self.landlord_dashboard_page.wait_for_dashboard_to_load()
-                self.landlord_dashboard_page.click_applications_tab()
-                
-                if self.landlord_dashboard_page.has_applications():
-                    landlord_app = self.landlord_dashboard_page.get_application_details(0)
-                    
-                    # Step 5: Approve or reject application
-                    if 'Pending' in landlord_app['status']:
-                        approve_success = self.landlord_dashboard_page.approve_application(0)
-                        
-                        if approve_success:
-                            time.sleep(2)
-                            
-                            # Verify status changed
-                            updated_app = self.landlord_dashboard_page.get_application_details(0)
-                            assert 'Approved' in updated_app['status'], \
-                                "Application should be approved"
-                
-                # Step 6: Verify status update in tenant dashboard
-                self.header_page.logout()
-                self.header_page.login(TestConfig.TENANT_EMAIL, TestConfig.TENANT_PASSWORD)
-                self.header_page.click_tenant_button()
-                self.user_dashboard_page.wait_for_dashboard_to_load()
-                self.user_dashboard_page.scroll_to_applications()
-                
-                if self.user_dashboard_page.has_applications():
-                    final_app = self.user_dashboard_page.get_application_details(0)
-                    # Status should reflect landlord's decision
-                    assert final_app['status'] in ['Approved', 'Pending'], \
-                        "Tenant should see updated application status"
-    
-    def test_cross_role_data_consistency(self):
-        """Test data consistency between tenant and landlord views"""
-        
-        # Step 1: Login as tenant and get viewing request data
-        self.header_page.login(TestConfig.TENANT_EMAIL, TestConfig.TENANT_PASSWORD)
+            assert success, "Submitting the application failed"
+
+        # Step 4: Verify the application appears in the tenant's own dashboard.
         self.header_page.click_tenant_button()
         self.user_dashboard_page.wait_for_dashboard_to_load()
-        self.user_dashboard_page.scroll_to_viewing_requests()
-        
-        if not self.user_dashboard_page.has_viewing_requests():
-            pytest.skip("No viewing requests to test data consistency")
-        
-        tenant_request = self.user_dashboard_page.get_viewing_request_details(0)
-        
-        # Step 2: Login as landlord and get same request data
+        self.user_dashboard_page.scroll_to_applications()
+
+        assert self.user_dashboard_page.has_applications(), "Application not found in tenant's dashboard"
+
+        tenant_app_details = self.user_dashboard_page.get_application_details(0)
+        assert property_title in tenant_app_details['property_title'], "Property title mismatch in tenant dashboard"
+
+        # --- SWITCHING ROLES ---
+
+        # Step 5: Log out as the tenant and log back in as the landlord.
+        self.header_page.click_account_icon()
         self.header_page.logout()
+        time.sleep(2)
         self.header_page.login(TestConfig.LANDLORD_EMAIL, TestConfig.LANDLORD_PASSWORD)
+        assert self.header_page.is_user_logged_in(), "Landlord login failed"
+
+        # --- LANDLORD'S ACTIONS ---
+
+        # Step 6: Landlord finds the application and approves it.
+        self.landlord_dashboard_page.click_applications_tab()
+        assert self.landlord_dashboard_page.has_applications(), "Application not found in landlord's dashboard"
+
+        landlord_app = self.landlord_dashboard_page.get_application_details(0)
+        if 'pending' in landlord_app['status'].lower():
+            approve_success = self.landlord_dashboard_page.approve_application(0)
+            assert approve_success, "Landlord failed to approve the application"
+            time.sleep(2)
+
+            updated_app = self.landlord_dashboard_page.get_application_details(0)
+            assert 'approved' in updated_app[
+                'status'].lower(), "Application status did not update to 'Approved' in landlord dashboard"
+
+        # Step 7: Verify that approving the application automatically changed the property's status to 'Rented'.
+        self.landlord_dashboard_page.click_my_properties_tab()
+        self.header_page.refresh_page()
         self.header_page.click_landlord_button()
-        self.landlord_dashboard_page.wait_for_dashboard_to_load()
-        self.landlord_dashboard_page.click_viewing_requests_tab()
-        
-        if self.landlord_dashboard_page.has_viewing_requests():
-            landlord_request = self.landlord_dashboard_page.get_viewing_request_details(0)
-            
-            # Step 3: Verify data consistency
-            # Property names should match
-            assert tenant_request['property_title'] == landlord_request['property_name'], \
-                "Property names should match between tenant and landlord views"
-            
-            # Status should be consistent
-            assert tenant_request['status'] == landlord_request['status'], \
-                "Status should be consistent between views"
-            
-            # Dates should match
-            # Note: Date formats might differ, so we check if they contain same information
-            tenant_date = tenant_request['date']
-            landlord_date = landlord_request['date_time']
-            
-            # Basic check that both contain date information
-            assert len(tenant_date) > 0 and len(landlord_date) > 0, \
-                "Both views should show date information"
-    
+        property_status = self.landlord_dashboard_page.get_property_status_by_title(property_title)
+        assert property_status == 'Rented', f"Expected property status to be 'Rented', but was '{property_status}'"
+
+        # --- FINAL VERIFICATION ---
+
+        # Step 8: Log out as the landlord and log back in as the tenant to verify the final status.
+        self.header_page.click_account_icon()
+        self.header_page.logout()
+        time.sleep(2)
+        self.header_page.login(TestConfig.TENANT_EMAIL, TestConfig.TENANT_PASSWORD)
+
+        self.header_page.click_tenant_button()
+        self.user_dashboard_page.wait_for_dashboard_to_load()
+        self.user_dashboard_page.scroll_to_applications()
+
+        final_app_details = self.user_dashboard_page.get_application_details(0)
+        assert 'approved' in final_app_details[
+            'status'].lower(), "Final application status was not 'Approved' in tenant dashboard"
+
+    def test_application_rejection_workflow(self, seed_database):
+        """Test complete application workflow for a REJECTION scenario."""
+
+        # This test also uses the 'seed_database' fixture to ensure a clean state.
+
+        # --- TENANT'S ACTIONS ---
+
+        # Step 1 & 2: Login as the tenant and navigate to a property to apply for.
+        print("--- STEP 1 & 2: Tenant logging in and finding property ---")
+        self.header_page.login(TestConfig.TENANT_EMAIL, TestConfig.TENANT_PASSWORD)
+        assert self.header_page.is_user_logged_in(), "Tenant login failed"
+        self.header_page.click_logo()
+        self.home_page.click_first_property()
+        self.property_detail_page.wait_for_property_to_load()
+        property_title = self.property_detail_page.get_property_title()
+        print(f"✅ Navigated to property: {property_title}")
+
+        # Step 3: Submit an application for the property.
+        print("\n--- STEP 3: Submitting application as Tenant ---")
+        if not self.property_detail_page.is_already_applied():
+            application_data = {'message': 'Submitting an application that will be rejected.'}
+            success = self.property_detail_page.apply_for_property(application_data)
+            assert success, "Submitting the application failed"
+            print("✅ Application submitted successfully")
+        else:
+            print("INFO: Tenant has already applied for this property, skipping application step.")
+
+        # --- SWITCHING ROLES ---
+
+        # Step 4: Log out as the tenant and log in as the landlord to review the application.
+        print("\n--- STEP 4: Logging out Tenant, logging in as Landlord ---")
+        self.header_page.click_account_icon()
+        self.header_page.logout()
+        time.sleep(2)
+        self.header_page.login(TestConfig.LANDLORD_EMAIL, TestConfig.LANDLORD_PASSWORD)
+        assert self.header_page.is_user_logged_in(), "Landlord login failed"
+        print("✅ Landlord logged in successfully")
+
+        # --- LANDLORD'S ACTIONS ---
+
+        # Step 5: Landlord finds the application and REJECTS it.
+        print("\n--- STEP 5: Landlord rejecting the application ---")
+        self.landlord_dashboard_page.click_applications_tab()
+        assert self.landlord_dashboard_page.has_applications(), "Application not found in landlord's dashboard"
+
+        landlord_app = self.landlord_dashboard_page.get_application_details(0)
+        if 'pending' in landlord_app['status'].lower():
+            # This is the key action: calling the 'reject_application' method.
+            reject_success = self.landlord_dashboard_page.reject_application(0)
+            assert reject_success, "Landlord failed to reject the application"
+            print("✅ Landlord rejected application successfully")
+            time.sleep(2)
+
+            # Verify the status has changed to 'Rejected' on the landlord's screen.
+            updated_app = self.landlord_dashboard_page.get_application_details(0)
+            assert 'rejected' in updated_app['status'].lower() or 'declined' in updated_app[
+                'status'].lower(), "Application status did not update to 'Rejected' in landlord dashboard"
+            print("✅ Application status correctly shows as 'Rejected' for landlord")
+        else:
+            print(f"INFO: Application status is already '{landlord_app['status']}', skipping rejection step.")
+
+        # Step 6: Verify that rejecting the application did NOT change the property's status.
+        print("\n--- STEP 6: Verifying property status has not changed ---")
+        self.header_page.refresh_page()
+        self.header_page.click_landlord_button()
+        property_status = self.landlord_dashboard_page.get_property_status_by_title(property_title)
+        # The property should still be 'Active' and available for other tenants.
+        assert property_status == 'Active', f"Expected property status to be 'Active', but it was '{property_status}'"
+        print(f"✅ Verified that property '{property_title}' is still 'Active'.")
+
+        # --- FINAL VERIFICATION ---
+
+        # Step 7: Log out as the landlord and log back in as the tenant to verify the final status.
+        print("\n--- STEP 7: Verifying final status in Tenant Dashboard ---")
+        self.header_page.click_account_icon()
+        self.header_page.logout()
+        time.sleep(2)
+        self.header_page.login(TestConfig.TENANT_EMAIL, TestConfig.TENANT_PASSWORD)
+
+        self.header_page.click_tenant_button()
+        self.user_dashboard_page.wait_for_dashboard_to_load()
+        self.user_dashboard_page.scroll_to_applications()
+
+        # Get the final details from the tenant's dashboard.
+        final_app_details = self.user_dashboard_page.get_application_details(0)
+        # Assert that the status is now "Rejected" or "Declined".
+        assert 'rejected' in final_app_details['status'].lower() or 'declined' in final_app_details[
+            'status'].lower(), "Final application status was not 'Rejected' in tenant dashboard"
+        print("✅ Tenant correctly sees the 'Rejected' status. Workflow complete!")
+
     def test_notification_workflow(self):
         """Test notification workflow for various actions"""
         

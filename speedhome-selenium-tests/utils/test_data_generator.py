@@ -10,14 +10,16 @@ class TestDataGenerator:
     """Generate realistic test data for SpeedHome tests"""
     
     def __init__(self):
-        self.fake = Faker()
+        self.fake = Faker('en_GB')
     
     def generate_user_data(self, role='tenant'):
         """Generate user registration data"""
         first_name = self.fake.first_name()
         last_name = self.fake.last_name()
+        user_name = self.fake.user_name()
         
         return {
+            'user_name': user_name,
             'email': f"{first_name.lower()}.{last_name.lower()}@test.com",
             'password': 'TestPassword123!',
             'first_name': first_name,
@@ -63,12 +65,16 @@ class TestDataGenerator:
             'name': self.fake.name(),
             'email': self.fake.email(),
             'phone': self.fake.phone_number()[:15],
-            'date': future_date.strftime('%Y-%m-%d'),
+            'date': future_date.strftime('%d-%m-%Y'),
+            'move_in_date': future_date.strftime('%d-%m-%Y'),
             'time': f"{hour:02d}:{minute:02d}",
             'message': self.fake.text(max_nb_chars=200),
             'occupation': self.fake.job(),
             'monthly_income': str(random.randint(3000, 15000)),
-            'number_of_occupants': str(random.randint(1, 4))
+            'number_of_occupants': str(random.randint(1, 4)),
+            # TODO: Not sure if i should always keep it as malay
+            'nationality': 'malay'
+
         }
     
     def generate_application_data(self):
