@@ -10,7 +10,7 @@ class HomePage(BasePage):
     """Page Object Model for SpeedHome homepage"""
     
     # Locators
-    SEARCH_INPUT = (By.XPATH, "//input[@placeholder='Search by area/property name...']")
+    SEARCH_INPUT = (By.XPATH, "//input[@placeholder='Search by property name or location...']")
     SEARCH_BUTTON = (By.XPATH, "//button[contains(@class, 'search-button')]")
     
     # Filter elements
@@ -25,7 +25,7 @@ class HomePage(BasePage):
     LIST_VIEW_BUTTON = (By.XPATH, "//button[contains(@class, 'list-view')]")
     
     # Property cards
-    PROPERTY_CARDS = (By.XPATH, "//div[contains(@class, 'property-card')]")
+    PROPERTY_CARDS = (By.XPATH, "//a[starts-with(@href, '/property/')]")
     PROPERTY_TITLE = (By.XPATH, ".//h3[contains(@class, 'property-title')]")
     PROPERTY_PRICE = (By.XPATH, ".//span[contains(@class, 'property-price')]")
     PROPERTY_LOCATION = (By.XPATH, ".//span[contains(@class, 'property-location')]")
@@ -210,6 +210,18 @@ class HomePage(BasePage):
         self.wait_for_element_to_disappear(self.MODAL_CONTENT)
         return self
     
+    def open_filters(self):
+        """Alias for click_more_filters to match test script."""
+        return self.click_more_filters()
+
+    def has_view_mode_toggle(self):
+        """Check if view mode toggle buttons are present."""
+        return self.is_element_visible(self.GRID_VIEW_BUTTON) and self.is_element_visible(self.LIST_VIEW_BUTTON)
+
+    def type_in_search(self, search_term):
+        """Alias for search_properties to match test script."""
+        return self.search_properties(search_term)
+    
     def switch_to_grid_view(self):
         """Switch to grid view"""
         self.click_element(self.GRID_VIEW_BUTTON)
@@ -223,6 +235,13 @@ class HomePage(BasePage):
     def get_property_cards(self):
         """Get all property cards"""
         return self.find_elements(self.PROPERTY_CARDS)
+    
+    def get_visible_properties(self):
+        """
+        Gets all currently visible property card elements.
+        This is an alias for get_property_cards() to ensure test compatibility.
+        """
+        return self.get_property_cards()
     
     def get_property_count(self):
         """Get number of properties displayed"""

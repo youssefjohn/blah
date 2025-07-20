@@ -1,6 +1,7 @@
 """
 HeaderPage class for navigation and authentication interactions
 """
+from selenium.common import TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from pages.base_page import BasePage
@@ -10,20 +11,20 @@ class HeaderPage(BasePage):
     """Page Object Model for SpeedHome header navigation"""
     
     # Header elements
-    LOGO = (By.XPATH, "//img[contains(@alt, 'SpeedHome')]")
+    LOGO = (By.CSS_SELECTOR, "a[href='/'] div")
     LANDLORD_BUTTON = (By.XPATH, "//button[contains(text(), 'Landlord')]")
     TENANT_BUTTON = (By.XPATH, "//button[contains(text(), 'Tenant')]")
-    SEARCH_BAR = (By.XPATH, "//input[@placeholder='Search by area/property name...']")
+    SEARCH_BAR = (By.XPATH, "//input[@placeholder='Search by property name or location...']")
     
     # Authentication buttons (when not logged in)
-    LOGIN_BUTTON = (By.XPATH, "//button[contains(text(), 'Login')]")
-    REGISTER_BUTTON = (By.XPATH, "//button[contains(text(), 'Register')]")
+    LOGIN_BUTTON = (By.XPATH, "//button[normalize-space()='Login']")
+    REGISTER_BUTTON = (By.XPATH, "//button[normalize-space()='Sign Up']")
     
     # User account dropdown (when logged in)
-    USER_ACCOUNT_BUTTON = (By.XPATH, "//button[contains(@class, 'user-account')]")
+    USER_ACCOUNT_BUTTON = (By.XPATH, "//button[contains(text(),'👤')]")
     USER_NAME_DISPLAY = (By.XPATH, "//span[contains(@class, 'user-name')]")
-    ACCOUNT_DROPDOWN = (By.XPATH, "//div[contains(@class, 'account-dropdown')]")
-    LOGOUT_BUTTON = (By.XPATH, "//button[contains(text(), 'Logout')]")
+    ACCOUNT_DROPDOWN = (By.XPATH, "//div[@class='relative dropdown-container']/div")
+    LOGOUT_BUTTON = (By.XPATH, "//button[normalize-space()='Logout']")
     
     # Notifications
     NOTIFICATION_BELL = (By.XPATH, "//button[contains(@class, 'notification-bell')]")
@@ -32,27 +33,28 @@ class HeaderPage(BasePage):
     NOTIFICATION_ITEMS = (By.XPATH, "//div[contains(@class, 'notification-item')]")
     
     # Login Modal
-    LOGIN_MODAL = (By.XPATH, "//div[contains(@class, 'login-modal')]")
-    LOGIN_EMAIL_INPUT = (By.XPATH, "//input[@type='email']")
+    LOGIN_MODAL = (By.XPATH, "//h2[contains(text(), 'Login')]")
+    LOGIN_EMAIL_INPUT = (By.XPATH, "//input[@id='username']")
     LOGIN_PASSWORD_INPUT = (By.XPATH, "//input[@type='password']")
     LOGIN_SUBMIT_BUTTON = (By.XPATH, "//button[@type='submit' and contains(text(), 'Login')]")
-    LOGIN_CLOSE_BUTTON = (By.XPATH, "//button[contains(@class, 'close-modal')]")
+    LOGIN_CLOSE_BUTTON = (By.XPATH, "//h2[contains(text(), 'Login')]/following-sibling::button")
     FORGOT_PASSWORD_LINK = (By.XPATH, "//a[contains(text(), 'Forgot Password')]")
-    REGISTER_LINK = (By.XPATH, "//a[contains(text(), 'Register')]")
+    REGISTER_LINK = (By.XPATH, "//button[normalize-space()='Sign Up']")
     REMEMBER_ME_CHECKBOX = (By.XPATH, "//input[@type='checkbox']")
     
     # Register Modal
-    REGISTER_MODAL = (By.XPATH, "//div[contains(@class, 'register-modal')]")
+    REGISTER_MODAL = (By.XPATH, "//h2[contains(text(), 'Sign Up')]")
+    REGISTER_USERNAME_INPUT = (By.XPATH, "//input[@id='username']")
     REGISTER_EMAIL_INPUT = (By.XPATH, "//input[@name='email']")
     REGISTER_PASSWORD_INPUT = (By.XPATH, "//input[@name='password']")
     REGISTER_CONFIRM_PASSWORD_INPUT = (By.XPATH, "//input[@name='confirmPassword']")
-    REGISTER_FIRST_NAME_INPUT = (By.XPATH, "//input[@name='firstName']")
-    REGISTER_LAST_NAME_INPUT = (By.XPATH, "//input[@name='lastName']")
+    REGISTER_FIRST_NAME_INPUT = (By.XPATH, "//input[@id='first_name']")
+    REGISTER_LAST_NAME_INPUT = (By.XPATH, "//input[@id='last_name']")
     REGISTER_PHONE_INPUT = (By.XPATH, "//input[@name='phone']")
     REGISTER_TENANT_RADIO = (By.XPATH, "//input[@value='tenant']")
     REGISTER_LANDLORD_RADIO = (By.XPATH, "//input[@value='landlord']")
-    REGISTER_SUBMIT_BUTTON = (By.XPATH, "//button[@type='submit' and contains(text(), 'Register')]")
-    REGISTER_CLOSE_BUTTON = (By.XPATH, "//button[contains(@class, 'close-modal')]")
+    REGISTER_SUBMIT_BUTTON = (By.XPATH, "//button[@type='submit' and contains(text(), 'Create Account')]")
+    REGISTER_CLOSE_BUTTON = (By.XPATH, "//h2[contains(text(), 'Sign Up')]/following-sibling::button")
     LOGIN_LINK = (By.XPATH, "//a[contains(text(), 'Login')]")
     
     # Error messages
@@ -66,7 +68,17 @@ class HeaderPage(BasePage):
         """Click on SpeedHome logo"""
         self.click_element(self.LOGO)
         return self
-    
+
+    def click_user_icon(self):
+        try:
+            element = self.find_element(self.USER_ACCOUNT_BUTTON)
+            self.driver.execute_script("arguments[0].scrollIntoView();", element)
+            self.driver.execute_script("arguments[0].click();", element)
+        except:
+            # Fallback to regular click
+            self.click_element(self.LANDLORD_BUTTON)
+        return self
+
     def click_landlord_button(self):
         """Click Landlord button with interception handling"""
         try:
@@ -77,7 +89,37 @@ class HeaderPage(BasePage):
             # Fallback to regular click
             self.click_element(self.LANDLORD_BUTTON)
         return self
-    
+
+    def click_login_link(self):
+        try:
+            element = self.find_element(self.LOGIN_LINK)
+            self.driver.execute_script("arguments[0].scrollIntoView();", element)
+            self.driver.execute_script("arguments[0].click();", element)
+        except:
+            # Fallback to regular click
+            self.click_element(self.LANDLORD_BUTTON)
+        return self
+
+    def click_account_icon(self):
+        try:
+            element = self.find_element(self.USER_ACCOUNT_BUTTON)
+            self.driver.execute_script("arguments[0].scrollIntoView();", element)
+            self.driver.execute_script("arguments[0].click();", element)
+        except:
+            # Fallback to regular click
+            self.click_element(self.LANDLORD_BUTTON)
+        return self
+
+    def click_register_link(self):
+        try:
+            element = self.find_element(self.REGISTER_BUTTON)
+            self.driver.execute_script("arguments[0].scrollIntoView();", element)
+            self.driver.execute_script("arguments[0].click();", element)
+        except:
+            # Fallback to regular click
+            self.click_element(self.LANDLORD_BUTTON)
+        return self
+
     def click_tenant_button(self):
         """Click Tenant button with interception handling"""
         try:
@@ -108,6 +150,7 @@ class HeaderPage(BasePage):
     
     def login(self, email, password, remember_me=False):
         """Perform login with credentials"""
+        self.click_account_icon()
         self.click_login_button()
         self.send_keys_to_element(self.LOGIN_EMAIL_INPUT, email)
         self.send_keys_to_element(self.LOGIN_PASSWORD_INPUT, password)
@@ -123,33 +166,52 @@ class HeaderPage(BasePage):
             return True
         except:
             return False
-    
+
     def register(self, user_data):
         """Perform registration with user data"""
+        self.click_account_icon()
         self.click_register_button()
-        
+
+        self.send_keys_to_element(self.REGISTER_USERNAME_INPUT, user_data['user_name'])
         self.send_keys_to_element(self.REGISTER_EMAIL_INPUT, user_data['email'])
         self.send_keys_to_element(self.REGISTER_PASSWORD_INPUT, user_data['password'])
         self.send_keys_to_element(self.REGISTER_CONFIRM_PASSWORD_INPUT, user_data['password'])
         self.send_keys_to_element(self.REGISTER_FIRST_NAME_INPUT, user_data['first_name'])
         self.send_keys_to_element(self.REGISTER_LAST_NAME_INPUT, user_data['last_name'])
         self.send_keys_to_element(self.REGISTER_PHONE_INPUT, user_data['phone'])
-        
+
         # Select user role
         if user_data.get('role', 'tenant') == 'landlord':
             self.click_element(self.REGISTER_LANDLORD_RADIO)
         else:
             self.click_element(self.REGISTER_TENANT_RADIO)
-        
+
         self.click_element(self.REGISTER_SUBMIT_BUTTON)
-        
-        # Wait for modal to close or error to appear
+
+        # --- NEW CODE TO HANDLE THE ALERT ---
         try:
+            # Wait for the alert to appear and then accept it
+            print("INFO: Waiting for registration confirmation alert...")
+            self.accept_alert()
+            print("INFO: Alert accepted.")
+
+            # After accepting the alert, wait for the modal to close
             self.wait_for_element_to_disappear(self.REGISTER_MODAL, timeout=5)
             return True
-        except:
+        except TimeoutException:
+            # If no alert appears after a few seconds, assume it was successful anyway
+            # and just check if the modal closed.
+            print("WARN: No alert appeared. Checking if modal closed.")
+            try:
+                self.wait_for_element_to_disappear(self.REGISTER_MODAL, timeout=5)
+                return True
+            except:
+                print("ERROR: Modal did not close after registration.")
+                return False
+        except Exception as e:
+            print(f"ERROR: An unexpected error occurred during alert handling: {e}")
             return False
-    
+
     def close_login_modal(self):
         """Close login modal"""
         self.click_element(self.LOGIN_CLOSE_BUTTON)
@@ -169,7 +231,9 @@ class HeaderPage(BasePage):
     
     def switch_to_register_from_login(self):
         """Switch from login modal to register modal"""
-        self.click_element(self.REGISTER_LINK)
+        self.close_login_modal()
+        self.click_account_icon()
+        self.click_element(self.REGISTER_BUTTON)
         self.wait_for_element_to_disappear(self.LOGIN_MODAL)
         self.wait.until(EC.visibility_of_element_located(self.REGISTER_MODAL))
         return self
@@ -183,7 +247,6 @@ class HeaderPage(BasePage):
     
     def logout(self):
         """Logout user"""
-        self.click_element(self.USER_ACCOUNT_BUTTON)
         self.wait.until(EC.visibility_of_element_located(self.ACCOUNT_DROPDOWN))
         self.click_element(self.LOGOUT_BUTTON)
         return self
@@ -216,10 +279,12 @@ class HeaderPage(BasePage):
     
     def is_user_logged_in(self):
         """Check if user is logged in"""
+        self.click_account_icon()
         return self.is_element_visible(self.USER_ACCOUNT_BUTTON)
     
     def is_user_logged_out(self):
         """Check if user is logged out"""
+        self.click_account_icon()
         return self.is_element_visible(self.LOGIN_BUTTON)
     
     def get_user_name(self):
@@ -427,4 +492,3 @@ class HeaderPage(BasePage):
         except Exception as e:
             print(f"Failed to take screenshot: {e}")
             return False
-

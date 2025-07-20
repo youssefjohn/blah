@@ -10,7 +10,7 @@ class UserDashboardPage(BasePage):
     """Page Object Model for tenant dashboard page"""
     
     # Page title and navigation
-    PAGE_TITLE = (By.XPATH, "//h1[contains(text(), 'Tenant Dashboard')]")
+    PAGE_TITLE = (By.XPATH, "//h1[contains(text(), 'My Dashboard')]")
     
     # Profile section
     PROFILE_SECTION = (By.XPATH, "//div[contains(@class, 'profile-section')]")
@@ -31,16 +31,16 @@ class UserDashboardPage(BasePage):
     PROFILE_PICTURE_INPUT = (By.XPATH, "//input[@type='file']")
     
     # Viewing Requests section
-    VIEWING_REQUESTS_SECTION = (By.XPATH, "//div[contains(@class, 'viewing-requests')]")
-    VIEWING_REQUESTS_TITLE = (By.XPATH, "//h3[contains(text(), 'My Viewing Requests')]")
-    VIEWING_REQUEST_CARDS = (By.XPATH, "//div[contains(@class, 'viewing-request-card')]")
+    VIEWING_REQUESTS_SECTION = (By.XPATH, "//h2[normalize-space()='My Viewing Appointments']")
+    VIEWING_REQUESTS_TITLE = (By.XPATH, "//h2[normalize-space()='My Viewing Appointments']")
+    VIEWING_REQUEST_CARDS = (By.XPATH, "//h2[normalize-space()='My Viewing Appointments']/following-sibling::div/div")
     
     # Viewing request card elements
-    REQUEST_PROPERTY_TITLE = (By.XPATH, ".//h4[contains(@class, 'property-title')]")
+    REQUEST_PROPERTY_TITLE = (By.XPATH, "(//h3)[1]")
     REQUEST_PROPERTY_LOCATION = (By.XPATH, ".//span[contains(@class, 'property-location')]")
-    REQUEST_DATE = (By.XPATH, ".//span[contains(@class, 'request-date')]")
-    REQUEST_TIME = (By.XPATH, ".//span[contains(@class, 'request-time')]")
-    REQUEST_STATUS = (By.XPATH, ".//span[contains(@class, 'request-status')]")
+    REQUEST_DATE = (By.XPATH, "(//h3)[1]/following-sibling::div/div/div")
+    REQUEST_TIME = (By.XPATH, "(//h3)[1]/following-sibling::div/div/div/following-sibling::div")
+    REQUEST_STATUS = (By.XPATH, "//div[@class='space-y-4']/div[1]/div[1]/div[2]/span[1]")
     
     # Viewing request actions
     RESCHEDULE_BUTTON = (By.XPATH, ".//button[contains(text(), 'Reschedule')]")
@@ -56,15 +56,15 @@ class UserDashboardPage(BasePage):
     RESCHEDULE_CLOSE_BUTTON = (By.XPATH, "//button[contains(@class, 'close-modal')]")
     
     # Applications section
-    APPLICATIONS_SECTION = (By.XPATH, "//div[contains(@class, 'applications')]")
-    APPLICATIONS_TITLE = (By.XPATH, "//h3[contains(text(), 'My Applications')]")
-    APPLICATION_CARDS = (By.XPATH, "//div[contains(@class, 'application-card')]")
+    APPLICATIONS_SECTION = (By.XPATH, "//h2[contains(text(), 'My Rental Applications')]")
+    APPLICATIONS_TITLE = (By.XPATH, "//h2[contains(text(), 'My Rental Applications')]")
+    APPLICATION_CARDS = (By.XPATH, "//h2[contains(text(), 'My Rental Applications')]/following-sibling::div/div")
     
     # Application card elements
-    APP_PROPERTY_TITLE = (By.XPATH, ".//h4[contains(@class, 'property-title')]")
+    APP_PROPERTY_TITLE = (By.XPATH, "(//h3)[1]")
     APP_PROPERTY_LOCATION = (By.XPATH, ".//span[contains(@class, 'property-location')]")
-    APP_SUBMISSION_DATE = (By.XPATH, ".//span[contains(@class, 'submission-date')]")
-    APP_STATUS = (By.XPATH, ".//span[contains(@class, 'application-status')]")
+    APP_SUBMISSION_DATE = (By.XPATH, "(//h3)[1]/following-sibling::div/span[1]")
+    APP_STATUS = (By.XPATH, "//div[@class='space-y-4']/div/div/div/following-sibling::div//span")
     
     # Favorites section
     FAVORITES_SECTION = (By.XPATH, "//div[contains(@class, 'favorites')]")
@@ -79,8 +79,8 @@ class UserDashboardPage(BasePage):
     VIEW_PROPERTY_BUTTON = (By.XPATH, ".//button[contains(text(), 'View Property')]")
     
     # Empty states
-    NO_VIEWING_REQUESTS = (By.XPATH, "//div[contains(text(), 'No viewing requests')]")
-    NO_APPLICATIONS = (By.XPATH, "//div[contains(text(), 'No applications')]")
+    NO_VIEWING_REQUESTS = (By.XPATH, "//p[normalize-space()='No viewing appointments yet']")
+    NO_APPLICATIONS = (By.XPATH, "//p[contains(text(), 'No applications submitted yet')]")
     NO_FAVORITES = (By.XPATH, "//div[contains(text(), 'No favorites')]")
     
     # Success/Error messages
@@ -158,7 +158,7 @@ class UserDashboardPage(BasePage):
             request = requests[index]
             return {
                 'property_title': request.find_element(*self.REQUEST_PROPERTY_TITLE).text,
-                'property_location': request.find_element(*self.REQUEST_PROPERTY_LOCATION).text,
+                # 'property_location': request.find_element(*self.REQUEST_PROPERTY_LOCATION).text,
                 'date': request.find_element(*self.REQUEST_DATE).text,
                 'time': request.find_element(*self.REQUEST_TIME).text,
                 'status': request.find_element(*self.REQUEST_STATUS).text
@@ -232,7 +232,7 @@ class UserDashboardPage(BasePage):
             application = applications[index]
             return {
                 'property_title': application.find_element(*self.APP_PROPERTY_TITLE).text,
-                'property_location': application.find_element(*self.APP_PROPERTY_LOCATION).text,
+                # 'property_location': application.find_element(*self.APP_PROPERTY_LOCATION).text,
                 'submission_date': application.find_element(*self.APP_SUBMISSION_DATE).text,
                 'status': application.find_element(*self.APP_STATUS).text
             }
