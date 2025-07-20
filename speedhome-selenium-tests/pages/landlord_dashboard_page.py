@@ -14,7 +14,7 @@ class LandlordDashboardPage(BasePage):
     
     # Tab navigation
     MY_PROPERTIES_TAB = (By.XPATH, "//button[contains(text(), 'My Properties')]")
-    VIEWING_REQUESTS_TAB = (By.XPATH, "//button[contains(text(), 'Viewing Requests')]")
+    VIEWING_REQUESTS_TAB = (By.XPATH, "//span[normalize-space()='Viewing Requests']/parent::button")
     APPLICATIONS_TAB = (By.XPATH, "//button[contains(text(), 'Applications')]")
     
     # My Properties section
@@ -22,6 +22,7 @@ class LandlordDashboardPage(BasePage):
     ADD_PROPERTY_BUTTON = (By.XPATH, "//button[contains(text(), 'Add New Property')]")
     PROPERTY_CARDS = (By.XPATH, "//div[contains(@class, 'property-card')]")
     PROPERTY_TABLE_ROWS = (By.XPATH, "//tbody/tr[contains(@class, 'property-row')]")
+    PROPERTY_ROWS_TITLES = (By.XPATH, "//tbody/tr/td/div/div[2]/div[1]")
     
     # Property card/row elements
     PROPERTY_TITLE = (By.XPATH, ".//h4[contains(@class, 'property-title')]")
@@ -64,21 +65,24 @@ class LandlordDashboardPage(BasePage):
     
     # Viewing Requests section
     VIEWING_REQUESTS_SECTION = (By.XPATH, "//div[contains(@class, 'viewing-requests')]")
-    VIEWING_REQUEST_ROWS = (By.XPATH, "//tbody/tr[contains(@class, 'viewing-request-row')]")
+    VIEWING_REQUEST_ROWS = (By.XPATH, "//tbody/tr")
     
     # Viewing request elements
-    REQUEST_PROPERTY_NAME = (By.XPATH, ".//td[1]")
-    REQUEST_TENANT_NAME = (By.XPATH, ".//td[2]")
-    REQUEST_DATE_TIME = (By.XPATH, ".//td[3]")
-    REQUEST_STATUS_CELL = (By.XPATH, ".//td[4]")
+    REQUEST_PROPERTY_NAME = (By.XPATH, "//tbody/tr/td[1]/div[1]")
+    REQUEST_PROPERTY_LOCATION = (By.XPATH, "//tbody/tr/td[1]/div[2]")
+    REQUEST_TENANT_NAME = (By.XPATH, "//tbody/tr/td[2]/div[1]")
+    REQUEST_TENANT_NUMBER = (By.XPATH, "//tbody/tr/td[2]/div[2]")
+    REQUEST_TENANT_EMAIL = (By.XPATH, "//tbody/tr/td[2]/div[3]")
+    REQUEST_DATE_TIME = (By.XPATH, "//tbody/tr/td[3]/div[1]")
+    REQUEST_STATUS_CELL = (By.XPATH, "//tbody/tr/td[4]/span")
     REQUEST_ACTIONS_CELL = (By.XPATH, ".//td[5]")
     
     # Viewing request actions
-    VIEW_DETAILS_BUTTON = (By.XPATH, ".//button[contains(text(), 'View Details')]")
-    CONFIRM_REQUEST_BUTTON = (By.XPATH, ".//button[contains(text(), 'Confirm')]")
-    DECLINE_REQUEST_BUTTON = (By.XPATH, ".//button[contains(text(), 'Decline')]")
-    RESCHEDULE_REQUEST_BUTTON = (By.XPATH, ".//button[contains(text(), 'Reschedule')]")
-    CANCEL_RESCHEDULE_BUTTON = (By.XPATH, ".//button[contains(text(), 'Cancel Request')]")
+    VIEW_DETAILS_BUTTON = (By.XPATH, "//button[contains(text(), 'View Details')]")
+    CONFIRM_REQUEST_BUTTON = (By.XPATH, "//button[normalize-space()='Confirm']")
+    DECLINE_REQUEST_BUTTON = (By.XPATH, "//button[normalize-space()='Decline']")
+    RESCHEDULE_REQUEST_BUTTON = (By.XPATH, "//button[contains(text(), 'Reschedule')]")
+    CANCEL_RESCHEDULE_BUTTON = (By.XPATH, "//button[contains(text(), 'Cancel Request')]")
     
     # Expandable details section
     EXPANDABLE_DETAILS = (By.XPATH, "//tr[contains(@class, 'bg-gray-50')]")
@@ -97,19 +101,20 @@ class LandlordDashboardPage(BasePage):
     
     # Applications section
     APPLICATIONS_SECTION = (By.XPATH, "//div[contains(@class, 'applications')]")
-    APPLICATION_ROWS = (By.XPATH, "//tbody/tr[contains(@class, 'application-row')]")
+    APPLICATION_ROWS = (By.XPATH, "//tbody/tr")
     
     # Application elements
-    APP_PROPERTY_NAME = (By.XPATH, ".//td[1]")
-    APP_TENANT_NAME = (By.XPATH, ".//td[2]")
-    APP_SUBMISSION_DATE = (By.XPATH, ".//td[3]")
-    APP_STATUS_CELL = (By.XPATH, ".//td[4]")
+    APP_PROPERTY_NAME = (By.XPATH, ".//td[1]/div")
+    APP_PROPERTY_LOCATION = (By.XPATH, ".//td[1]/div[2]")
+    APP_TENANT_NAME = (By.XPATH, ".//td[2]/div")
+    APP_SUBMISSION_DATE = (By.XPATH, ".//td[3]/div")
+    APP_STATUS_CELL = (By.XPATH, ".//td[4]/span")
     APP_ACTIONS_CELL = (By.XPATH, ".//td[5]")
     
     # Application actions
-    APPROVE_APPLICATION_BUTTON = (By.XPATH, ".//button[contains(text(), 'Approve')]")
-    REJECT_APPLICATION_BUTTON = (By.XPATH, ".//button[contains(text(), 'Reject')]")
-    VIEW_APPLICATION_BUTTON = (By.XPATH, ".//button[contains(text(), 'View')]")
+    APPROVE_APPLICATION_BUTTON = (By.XPATH, "//button[normalize-space()='Approve']")
+    REJECT_APPLICATION_BUTTON = (By.XPATH, "//button[normalize-space()='Reject']")
+    VIEW_APPLICATION_BUTTON = (By.XPATH, "//button[normalize-space()='View Details']")
     
     # Success/Error messages
     SUCCESS_MESSAGE = (By.XPATH, "//div[contains(@class, 'success-message')]")
@@ -117,7 +122,7 @@ class LandlordDashboardPage(BasePage):
     
     # Empty states
     NO_PROPERTIES_MESSAGE = (By.XPATH, "//div[contains(text(), 'No properties')]")
-    NO_VIEWING_REQUESTS_MESSAGE = (By.XPATH, "//div[contains(text(), 'No viewing requests')]")
+    NO_VIEWING_REQUESTS_MESSAGE = (By.XPATH, "//h3[contains(text(), 'No viewing requests')]")
     NO_APPLICATIONS_MESSAGE = (By.XPATH, "//div[contains(text(), 'No applications')]")
     
     def __init__(self, driver):
@@ -330,6 +335,7 @@ class LandlordDashboardPage(BasePage):
             request = requests[index]
             confirm_btn = request.find_element(*self.CONFIRM_REQUEST_BUTTON)
             confirm_btn.click()
+            self.accept_alert()
             return True
         return False
     
@@ -428,6 +434,7 @@ class LandlordDashboardPage(BasePage):
             application = applications[index]
             approve_btn = application.find_element(*self.APPROVE_APPLICATION_BUTTON)
             approve_btn.click()
+            self.accept_alert()
             return True
         return False
     
@@ -438,6 +445,7 @@ class LandlordDashboardPage(BasePage):
             application = applications[index]
             reject_btn = application.find_element(*self.REJECT_APPLICATION_BUTTON)
             reject_btn.click()
+            self.accept_alert()
             return True
         return False
     
@@ -475,3 +483,33 @@ class LandlordDashboardPage(BasePage):
             return self.get_element_text(self.ERROR_MESSAGE)
         return None
 
+    def get_property_status_by_title(self, property_title: dict):
+        """
+        Finds a property in the dashboard list by its title and returns its status.
+
+        Args:
+            property_title (str): The exact title of the property to find.
+
+        Returns:
+            str: The status text (e.g., "Rented", "Active") if found, otherwise None.
+        """
+        try:
+            # First, get all the rows in the properties table
+            property_rows = self.find_elements((By.XPATH, "//tbody/tr"))
+
+            for row in property_rows:
+                # For each row, find the title element within it
+                # The user-provided XPath is a good starting point for the title's location
+                title_element = row.find_element(*self.PROPERTY_ROWS_TITLES)
+
+                if title_element.text.strip() == property_title:
+                    # If we find the correct property, get the status from the second column
+                    status_element = row.find_element(By.XPATH, ".//td[2]/span")
+                    return status_element.text.strip()
+
+            # If the loop finishes without finding the property
+            return None
+
+        except Exception as e:
+            print(f"ERROR: Could not find property or status for title '{property_title}'. Reason: {e}")
+            return None

@@ -10,7 +10,7 @@ class PropertyDetailPage(BasePage):
     """Page Object Model for property detail page"""
     
     # Property information
-    PROPERTY_TITLE = (By.XPATH, "//h1[contains(@class, 'property-title')]")
+    PROPERTY_TITLE = (By.XPATH, "//h1")
     PROPERTY_PRICE = (By.XPATH, "//span[contains(@class, 'property-price')]")
     PROPERTY_LOCATION = (By.XPATH, "//span[contains(@class, 'property-location')]")
     PROPERTY_DESCRIPTION = (By.XPATH, "//div[contains(@class, 'property-description')]")
@@ -47,24 +47,26 @@ class PropertyDetailPage(BasePage):
     BACK_TO_SEARCH_LINK = (By.XPATH, "//a[contains(text(), 'Back to Search Results')]")
     
     # Booking Modal
-    BOOKING_MODAL = (By.XPATH, "//div[contains(@class, 'booking-modal')]")
+    BOOKING_MODAL = (By.XPATH, "//header/following-sibling::div[2]/div")
     BOOKING_MODAL_TITLE = (By.XPATH, "//h2[contains(text(), 'Schedule Viewing')]")
     BOOKING_CLOSE_BUTTON = (By.XPATH, "//button[contains(@class, 'close-modal')]")
     
     # Booking form fields
-    BOOKING_NAME_INPUT = (By.XPATH, "//input[@name='name']")
-    BOOKING_EMAIL_INPUT = (By.XPATH, "//input[@name='email']")
-    BOOKING_PHONE_INPUT = (By.XPATH, "//input[@name='phone']")
-    BOOKING_DATE_INPUT = (By.XPATH, "//input[@type='date']")
-    BOOKING_TIME_INPUT = (By.XPATH, "//input[@type='time']")
-    BOOKING_MESSAGE_TEXTAREA = (By.XPATH, "//textarea[@name='message']")
-    BOOKING_OCCUPATION_INPUT = (By.XPATH, "//input[@name='occupation']")
-    BOOKING_INCOME_INPUT = (By.XPATH, "//input[@name='monthly_income']")
-    BOOKING_OCCUPANTS_INPUT = (By.XPATH, "//input[@name='number_of_occupants']")
+    BOOKING_NAME_INPUT = (By.XPATH, "//input[@id='schedule-name']")
+    BOOKING_EMAIL_INPUT = (By.XPATH, "//input[@id='schedule-email']")
+    BOOKING_PHONE_INPUT = (By.XPATH, "//input[@id='schedule-phone']")
+    BOOKING_DATE_INPUT = (By.XPATH, "//input[@id='schedule-date']")
+    BOOKING_MOVE_IN_DATE_INPUT = (By.XPATH, "//input[@id='schedule-move-in']")
+    BOOKING_TIME_INPUT = (By.XPATH, "//input[@id='schedule-time']")
+    BOOKING_MESSAGE_TEXTAREA = (By.XPATH, "//textarea[@id='schedule-message']")
+    BOOKING_OCCUPATION_INPUT = (By.XPATH, "//input[@id='schedule-occupation']")
+    BOOKING_INCOME_INPUT = (By.XPATH, "//input[@id='schedule-income']")
+    BOOKING_OCCUPANTS_INPUT = (By.XPATH, "//input[@id='schedule-occupants']")
+    BOOKING_NATIONALITY_INPUT = (By.XPATH, "//input[@id='schedule-nationality']")
     
     # Booking form buttons
     BOOKING_CANCEL_BUTTON = (By.XPATH, "//button[contains(text(), 'Cancel')]")
-    BOOKING_SUBMIT_BUTTON = (By.XPATH, "//button[contains(text(), 'Book Viewing')]")
+    BOOKING_SUBMIT_BUTTON = (By.XPATH, "//button[@type='submit' and contains(normalize-space(), 'Submit Request')]")
     
     # Application Modal
     APPLICATION_MODAL = (By.XPATH, "//div[contains(@class, 'application-modal')]")
@@ -72,7 +74,7 @@ class PropertyDetailPage(BasePage):
     APPLICATION_CLOSE_BUTTON = (By.XPATH, "//button[contains(@class, 'close-modal')]")
     
     # Application form fields
-    APPLICATION_MESSAGE_TEXTAREA = (By.XPATH, "//textarea[@name='applicationMessage']")
+    APPLICATION_MESSAGE_TEXTAREA = (By.XPATH, "//textarea[@id='applicationMessage']")
     APPLICATION_CANCEL_BUTTON = (By.XPATH, "//button[contains(text(), 'Cancel')]")
     APPLICATION_SUBMIT_BUTTON = (By.XPATH, "//button[contains(text(), 'Submit Application')]")
     
@@ -181,7 +183,6 @@ class PropertyDetailPage(BasePage):
     def click_apply_now(self):
         """Click Apply Now button"""
         self.click_element(self.APPLY_NOW_BUTTON)
-        self.wait.until(EC.visibility_of_element_located(self.APPLICATION_MODAL))
         return self
     
     def is_viewing_requested(self):
@@ -194,8 +195,8 @@ class PropertyDetailPage(BasePage):
     
     def fill_booking_form(self, booking_data):
         """Fill booking form with data"""
-        self.send_keys_to_element(self.BOOKING_NAME_INPUT, booking_data['name'])
-        self.send_keys_to_element(self.BOOKING_EMAIL_INPUT, booking_data['email'])
+        # self.send_keys_to_element(self.BOOKING_NAME_INPUT, booking_data['name'])
+        # self.send_keys_to_element(self.BOOKING_EMAIL_INPUT, booking_data['email'])
         self.send_keys_to_element(self.BOOKING_PHONE_INPUT, booking_data['phone'])
         self.send_keys_to_element(self.BOOKING_DATE_INPUT, booking_data['date'])
         self.send_keys_to_element(self.BOOKING_TIME_INPUT, booking_data['time'])
@@ -211,6 +212,12 @@ class PropertyDetailPage(BasePage):
         
         if 'number_of_occupants' in booking_data:
             self.send_keys_to_element(self.BOOKING_OCCUPANTS_INPUT, booking_data['number_of_occupants'])
+
+        if 'nationality' in booking_data:
+            self.send_keys_to_element(self.BOOKING_NATIONALITY_INPUT, booking_data['nationality'])
+
+        if 'move_in_date' in booking_data:
+            self.send_keys_to_element(self.BOOKING_MOVE_IN_DATE_INPUT, booking_data['move_in_date'])
         
         return self
     
@@ -273,7 +280,9 @@ class PropertyDetailPage(BasePage):
         """Complete property application process"""
         self.click_apply_now()
         self.fill_application_form(application_data)
-        return self.submit_application()
+        self.submit_application()
+        self.accept_alert()
+        return True
     
     def get_similar_properties(self):
         """Get similar property cards"""

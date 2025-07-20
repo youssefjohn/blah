@@ -1,9 +1,11 @@
 """
 Pytest configuration file for SpeedHome Selenium tests (Corrected Version)
 """
+import sys
+
 import pytest
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from utils.driver_factory import DriverFactory
 from config.test_config import TestConfig
 import pytest_html
@@ -56,6 +58,93 @@ def base_url(request):
 def timeout(request):
     """Timeout fixture for session scope"""
     return int(request.config.getoption("--timeout"))
+
+@pytest.fixture(scope="session")
+def seed_database():
+    """
+    A session-scoped, autouse fixture that clears and seeds the database
+    with test data before any tests are run.
+    """
+    print("\n--- [Fixture] Starting database seed ---")
+
+    # Add backend project to the Python path to allow imports
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
+    backend_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'speedhome-backend'))
+    if backend_path not in sys.path:
+        sys.path.insert(0, backend_path)
+
+    # Import all necessary components from your Flask app
+    from src.main import app, db
+    from src.models.user import User
+    from src.models.property import Property
+    from src.models.booking import Booking
+    from src.models.application import Application
+    from config.test_config import TestConfig
+
+    # Use the app context to interact with the database
+    with app.app_context():
+        # 1. Clear existing data
+        print("[Fixture] Clearing old data...")
+        db.session.query(Application).delete()
+        db.session.query(Booking).delete()
+        db.session.query(Property).delete()
+        db.session.query(User).delete()
+        db.session.commit()
+
+        # 2. Create the standard test landlord
+        print(f"[Fixture] Creating landlord: {TestConfig.LANDLORD_EMAIL}")
+        landlord = User(username='testlandlord', email=TestConfig.LANDLORD_EMAIL, first_name='Test',
+                        last_name='Landlord', role='landlord', is_verified=True)
+        landlord.set_password(TestConfig.LANDLORD_PASSWORD)
+        db.session.add(landlord)
+
+        # 3. Create the standard test tenant
+        print(f"[Fixture] Creating tenant: {TestConfig.TENANT_EMAIL}")
+        tenant = User(username='testtenant', email=TestConfig.TENANT_EMAIL, first_name='Test', last_name='Tenant',
+                      role='tenant', is_verified=True)
+        tenant.set_password(TestConfig.TENANT_PASSWORD)
+        db.session.add(tenant)
+        db.session.commit()
+        print("[Fixture] Users created successfully.")
+
+        # 4. Create properties for the landlord
+        print("[Fixture] Creating properties...")
+        property1 = Property(title="Modern Condo in KL City", location="Kuala Lumpur", price=2500, sqft=1100,
+                             bedrooms=3, bathrooms=2, parking=2, property_type="Condominium",
+                             furnished="Fully Furnished", description="A beautiful condo.", owner_id=landlord.id,
+                             status="Active")
+        property2 = Property(title="Cozy Apartment in Petaling Jaya", location="Petaling Jaya", price=1800, sqft=850,
+                             bedrooms=2, bathrooms=2, parking=1, property_type="Apartment",
+                             furnished="Partially Furnished", description="A great place.", owner_id=landlord.id,
+                             status="Active")
+        db.session.add_all([property1, property2])
+        db.session.commit()
+        print(f"[Fixture] Created {Property.query.count()} properties.")
+
+        # 5. Inject a pre-confirmed viewing request
+        print("[Fixture] Injecting a confirmed viewing request...")
+        confirmed_booking = Booking(
+            user_id=tenant.id,
+            property_id=property1.id,
+            name=tenant.get_full_name(),
+            email=tenant.email,
+            phone="0123456789",
+            appointment_date=datetime.now().date() + timedelta(days=7),
+            appointment_time=datetime.strptime("11:00", "%H:%M").time(),
+            status='confirmed',
+            is_seen_by_landlord=True
+        )
+        db.session.add(confirmed_booking)
+        db.session.commit()
+        print("✅ [Fixture] Confirmed viewing request created.")
+
+        print("--- [Fixture] Database seeding complete! ---")
+
+    # The setup is now complete. Pytest will now proceed to run the tests.
+    yield
+    # No cleanup is needed here, as the seeder will clear the DB on the next run.
 
 # This is the most important fixture. It runs for every single test function.
 @pytest.fixture(scope="function")

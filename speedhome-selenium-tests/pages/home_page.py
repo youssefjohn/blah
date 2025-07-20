@@ -25,7 +25,7 @@ class HomePage(BasePage):
     LIST_VIEW_BUTTON = (By.XPATH, "//button[contains(@class, 'list-view')]")
     
     # Property cards
-    PROPERTY_CARDS = (By.XPATH, "//div[contains(@class, 'property-card')]")
+    PROPERTY_CARDS = (By.XPATH, "//a[starts-with(@href, '/property/')]")
     PROPERTY_TITLE = (By.XPATH, ".//h3[contains(@class, 'property-title')]")
     PROPERTY_PRICE = (By.XPATH, ".//span[contains(@class, 'property-price')]")
     PROPERTY_LOCATION = (By.XPATH, ".//span[contains(@class, 'property-location')]")
