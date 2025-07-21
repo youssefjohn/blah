@@ -13,6 +13,7 @@ from src.models.property import Property
 from src.models.booking import Booking
 from src.models.application import Application
 from src.models.notification import Notification
+from src.models.viewing_slot import ViewingSlot
 
 from src.routes.property import property_bp
 from src.routes.auth import auth_bp

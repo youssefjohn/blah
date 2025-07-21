@@ -62,8 +62,9 @@ class Property(db.Model):
     date_added = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     date_updated = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    # Add cascade="all, delete-orphan" to the end
+    # Relationships
     bookings = db.relationship('Booking', backref='property', lazy=True, cascade="all, delete-orphan")
+    viewing_slots = db.relationship('ViewingSlot', back_populates='property', lazy=True, cascade="all, delete-orphan")
     
     def __repr__(self):
         return f'<Property {self.title}>'

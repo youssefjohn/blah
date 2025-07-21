@@ -1,5 +1,7 @@
 from flask import Blueprint, request, jsonify, session
 from src.models.property import db, Property
+from src.models.viewing_slot import ViewingSlot
+from datetime import datetime, date, time, timedelta
 import json
 
 property_bp = Blueprint('property', __name__)
@@ -478,5 +480,170 @@ def get_properties_for_favorites():
         return jsonify({
             'success': False,
             'error': str(e)
+        }), 500
+
+
+
+@property_bp.route('/properties/<int:property_id>/recurring-availability', methods=['POST'])
+def add_recurring_availability(property_id):
+    """Add recurring availability for a property"""
+    try:
+        # Check if user is logged in
+        if 'user_id' not in session:
+            return jsonify({
+                'success': False,
+                'error': 'Authentication required'
+            }), 401
+        
+        # Get the property and verify ownership
+        property_obj = Property.query.get(property_id)
+        if not property_obj:
+            return jsonify({
+                'success': False,
+                'error': 'Property not found'
+            }), 404
+        
+        # Verify the user owns this property
+        if property_obj.owner_id != session['user_id']:
+            return jsonify({
+                'success': False,
+                'error': 'You can only set availability for your own properties'
+            }), 403
+        
+        # Get the request data
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': 'No data provided'
+            }), 400
+        
+        # Validate required fields
+        required_fields = ['start_date', 'end_date', 'schedule']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({
+                    'success': False,
+                    'error': f'Missing required field: {field}'
+                }), 400
+        
+        # Parse dates
+        try:
+            start_date = datetime.strptime(data['start_date'], '%Y-%m-%d').date()
+            end_date = datetime.strptime(data['end_date'], '%Y-%m-%d').date()
+        except ValueError as e:
+            return jsonify({
+                'success': False,
+                'error': f'Invalid date format: {str(e)}'
+            }), 400
+        
+        # Validate date range
+        if end_date <= start_date:
+            return jsonify({
+                'success': False,
+                'error': 'End date must be after start date'
+            }), 400
+        
+        # Validate schedule data
+        schedule = data['schedule']
+        if not isinstance(schedule, dict) or not schedule:
+            return jsonify({
+                'success': False,
+                'error': 'Schedule must be a non-empty object'
+            }), 400
+        
+        # Day name to weekday number mapping
+        day_mapping = {
+            'monday': 0,
+            'tuesday': 1,
+            'wednesday': 2,
+            'thursday': 3,
+            'friday': 4,
+            'saturday': 5,
+            'sunday': 6
+        }
+        
+        slots_created = 0
+        
+        # Iterate through each date in the range
+        current_date = start_date
+        while current_date <= end_date:
+            # Get the day of the week
+            weekday = current_date.weekday()
+            
+            # Check if this day is in the schedule
+            for day_name, day_config in schedule.items():
+                if day_name.lower() in day_mapping and day_mapping[day_name.lower()] == weekday:
+                    # Parse the time range
+                    try:
+                        from_time = datetime.strptime(day_config['from'], '%H:%M').time()
+                        to_time = datetime.strptime(day_config['to'], '%H:%M').time()
+                    except (ValueError, KeyError) as e:
+                        return jsonify({
+                            'success': False,
+                            'error': f'Invalid time format for {day_name}: {str(e)}'
+                        }), 400
+                    
+                    # Validate time range
+                    if to_time <= from_time:
+                        return jsonify({
+                            'success': False,
+                            'error': f'End time must be after start time for {day_name}'
+                        }), 400
+                    
+                    # Create 30-minute slots for this day
+                    current_time = from_time
+                    while current_time < to_time:
+                        # Calculate end time for this slot (30 minutes later)
+                        end_slot_time = (datetime.combine(date.today(), current_time) + timedelta(minutes=30)).time()
+                        
+                        # Don't create slot if it would exceed the day's end time
+                        if end_slot_time > to_time:
+                            break
+                        
+                        # Check if this slot already exists
+                        existing_slot = ViewingSlot.query.filter_by(
+                            property_id=property_id,
+                            date=current_date,
+                            start_time=current_time,
+                            end_time=end_slot_time
+                        ).first()
+                        
+                        # Only create if it doesn't exist
+                        if not existing_slot:
+                            new_slot = ViewingSlot(
+                                property_id=property_id,
+                                date=current_date,
+                                start_time=current_time,
+                                end_time=end_slot_time,
+                                is_available=True
+                            )
+                            db.session.add(new_slot)
+                            slots_created += 1
+                        
+                        # Move to next 30-minute slot
+                        current_time = end_slot_time
+            
+            # Move to next date
+            current_date += timedelta(days=1)
+        
+        # Commit all the new slots
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Successfully created {slots_created} viewing slots',
+            'slots_created': slots_created,
+            'date_range': {
+                'start_date': start_date.isoformat(),
+                'end_date': end_date.isoformat()
+            }
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': f'An error occurred: {str(e)}'
         }), 500
 
