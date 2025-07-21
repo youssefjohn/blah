@@ -6,6 +6,7 @@ import BookingAPI from '../services/BookingAPI';
 import { formatDate, formatTime, formatDateTime } from '../utils/dateUtils';
 import ApplicationAPI from '../services/ApplicationAPI';
 import ProfileAPI from '../services/ProfileAPI';
+import RecurringAvailabilityManager from '../components/RecurringAvailabilityManager';
 
 
 const LandlordDashboard = ({ onAddProperty }) => {
@@ -24,6 +25,10 @@ const LandlordDashboard = ({ onAddProperty }) => {
     newDate: '',
     newTime: ''
   });
+
+  // --- NEW: State for the Availability Manager Modal ---
+  const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
+  const [selectedPropertyForAvailability, setSelectedPropertyForAvailability] = useState(null);
 
 // START REPLACING HERE
 const [profileData, setProfileData] = useState({
@@ -735,6 +740,24 @@ const handleApplicationResponse = async (applicationId, response) => {
     }
   };
 
+  // Handle opening availability manager modal
+  const handleManageAvailability = (property) => {
+    setSelectedPropertyForAvailability(property);
+    setShowAvailabilityModal(true);
+  };
+
+  // Handle closing availability manager modal
+  const handleCloseAvailabilityModal = () => {
+    setShowAvailabilityModal(false);
+    setSelectedPropertyForAvailability(null);
+  };
+
+  // Handle successful availability setting
+  const handleAvailabilitySuccess = (result) => {
+    alert(`Availability set successfully! Created ${result.slots_created || 0} viewing slots.`);
+    // Optionally refresh properties or show success message
+  };
+
   // Handle form input changes
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -1068,6 +1091,12 @@ const handleApplicationResponse = async (applicationId, response) => {
           className="text-blue-600 hover:text-blue-900 px-2 py-1 rounded hover:bg-blue-50 transition-colors"
         >
           Edit
+        </button>
+        <button
+          onClick={() => handleManageAvailability(property)}
+          className="text-green-600 hover:text-green-900 px-2 py-1 rounded hover:bg-green-50 transition-colors"
+        >
+          Availability
         </button>
         <button
           onClick={() => handleDeleteProperty(property.id)}
@@ -2945,6 +2974,15 @@ const handleApplicationResponse = async (applicationId, response) => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Recurring Availability Manager Modal */}
+      {showAvailabilityModal && selectedPropertyForAvailability && (
+        <RecurringAvailabilityManager
+          propertyId={selectedPropertyForAvailability.id}
+          onClose={handleCloseAvailabilityModal}
+          onSuccess={handleAvailabilitySuccess}
+        />
       )}
       </div>
     </div>

@@ -281,6 +281,31 @@ class PropertyAPI {
       throw error;
     }
   }
+
+  // Add recurring availability for a property
+  static async addRecurringAvailability(propertyId, scheduleData) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/properties/${propertyId}/recurring-availability`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Include cookies for session authentication
+        body: JSON.stringify(scheduleData)
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error adding recurring availability:', error);
+      throw error;
+    }
+  }
 }
 
 export default PropertyAPI;
