@@ -57,7 +57,7 @@ class Property(db.Model):
     tags = db.Column(db.Text, nullable=True)  # JSON array of tags
     
     # Ownership and timestamps
-    owner_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)  # Foreign key to User
+    owner_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)  # Foreign key to User
     landlord_id = db.Column(db.String(100), nullable=True)  # Legacy field for backward compatibility
     date_added = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     date_updated = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)

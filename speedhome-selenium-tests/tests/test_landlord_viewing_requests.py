@@ -187,7 +187,7 @@ class TestLandlordViewingRequests(BaseTest):
         
         if reschedule_request_index is not None:
             # Cancel the reschedule
-            success = self.landlord_dashboard_page.cancel_reschedule_request(reschedule_request_index)
+            success = self.landlord_dashboard_page.decline_reschedule_request(reschedule_request_index)
             
             if success:
                 # Wait for update

@@ -47,6 +47,14 @@ class DriverFactory:
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--disable-gpu")
         options.add_argument(f"--window-size={TestConfig.WINDOW_SIZE}")
+        
+        # Additional options to prevent conflicts
+        options.add_argument("--disable-extensions")
+        options.add_argument("--disable-plugins")
+        options.add_argument("--disable-images")
+        options.add_argument("--remote-debugging-port=0")  # Use random port
+        options.add_argument("--disable-web-security")
+        options.add_argument("--disable-features=VizDisplayCompositor")
 
         # By NOT passing a service object, Selenium will automatically use its
         # own Selenium Manager to download and manage the correct chromedriver.

@@ -390,29 +390,33 @@ def reschedule_booking(booking_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
-    
+
+
 @booking_bp.route('/bookings/<int:booking_id>/decline-reschedule', methods=['POST'])
 def decline_reschedule(booking_id):
     """Decline a reschedule request and revert to original date/time"""
     try:
         if 'user_id' not in session:
             return jsonify({'success': False, 'error': 'Authentication required'}), 401
-        
+
         booking = Booking.query.get(booking_id)
         if not booking:
             return jsonify({'success': False, 'error': 'Booking not found'}), 404
-        
+
         property_obj = Property.query.get(booking.property_id)
         user_id = session['user_id']
-        
-        if property_obj.owner_id != user_id:
+
+        # --- THIS IS THE CORRECTED LOGIC ---
+        # The user is authorized if they are EITHER the property owner (landlord)
+        # OR the user who made the booking (tenant).
+        if property_obj.owner_id != user_id and booking.user_id != user_id:
             return jsonify({'success': False, 'error': 'Unauthorized access'}), 403
-        
+
         # Revert to original date/time if available
         if booking.original_date and booking.original_time:
             booking.appointment_date = booking.original_date
             booking.appointment_time = booking.original_time
-        
+
         # Clear reschedule fields and set status back to confirmed
         booking.proposed_date = None
         booking.proposed_time = None
@@ -422,22 +426,31 @@ def decline_reschedule(booking_id):
         booking.status = 'confirmed'
         booking.updated_at = datetime.utcnow()
 
-        # Notify the tenant that their request was declined
-        tenant_notification = Notification(
-            recipient_id=booking.user_id,
-            message=f"Your reschedule request for '{property_obj.title}' was declined. The original appointment is still active.",
-            link="/dashboard"
+        # Notify the other party that their request was declined
+        # If the tenant declined, notify the landlord.
+        if user_id == booking.user_id:
+            recipient_id = property_obj.owner_id
+            message = f"The tenant has declined your reschedule proposal for '{property_obj.title}'. The original appointment is still active."
+        # If the landlord declined, notify the tenant.
+        else:
+            recipient_id = booking.user_id
+            message = f"Your reschedule request for '{property_obj.title}' was declined. The original appointment is still active."
+
+        notification = Notification(
+            recipient_id=recipient_id,
+            message=message,
+            link="/dashboard"  # or /landlord depending on recipient
         )
-        db.session.add(tenant_notification)
-        
+        db.session.add(notification)
+
         db.session.commit()
-        
+
         return jsonify({
             'success': True,
             'message': 'Reschedule request declined successfully',
             'booking': booking.to_dict()
         })
-        
+
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
