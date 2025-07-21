@@ -42,7 +42,7 @@ class PropertyDetailPage(BasePage):
     SCHEDULE_VIEWING_BUTTON = (By.XPATH, "//button[contains(text(), 'Schedule Viewing')]")
     VIEWING_REQUESTED_BUTTON = (By.XPATH, "//button[contains(text(), '✓ Viewing Requested')]")
     APPLY_NOW_BUTTON = (By.XPATH, "//button[contains(text(), 'Apply Now')]")
-    APPLIED_BUTTON = (By.XPATH, "//button[contains(text(), '✓ You have applied')]")
+    APPLIED_BUTTON = (By.XPATH, "//div[contains(text(), '✓ You have applied')]")
     FAVORITE_BUTTON = (By.XPATH, "//button[contains(@class, 'favorite-btn')]")
     BACK_TO_SEARCH_LINK = (By.XPATH, "//a[contains(text(), 'Back to Search Results')]")
     

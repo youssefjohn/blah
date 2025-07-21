@@ -17,7 +17,13 @@ const LandlordDashboard = ({ onAddProperty }) => {
   const [editingProperty, setEditingProperty] = useState(null);
   const [expandedRequestId, setExpandedRequestId] = useState(null);
 
-
+// --- NEW: State for the Reschedule Modal ---
+  const [showRescheduleModal, setShowRescheduleModal] = useState(false);
+  const [rescheduleData, setRescheduleData] = useState({
+    bookingId: null,
+    newDate: '',
+    newTime: ''
+  });
 
 // START REPLACING HERE
 const [profileData, setProfileData] = useState({
@@ -326,6 +332,39 @@ const handleStatusChange = async (propertyId, newStatus) => {
     } catch (error) {
       console.error('Error updating viewing request:', error);
       alert('An error occurred while updating the viewing request');
+    }
+  };
+
+  // --- NEW: Function to open the reschedule modal ---
+  const openRescheduleModal = (bookingId) => {
+    setRescheduleData({ bookingId, newDate: '', newTime: '' });
+    setShowRescheduleModal(true);
+  };
+
+  // --- NEW: Handler for submitting the reschedule request from the modal ---
+  const handleRescheduleSubmit = async (e) => {
+    e.preventDefault();
+    const { bookingId, newDate, newTime } = rescheduleData;
+    if (!newDate || !newTime) {
+      alert('Please select a new date and time.');
+      return;
+    }
+    try {
+      const result = await BookingAPI.rescheduleBooking(bookingId, {
+        date: newDate,
+        time: newTime,
+        requested_by: 'landlord',
+      });
+      if (result.success) {
+        // CORRECT ORDER: Close modal first, then alert, then refresh data.
+        setShowRescheduleModal(false);
+        alert('Reschedule request sent successfully!');
+        await loadViewingRequests();
+      } else {
+        alert(`Failed to send reschedule request: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error sending reschedule request:', error);
     }
   };
 
@@ -1213,6 +1252,7 @@ const handleApplicationResponse = async (applicationId, response) => {
                                                     'approved'
                                                   );
                                                 }}
+                                                id="confirmButton"
                                                 className="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded-md text-xs"
                                               >
                                                 Confirm
@@ -1225,6 +1265,7 @@ const handleApplicationResponse = async (applicationId, response) => {
                                                     'declined'
                                                   );
                                                 }}
+                                                id="declineButton"
                                                 className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded-md text-xs"
                                               >
                                                 Decline
@@ -1239,8 +1280,9 @@ const handleApplicationResponse = async (applicationId, response) => {
                                             <button
                                               onClick={(e) => {
                                                 e.stopPropagation();
-                                                handleRescheduleRequest(request.id);
+                                                openRescheduleModal(request.id);
                                               }}
+                                              id="rescheduleButton"
                                               className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded-md text-xs"
                                             >
                                               Reschedule
@@ -1284,6 +1326,7 @@ const handleApplicationResponse = async (applicationId, response) => {
                                                         'approved'
                                                       );
                                                     }}
+                                                    id="acceptButton"
                                                     className="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded-md text-xs"
                                                   >
                                                     Accept
@@ -1296,6 +1339,7 @@ const handleApplicationResponse = async (applicationId, response) => {
                                                         'declined'
                                                       );
                                                     }}
+                                                    id="declineButton"
                                                     className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded-md text-xs"
                                                   >
                                                     Decline
@@ -1504,6 +1548,7 @@ const handleApplicationResponse = async (applicationId, response) => {
                                             'approved'
                                           )
                                         }
+                                        id="approveButton"
                                         className="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded-md text-xs"
                                       >
                                         Approve
@@ -1515,6 +1560,7 @@ const handleApplicationResponse = async (applicationId, response) => {
                                             'rejected'
                                           )
                                         }
+                                        id="rejectButton"
                                         className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded-md text-xs"
                                       >
                                         Reject
@@ -2859,6 +2905,47 @@ const handleApplicationResponse = async (applicationId, response) => {
     </div>
   </div>
 )}
+
+{showRescheduleModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-md w-full shadow-2xl">
+            <div id="rescheduleModal" className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">Propose New Time</h2>
+                <button id="closeButton" onClick={() => setShowRescheduleModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">×</button>
+              </div>
+              <form onSubmit={handleRescheduleSubmit} className="space-y-4">
+                <div>
+                  <label htmlFor="newDate" className="block text-sm font-medium text-gray-700 mb-1">New Proposed Date</label>
+                  <input
+                    type="date"
+                    id="newDate"
+                    value={rescheduleData.newDate}
+                    onChange={(e) => setRescheduleData(prev => ({ ...prev, newDate: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="newTime" className="block text-sm font-medium text-gray-700 mb-1">New Proposed Time</label>
+                  <input
+                    type="time"
+                    id="newTime"
+                    value={rescheduleData.newTime}
+                    onChange={(e) => setRescheduleData(prev => ({ ...prev, newTime: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                    required
+                  />
+                </div>
+                <div className="flex gap-3 pt-4">
+                  <button id="cancelButton" type="button" onClick={() => setShowRescheduleModal(false)} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">Cancel</button>
+                  <button id="submitButton" type="submit" className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold">Send Proposal</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
       </div>
     </div>
   );

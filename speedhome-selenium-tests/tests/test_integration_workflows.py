@@ -204,63 +204,161 @@ class TestIntegrationWorkflows(BaseTest):
             # Should not find the inactive property
             search_count = self.home_page.get_property_count()
             # Note: This depends on implementation of status filtering
-    
-    def test_reschedule_workflow_both_sides(self):
+
+    def test_reschedule_workflow_both_sides(self, seed_database):
         """Test reschedule workflow initiated by both tenant and landlord"""
-        
-        # Setup: Ensure there's a confirmed viewing request
+
+        # This test uses the seed_database fixture to ensure we have confirmed viewing requests
+
+        # === PART 1: TENANT-INITIATED RESCHEDULE ===
+        print("\n=== TESTING TENANT-INITIATED RESCHEDULE ===")
+
+        # Step 1: Login as tenant and check for confirmed viewing requests
         self.header_page.login(TestConfig.TENANT_EMAIL, TestConfig.TENANT_PASSWORD)
-        # self.header_page.login(TestConfig.LANDLORD_EMAIL, TestConfig.LANDLORD_PASSWORD)
+        assert self.header_page.is_user_logged_in(), "Tenant should be logged in"
+
         # Navigate to tenant dashboard
         self.header_page.click_tenant_button()
         self.user_dashboard_page.wait_for_dashboard_to_load()
         self.user_dashboard_page.scroll_to_viewing_requests()
-        
+
         if not self.user_dashboard_page.has_viewing_requests():
             pytest.skip("No viewing requests available for reschedule test")
-        
-        # Test 1: Tenant-initiated reschedule
+
+        # Step 2: Get original request details and initiate reschedule
         original_request = self.user_dashboard_page.get_viewing_request_details(0)
-        
+        print(f"Original request status: {original_request['status']}")
+
         if 'Confirmed' in original_request['status']:
-            # Generate new date/time
-            new_date = (datetime.now() + timedelta(days=4)).strftime('%Y-%m-%d')
-            new_time = '14:30'
-            
+            # Generate new date/time for reschedule
+            new_date = (datetime.now() + timedelta(days=4)).strftime('%d-%m-%Y')
+            new_time = '14-30'
+
+            print(f"Tenant requesting reschedule to {new_date} at {new_time}")
+
             # Reschedule from tenant side
             success = self.user_dashboard_page.reschedule_viewing_request(0, new_date, new_time)
-            
+
             if success:
                 time.sleep(2)
-                
-                # Verify status changed
+
+                # Step 3: Verify status changed on tenant side
                 updated_request = self.user_dashboard_page.get_viewing_request_details(0)
+                print(f"Updated tenant status: {updated_request['status']}")
                 assert 'Reschedule' in updated_request['status'], \
                     "Status should indicate reschedule requested"
-                
-                # Check landlord side
+
+                # Step 4: Check landlord side sees the reschedule request
+                self.header_page.click_account_icon()
                 self.header_page.logout()
+                time.sleep(2)
                 self.header_page.login(TestConfig.LANDLORD_EMAIL, TestConfig.LANDLORD_PASSWORD)
+                assert self.header_page.is_user_logged_in(), "Landlord should be logged in"
+
                 self.header_page.click_landlord_button()
                 self.landlord_dashboard_page.wait_for_dashboard_to_load()
                 self.landlord_dashboard_page.click_viewing_requests_tab()
-                
+                time.sleep(1)
                 if self.landlord_dashboard_page.has_viewing_requests():
                     landlord_request = self.landlord_dashboard_page.get_viewing_request_details(0)
-                    assert 'Reschedule' in landlord_request['status'], \
+                    print(f"Landlord sees status: {landlord_request['status']}")
+                    assert 'pending' in landlord_request['status'], \
                         "Landlord should see reschedule request"
-                    
-                    # Landlord can approve or propose different time
-                    # For this test, we'll cancel the reschedule
-                    cancel_success = self.landlord_dashboard_page.cancel_reschedule_request(0)
-                    
+
+                    # Step 5: Landlord cancels the reschedule request
+                    print("Landlord canceling reschedule request...")
+                    cancel_success = self.landlord_dashboard_page.decline_reschedule_request(0)
+
                     if cancel_success:
                         time.sleep(2)
-                        
-                        # Verify status reverted
+
+                        # Verify status reverted on landlord side
                         reverted_request = self.landlord_dashboard_page.get_viewing_request_details(0)
+                        print(f"Reverted landlord status: {reverted_request['status']}")
                         assert 'Reschedule' not in reverted_request['status'], \
                             "Status should revert after cancel"
+
+                        # Step 6: Verify tenant also sees the reverted status
+                        self.header_page.click_account_icon()
+                        self.header_page.logout()
+                        time.sleep(2)
+                        self.header_page.login(TestConfig.TENANT_EMAIL, TestConfig.TENANT_PASSWORD)
+
+                        self.header_page.click_tenant_button()
+                        self.user_dashboard_page.wait_for_dashboard_to_load()
+                        self.user_dashboard_page.scroll_to_viewing_requests()
+
+                        final_tenant_request = self.user_dashboard_page.get_viewing_request_details(0)
+                        print(f"Final tenant status: {final_tenant_request['status']}")
+                        assert 'Reschedule' not in final_tenant_request['status'], \
+                            "Tenant should see reverted status"
+
+        # === PART 2: LANDLORD-INITIATED RESCHEDULE ===
+        print("\n=== TESTING LANDLORD-INITIATED RESCHEDULE ===")
+
+        # Step 7: Switch to landlord and initiate reschedule
+        self.header_page.click_account_icon()
+        self.header_page.logout()
+        time.sleep(2)
+        self.header_page.login(TestConfig.LANDLORD_EMAIL, TestConfig.LANDLORD_PASSWORD)
+
+        self.header_page.click_landlord_button()
+        self.landlord_dashboard_page.wait_for_dashboard_to_load()
+        self.landlord_dashboard_page.click_viewing_requests_tab()
+
+        if self.landlord_dashboard_page.has_viewing_requests():
+            current_request = self.landlord_dashboard_page.get_viewing_request_details(0)
+            print(f"Current landlord request status: {current_request['status']}")
+
+            if 'confirmed' in current_request['status']:
+                # Generate new date/time for landlord reschedule
+                landlord_new_date = (datetime.now() + timedelta(days=6)).strftime('%d-%m-%Y')
+                landlord_new_time = '16:00'
+
+                print(f"Landlord proposing reschedule to {landlord_new_date} at {landlord_new_time}")
+
+                # Landlord initiates reschedule
+                reschedule_success = self.landlord_dashboard_page.reschedule_viewing_request(0, landlord_new_date,
+                                                                                             landlord_new_time)
+
+                if reschedule_success:
+                    time.sleep(2)
+
+                    # Step 8: Verify landlord sees reschedule status
+                    updated_landlord_request = self.landlord_dashboard_page.get_viewing_request_details(0)
+                    print(f"Updated landlord status: {updated_landlord_request['status']}")
+                    assert 'pending' in updated_landlord_request['status'], \
+                        "Landlord should see reschedule proposed status"
+
+                    # Step 9: Check tenant side sees the landlord's reschedule proposal
+                    self.header_page.click_account_icon()
+                    self.header_page.logout()
+                    time.sleep(2)
+                    self.header_page.login(TestConfig.TENANT_EMAIL, TestConfig.TENANT_PASSWORD)
+
+                    self.header_page.click_tenant_button()
+                    self.user_dashboard_page.wait_for_dashboard_to_load()
+                    self.user_dashboard_page.scroll_to_viewing_requests()
+
+                    tenant_sees_reschedule = self.user_dashboard_page.get_viewing_request_details(0)
+                    print(f"Tenant sees landlord reschedule: {tenant_sees_reschedule['status']}")
+                    assert 'Reschedule' in tenant_sees_reschedule['status'], \
+                        "Tenant should see landlord's reschedule proposal"
+
+                    # Step 10: Tenant cancels the landlord's reschedule
+                    print("Tenant canceling landlord's reschedule...")
+                    tenant_cancel_success = self.user_dashboard_page.cancel_reschedule_request(0)
+
+                    if tenant_cancel_success:
+                        time.sleep(2)
+
+                        # Final verification: both sides should see original confirmed status
+                        final_tenant_status = self.user_dashboard_page.get_viewing_request_details(0)
+                        print(f"Final tenant status after cancel: {final_tenant_status['status']}")
+                        assert 'Reschedule' not in final_tenant_status['status'], \
+                            "Final status should not show reschedule"
+
+        print("\n✅ RESCHEDULE WORKFLOW BOTH SIDES TEST COMPLETED SUCCESSFULLY")
 
     # TODO: add check to homepage/search that property is removed and doesnt show once app is approved
     # TODO: add check to property tab to verify property status is set to 'rented'
@@ -439,6 +537,10 @@ class TestIntegrationWorkflows(BaseTest):
         assert 'rejected' in final_app_details['status'].lower() or 'declined' in final_app_details[
             'status'].lower(), "Final application status was not 'Rejected' in tenant dashboard"
         print("✅ Tenant correctly sees the 'Rejected' status. Workflow complete!")
+
+        self.header_page.click_element(self.user_dashboard_page.APP_VIEW_PROPERTY_BUTTON)
+        time.sleep(1)
+        assert self.property_detail_page.is_already_applied()
 
     def test_notification_workflow(self):
         """Test notification workflow for various actions"""

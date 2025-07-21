@@ -139,7 +139,7 @@ def seed_database():
             property_type='Condo',
             furnished='Fully Furnished',
             description='A beautiful modern condo in the heart of KL',
-            landlord_id=landlord.id,
+            owner_id=landlord.id,
             status='Active'
         )
 
@@ -154,7 +154,7 @@ def seed_database():
             property_type='Apartment',
             furnished='Partially Furnished',
             description='A cozy apartment perfect for young professionals',
-            landlord_id=landlord.id,
+            owner_id=landlord.id,
             status='Active'
         )
 

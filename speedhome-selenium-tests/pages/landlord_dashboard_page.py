@@ -79,9 +79,9 @@ class LandlordDashboardPage(BasePage):
     
     # Viewing request actions
     VIEW_DETAILS_BUTTON = (By.XPATH, "//button[contains(text(), 'View Details')]")
-    CONFIRM_REQUEST_BUTTON = (By.XPATH, "//button[normalize-space()='Confirm']")
-    DECLINE_REQUEST_BUTTON = (By.XPATH, "//button[normalize-space()='Decline']")
-    RESCHEDULE_REQUEST_BUTTON = (By.XPATH, "//button[contains(text(), 'Reschedule')]")
+    CONFIRM_REQUEST_BUTTON = (By.ID, "confirmButton")
+    DECLINE_REQUEST_BUTTON = (By.ID, "declineButton")
+    RESCHEDULE_REQUEST_BUTTON = (By.ID, "rescheduleButton")
     CANCEL_RESCHEDULE_BUTTON = (By.XPATH, "//button[contains(text(), 'Cancel Request')]")
     
     # Expandable details section
@@ -93,11 +93,12 @@ class LandlordDashboardPage(BasePage):
     TENANT_MESSAGE_DETAIL = (By.XPATH, ".//div[contains(@class, 'bg-gray-50')]")
     
     # Reschedule modal
-    RESCHEDULE_MODAL = (By.XPATH, "//div[contains(@class, 'reschedule-modal')]")
-    RESCHEDULE_DATE_INPUT = (By.XPATH, "//input[@name='proposedDate']")
-    RESCHEDULE_TIME_INPUT = (By.XPATH, "//input[@name='proposedTime']")
-    RESCHEDULE_SUBMIT_BUTTON = (By.XPATH, "//button[contains(text(), 'Propose Reschedule')]")
-    RESCHEDULE_CANCEL_BUTTON = (By.XPATH, "//button[contains(text(), 'Cancel')]")
+    RESCHEDULE_MODAL = (By.ID, "rescheduleModal")
+    RESCHEDULE_DATE_INPUT = (By.ID, "newDate")
+    RESCHEDULE_TIME_INPUT = (By.ID, "newTime")
+    RESCHEDULE_SUBMIT_BUTTON = (By.ID, "submitButton")
+    RESCHEDULE_CANCEL_BUTTON = (By.ID, "cancelButton")
+    RESCHEDULE_CLOSE_BUTTON = (By.ID, "closeButton")
     
     # Applications section
     APPLICATIONS_SECTION = (By.XPATH, "//div[contains(@class, 'applications')]")
@@ -361,19 +362,22 @@ class LandlordDashboardPage(BasePage):
             self.send_keys_to_element(self.RESCHEDULE_DATE_INPUT, new_date)
             self.send_keys_to_element(self.RESCHEDULE_TIME_INPUT, new_time)
             self.click_element(self.RESCHEDULE_SUBMIT_BUTTON)
-            
-            self.wait_for_element_to_disappear(self.RESCHEDULE_MODAL)
+            time.sleep(1)
+            self.accept_alert()
+            time.sleep(2)
             return True
         return False
     
-    def cancel_reschedule_request(self, index):
+    def decline_reschedule_request(self, index):
         """Cancel reschedule request by index"""
         requests = self.get_viewing_requests()
         if index < len(requests):
             request = requests[index]
-            if self.is_element_present(self.CANCEL_RESCHEDULE_BUTTON):
-                cancel_btn = request.find_element(*self.CANCEL_RESCHEDULE_BUTTON)
+            if self.is_element_present(self.DECLINE_REQUEST_BUTTON):
+                cancel_btn = request.find_element(*self.DECLINE_REQUEST_BUTTON)
                 cancel_btn.click()
+                self.accept_alert()
+                time.sleep(1)
                 return True
         return False
     

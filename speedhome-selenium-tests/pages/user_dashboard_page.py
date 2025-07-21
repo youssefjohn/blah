@@ -44,16 +44,17 @@ class UserDashboardPage(BasePage):
     
     # Viewing request actions
     RESCHEDULE_BUTTON = (By.XPATH, ".//button[contains(text(), 'Reschedule')]")
-    CANCEL_REQUEST_BUTTON = (By.XPATH, ".//button[contains(text(), 'Cancel')]")
-    CANCEL_RESCHEDULE_BUTTON = (By.XPATH, ".//button[contains(text(), 'Cancel Request')]")
+    CANCEL_APPOINTMENT_BUTTON = (By.XPATH, ".//button[contains(text(), 'Appointment')]")
+    ACCEPT_REQUEST_BUTTON = (By.XPATH, ".//button[contains(text(), 'Accept')]")
+    DECLINE_RESCHEDULE_BUTTON = (By.XPATH, ".//button[contains(text(), 'Decline')]")
     
     # Reschedule modal
-    RESCHEDULE_MODAL = (By.XPATH, "//div[contains(@class, 'reschedule-modal')]")
-    RESCHEDULE_DATE_INPUT = (By.XPATH, "//input[@name='newDate']")
-    RESCHEDULE_TIME_INPUT = (By.XPATH, "//input[@name='newTime']")
-    RESCHEDULE_SUBMIT_BUTTON = (By.XPATH, "//button[contains(text(), 'Request Reschedule')]")
-    RESCHEDULE_CANCEL_BUTTON = (By.XPATH, "//button[contains(text(), 'Cancel')]")
-    RESCHEDULE_CLOSE_BUTTON = (By.XPATH, "//button[contains(@class, 'close-modal')]")
+    RESCHEDULE_MODAL = (By.ID, "rescheduleModal")
+    RESCHEDULE_DATE_INPUT = (By.ID, "newDate")
+    RESCHEDULE_TIME_INPUT = (By.ID, "newTime")
+    RESCHEDULE_SUBMIT_BUTTON = (By.ID, "submitButton")
+    RESCHEDULE_CANCEL_BUTTON = (By.ID, "cancelButton")
+    RESCHEDULE_CLOSE_BUTTON = (By.ID, "closeModal")
     
     # Applications section
     APPLICATIONS_SECTION = (By.XPATH, "//h2[contains(text(), 'My Rental Applications')]")
@@ -65,6 +66,7 @@ class UserDashboardPage(BasePage):
     APP_PROPERTY_LOCATION = (By.XPATH, ".//span[contains(@class, 'property-location')]")
     APP_SUBMISSION_DATE = (By.XPATH, "(//h3)[1]/following-sibling::div/span[1]")
     APP_STATUS = (By.XPATH, "//div[@class='space-y-4']/div/div/div/following-sibling::div//span")
+    APP_VIEW_PROPERTY_BUTTON = (By.XPATH, "//a[contains(text(), 'View Property')]")
     
     # Favorites section
     FAVORITES_SECTION = (By.XPATH, "//div[contains(@class, 'favorites')]")
@@ -177,9 +179,8 @@ class UserDashboardPage(BasePage):
             self.send_keys_to_element(self.RESCHEDULE_DATE_INPUT, new_date)
             self.send_keys_to_element(self.RESCHEDULE_TIME_INPUT, new_time)
             self.click_element(self.RESCHEDULE_SUBMIT_BUTTON)
-            
-            # Wait for modal to close
-            self.wait_for_element_to_disappear(self.RESCHEDULE_MODAL)
+
+            self.accept_alert()
             return True
         return False
     
@@ -188,7 +189,7 @@ class UserDashboardPage(BasePage):
         requests = self.get_viewing_requests()
         if index < len(requests):
             request = requests[index]
-            cancel_btn = request.find_element(*self.CANCEL_REQUEST_BUTTON)
+            cancel_btn = request.find_element(*self.CANCEL_APPOINTMENT_BUTTON)
             cancel_btn.click()
             
             # Handle confirmation if needed
@@ -204,11 +205,30 @@ class UserDashboardPage(BasePage):
         """Cancel reschedule request by index"""
         requests = self.get_viewing_requests()
         if index < len(requests):
-            request = requests[index]
-            if self.is_element_present(self.CANCEL_RESCHEDULE_BUTTON):
-                cancel_reschedule_btn = request.find_element(*self.CANCEL_RESCHEDULE_BUTTON)
-                cancel_reschedule_btn.click()
+            try:
+                # Step 1: Inject JavaScript to automatically handle the upcoming alerts.
+                # This overrides the 'confirm' function to always return true (click "OK").
+                # It also overrides the 'alert' function to do nothing, effectively dismissing it.
+                self.driver.execute_script("window.confirm = function(){return true;}; window.alert = function(){};")
+                print("INFO: Injected script to handle alerts.")
+
+                # Step 2: Now, click the button that triggers the alerts.
+                request = requests[index]
+                # NOTE: Ensure you have a correct locator for this button in your page object.
+                # For example: self.DECLINE_RESCHEDULE_BUTTON
+                cancel_button_locator = (By.XPATH, ".//button[contains(text(), 'Decline')]")
+                cancel_btn = request.find_element(*cancel_button_locator)
+                cancel_btn.click()
+                print("INFO: Clicked the cancel/decline button. Alerts were handled automatically.")
+
+                # Step 3: Give the page a moment to process the action after the alerts.
+                time.sleep(2)
+
                 return True
+
+            except Exception as e:
+                print(f"ERROR: An error occurred during the cancel reschedule process: {e}")
+                return False
         return False
     
     def close_reschedule_modal(self):

@@ -28,6 +28,13 @@ const UserDashboard = ({ favorites, toggleFavorite }) => {
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef(null);
 
+  const [showRescheduleModal, setShowRescheduleModal] = useState(false);
+  const [rescheduleData, setRescheduleData] = useState({
+    bookingId: null,
+    newDate: '',
+    newTime: ''
+  });
+
   // Populate profile form when user data is available
   useEffect(() => {
     if (user) {
@@ -242,6 +249,32 @@ const UserDashboard = ({ favorites, toggleFavorite }) => {
     return statusMap[status] || { text: status, color: 'bg-gray-100 text-gray-800' };
   };
 
+  const openRescheduleModal = (bookingId) => {
+    setRescheduleData({ bookingId, newDate: '', newTime: '' });
+    setShowRescheduleModal(true);
+  };
+
+  const handleRescheduleSubmit = async (e) => {
+    e.preventDefault();
+    const { bookingId, newDate, newTime } = rescheduleData;
+    if (!newDate || !newTime) {
+      alert('Please select a new date and time.');
+      return;
+    }
+    try {
+      const result = await BookingAPI.rescheduleBooking(bookingId, { date: newDate, time: newTime, requested_by: 'tenant' });
+      if (result.success) {
+        await loadBookings();
+        setShowRescheduleModal(false);
+        alert('Reschedule request sent successfully!');
+      } else {
+        alert(`Failed to send reschedule request: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error sending reschedule request:', error);
+    }
+  };
+
   const requestReschedule = async (bookingId) => {
     const newDate = prompt('Enter new preferred date (YYYY-MM-DD):');
     if (!newDate) return;
@@ -270,12 +303,19 @@ const UserDashboard = ({ favorites, toggleFavorite }) => {
         } else {
           alert(`Failed to approve reschedule: ${result.error}`);
         }
-      } else {
-        await cancelBooking(bookingId);
-        alert('Reschedule request has been declined.');
+      } else { // This handles the 'declined' case
+        // CORRECTED: Call the declineReschedule endpoint instead of cancelling
+        const result = await BookingAPI.declineReschedule(bookingId);
+        if (result.success) {
+            await loadBookings();
+            alert('Reschedule request has been declined.');
+        } else {
+            alert(`Failed to decline reschedule: ${result.error}`);
+        }
       }
     } catch (error) {
       console.error('Error responding to reschedule request:', error);
+      alert('An error occurred while responding to the reschedule request.');
     }
   };
 
@@ -477,7 +517,7 @@ const UserDashboard = ({ favorites, toggleFavorite }) => {
                         </div>
                         <div className="mt-4 pt-4 border-t border-gray-100 flex flex-wrap gap-x-4 gap-y-2">
                           {booking.status !== 'cancelled' && booking.status !== 'completed' && (<button onClick={(e) => { e.stopPropagation(); cancelBooking(booking.id); }} className="text-red-600 hover:text-red-800 text-sm font-medium">Cancel Appointment</button>)}
-                          {canRequestReschedule && !isRescheduleByTenant && !isRescheduleByLandlord && (<button onClick={(e) => { e.stopPropagation(); requestReschedule(booking.id); }} className="text-blue-600 hover:text-blue-800 text-sm font-medium">Request Reschedule</button>)}
+                          {canRequestReschedule && !isRescheduleByTenant && !isRescheduleByLandlord && (<button onClick={(e) => { e.stopPropagation(); openRescheduleModal(booking.id); }} className="text-blue-600 hover:text-blue-800 text-sm font-medium">Request Reschedule</button>)}
                           {isRescheduleByLandlord && (<div onClick={(e) => e.stopPropagation()} className="flex items-center gap-2"><button onClick={() => respondToReschedule(booking.id, 'approved')} className="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 font-semibold">Accept</button><button onClick={() => respondToReschedule(booking.id, 'declined')} className="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 font-semibold">Decline</button></div>)}
                           {isRescheduleByTenant && (<div onClick={(e) => e.stopPropagation()}><button onClick={() => cancelRescheduleRequest(booking.id)} className="px-3 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-700 font-semibold">Cancel Request</button></div>)}
                         </div>
@@ -528,6 +568,47 @@ const UserDashboard = ({ favorites, toggleFavorite }) => {
           </div>
         </div>
       </div>
+      {showRescheduleModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-md w-full shadow-2xl">
+            <div id="rescheduleModal" className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">Request Reschedule</h2>
+                <button id="closeModal" onClick={() => setShowRescheduleModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">×</button>
+              </div>
+              <form onSubmit={handleRescheduleSubmit} className="space-y-4">
+                <div>
+                  <label htmlFor="newDate" className="block text-sm font-medium text-gray-700 mb-1">New Preferred Date</label>
+                  <input
+                    type="date"
+                    id="newDate"
+                    value={rescheduleData.newDate}
+                    onChange={(e) => setRescheduleData(prev => ({ ...prev, newDate: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="newTime" className="block text-sm font-medium text-gray-700 mb-1">New Preferred Time</label>
+                  <input
+                    type="time"
+                    id="newTime"
+                    value={rescheduleData.newTime}
+                    onChange={(e) => setRescheduleData(prev => ({ ...prev, newTime: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                    required
+                  />
+                </div>
+                <div className="flex gap-3 pt-4">
+                  <button id="cancelButton" type="button" onClick={() => setShowRescheduleModal(false)} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">Cancel</button>
+                  <button id="submitButton" type="submit" className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold">Submit Request</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
