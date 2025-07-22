@@ -600,7 +600,7 @@ def add_recurring_availability(property_id):
                     current_time = from_time
                     while current_time < to_time:
                         # Calculate end time for this slot (30 minutes later)
-                        end_slot_time = (datetime.combine(date.today(), current_time) + timedelta(minutes=30)).time()
+                        end_slot_time = (datetime.combine(current_date, current_time) + timedelta(minutes=30)).time()
                         
                         # Don't create slot if it would exceed the day's end time
                         if end_slot_time > to_time:
