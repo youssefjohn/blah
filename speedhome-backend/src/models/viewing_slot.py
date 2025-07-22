@@ -19,7 +19,7 @@ class ViewingSlot(db.Model):
     
     # Relationships
     property = relationship("Property", back_populates="viewing_slots")
-    booked_by = relationship("User", foreign_keys=[booked_by_user_id])
+    booked_by = relationship("User", back_populates="booked_slots", foreign_keys=[booked_by_user_id])
     
     def __repr__(self):
         return f'<ViewingSlot {self.id}: Property {self.property_id} on {self.date} at {self.start_time}-{self.end_time}>'

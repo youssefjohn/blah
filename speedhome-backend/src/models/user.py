@@ -44,6 +44,9 @@ class User(db.Model):
     # Preferences (JSON field)
     preferences = db.Column(db.Text, nullable=True)  # JSON string
 
+    booked_slots = db.relationship('ViewingSlot', back_populates='booked_by',
+                                   foreign_keys='ViewingSlot.booked_by_user_id')
+
     def __repr__(self):
         return f'<User {self.username}>'
 
