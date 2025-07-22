@@ -330,3 +330,76 @@ export default PropertyAPI;
 
   
 
+
+  // Get all viewing slots for a landlord across all properties
+  static async getLandlordViewingSlots(landlordId) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/landlord/${landlordId}/viewing-slots`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching landlord viewing slots:', error);
+      throw error;
+    }
+  }
+
+  // Get calendar statistics for a landlord
+  static async getLandlordCalendarStats(landlordId) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/landlord/${landlordId}/calendar-stats`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching landlord calendar stats:', error);
+      throw error;
+    }
+  }
+
+  // Get viewing slots for a landlord on a specific date
+  static async getLandlordSlotsByDate(landlordId, date) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/landlord/${landlordId}/calendar-slots/${date}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching landlord slots by date:', error);
+      throw error;
+    }
+  }
+

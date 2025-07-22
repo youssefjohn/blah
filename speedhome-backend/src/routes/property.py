@@ -665,3 +665,155 @@ def get_available_slots(property_id):
             'error': f'An error occurred: {str(e)}'
         }), 500
 
+
+
+@property_bp.route('/landlord/<int:landlord_id>/viewing-slots', methods=['GET'])
+def get_landlord_viewing_slots(landlord_id):
+    """Get all viewing slots for a landlord across all their properties"""
+    try:
+        # Get all properties owned by this landlord
+        properties = Property.query.filter_by(owner_id=landlord_id).all()
+        
+        if not properties:
+            return jsonify({
+                'success': True,
+                'slots': [],
+                'message': 'No properties found for this landlord'
+            }), 200
+        
+        # Get property IDs
+        property_ids = [prop.id for prop in properties]
+        
+        # Get all viewing slots for these properties
+        slots = ViewingSlot.query.filter(
+            ViewingSlot.property_id.in_(property_ids)
+        ).order_by(ViewingSlot.date, ViewingSlot.start_time).all()
+        
+        # Convert to dictionary format with property information
+        slots_data = []
+        for slot in slots:
+            slot_dict = slot.to_dict()
+            # Add property information
+            property_info = next((prop for prop in properties if prop.id == slot.property_id), None)
+            if property_info:
+                slot_dict['property_title'] = property_info.title
+                slot_dict['property_location'] = property_info.location
+            slots_data.append(slot_dict)
+        
+        return jsonify({
+            'success': True,
+            'slots': slots_data,
+            'total_slots': len(slots_data),
+            'properties_count': len(properties)
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'An error occurred: {str(e)}'
+        }), 500
+
+@property_bp.route('/landlord/<int:landlord_id>/calendar-stats', methods=['GET'])
+def get_landlord_calendar_stats(landlord_id):
+    """Get calendar statistics for a landlord"""
+    try:
+        # Get all properties owned by this landlord
+        properties = Property.query.filter_by(owner_id=landlord_id).all()
+        property_ids = [prop.id for prop in properties]
+        
+        if not property_ids:
+            return jsonify({
+                'success': True,
+                'stats': {
+                    'total_properties': 0,
+                    'available_slots': 0,
+                    'booked_slots': 0,
+                    'total_slots': 0
+                }
+            }), 200
+        
+        # Get slot statistics
+        total_slots = ViewingSlot.query.filter(
+            ViewingSlot.property_id.in_(property_ids)
+        ).count()
+        
+        available_slots = ViewingSlot.query.filter(
+            ViewingSlot.property_id.in_(property_ids),
+            ViewingSlot.is_available == True
+        ).count()
+        
+        booked_slots = ViewingSlot.query.filter(
+            ViewingSlot.property_id.in_(property_ids),
+            ViewingSlot.is_available == False
+        ).count()
+        
+        return jsonify({
+            'success': True,
+            'stats': {
+                'total_properties': len(properties),
+                'available_slots': available_slots,
+                'booked_slots': booked_slots,
+                'total_slots': total_slots
+            }
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'An error occurred: {str(e)}'
+        }), 500
+
+@property_bp.route('/landlord/<int:landlord_id>/calendar-slots/<date>', methods=['GET'])
+def get_landlord_slots_by_date(landlord_id, date):
+    """Get all viewing slots for a landlord on a specific date"""
+    try:
+        # Parse the date
+        try:
+            target_date = datetime.strptime(date, '%Y-%m-%d').date()
+        except ValueError:
+            return jsonify({
+                'success': False,
+                'error': 'Invalid date format. Use YYYY-MM-DD'
+            }), 400
+        
+        # Get all properties owned by this landlord
+        properties = Property.query.filter_by(owner_id=landlord_id).all()
+        property_ids = [prop.id for prop in properties]
+        
+        if not property_ids:
+            return jsonify({
+                'success': True,
+                'slots': [],
+                'date': date
+            }), 200
+        
+        # Get viewing slots for the specific date
+        slots = ViewingSlot.query.filter(
+            ViewingSlot.property_id.in_(property_ids),
+            ViewingSlot.date == target_date
+        ).order_by(ViewingSlot.start_time).all()
+        
+        # Convert to dictionary format with property information
+        slots_data = []
+        for slot in slots:
+            slot_dict = slot.to_dict()
+            # Add property information
+            property_info = next((prop for prop in properties if prop.id == slot.property_id), None)
+            if property_info:
+                slot_dict['property_title'] = property_info.title
+                slot_dict['property_location'] = property_info.location
+            slots_data.append(slot_dict)
+        
+        return jsonify({
+            'success': True,
+            'slots': slots_data,
+            'date': date,
+            'total_slots': len(slots_data)
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'An error occurred: {str(e)}'
+        }), 500
+
