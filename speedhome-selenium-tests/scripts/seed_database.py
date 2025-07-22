@@ -1,6 +1,6 @@
 import sys
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date, time
 
 # This path addition tells the script where its own project root is,
 # allowing it to find the 'config' module.
@@ -17,9 +17,12 @@ if backend_path not in sys.path:
 from src.main import app, db
 from src.models.user import User
 from src.models.property import Property
-from src.models.booking import Booking      # <-- Import Booking
-from src.models.application import Application # <-- Import Application
-from config.test_config import TestConfig 
+from src.models.booking import Booking
+from src.models.application import Application
+# --- ADD THIS IMPORT ---
+from src.models.viewing_slot import ViewingSlot
+from config.test_config import TestConfig
+
 
 def seed_data():
     """
@@ -29,10 +32,10 @@ def seed_data():
         print("--- Starting database seed ---")
 
         # 1. Clear existing data to ensure a clean slate
-        # We delete in this specific order to respect database relationships.
         print("Clearing old data...")
         db.session.query(Application).delete()
         db.session.query(Booking).delete()
+        db.session.query(ViewingSlot).delete()  # Also clear viewing slots
         db.session.query(Property).delete()
         db.session.query(User).delete()
         db.session.commit()
@@ -62,7 +65,7 @@ def seed_data():
         )
         tenant.set_password(TestConfig.TENANT_PASSWORD)
         db.session.add(tenant)
-        
+
         db.session.commit()
         print("Users created successfully.")
 
@@ -97,29 +100,47 @@ def seed_data():
             owner_id=landlord.id,
             status="Active"
         )
-        
+
         db.session.add_all([property1, property2])
         db.session.commit()
         print(f"Created {Property.query.count()} properties.")
 
-        print("Injecting a confirmed viewing request...")
+        # --- UPDATED BOOKING INJECTION LOGIC ---
+        print("Injecting a pre-booked viewing slot...")
+
+        # Step A: Create an available viewing slot for the landlord
+        appointment_datetime = datetime.now() + timedelta(days=7)
+        slot_to_book = ViewingSlot(
+            landlord_id=landlord.id,
+            date=appointment_datetime.date(),
+            start_time=time(11, 0),  # 11:00 AM
+            end_time=time(11, 30),  # 11:30 AM
+            is_available=False,  # Mark as unavailable
+            booked_by_user_id=tenant.id,  # Link to the tenant
+            booked_for_property_id=property1.id  # Link to the property
+        )
+        db.session.add(slot_to_book)
+        db.session.commit()  # Commit to get the slot_to_book.id
+
+        # Step B: Create a booking that is linked to the slot
         confirmed_booking = Booking(
             user_id=tenant.id,
             property_id=property1.id,
+            viewing_slot_id=slot_to_book.id,  # Link to the slot
             name=tenant.get_full_name(),
             email=tenant.email,
             phone="0123456789",
-            appointment_date=datetime.now().date() + timedelta(days=7),
-            appointment_time=datetime.strptime("11:00", "%H:%M").time(),
-            status='confirmed',  # The request is already confirmed (lowercase 'c')
+            appointment_date=slot_to_book.date,
+            appointment_time=slot_to_book.start_time,
+            status='confirmed',
             is_seen_by_landlord=True
         )
         db.session.add(confirmed_booking)
         db.session.commit()
-        print("✅ Confirmed viewing request created.")
-        
+        print("✅ Confirmed viewing request and slot created successfully.")
 
         print("--- Database seeding complete! ---")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     seed_data()

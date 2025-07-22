@@ -1,27 +1,33 @@
+const API_BASE_URL = 'http://localhost:5001/api';
+
 class BookingAPI {
-  static async createBooking(bookingData) {
+  // Replace the old createBooking function with this one
+static async createBooking(bookingDetails) {
     try {
-      const response = await fetch('/api/bookings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify(bookingData)
-      });
+        // We now post to the new, more specific URL
+        const response = await fetch(`${API_BASE_URL}/bookings/create-from-slot`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify(bookingDetails)
+        });
 
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to create booking');
-      }
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            // This will now show the real error from the backend
+            throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        }
 
-      return data;
+        const data = await response.json();
+        return data;
+
     } catch (error) {
-      console.error('Error creating booking:', error);
-      throw error;
+        console.error('Error creating booking:', error);
+        throw error;
     }
-  }
+}
 
   static async getBookingsByUser(userId) {
     try {

@@ -2,6 +2,7 @@ from datetime import datetime, date, time
 from sqlalchemy import Column, Integer, String, DateTime, Date, Time, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
 from .user import db
+from .property import Property
 
 class ViewingSlot(db.Model):
     """Model for individual viewing time slots - landlord-based"""

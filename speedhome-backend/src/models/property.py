@@ -5,6 +5,8 @@ import json
 # Import db from user model to ensure single instance
 from .user import db
 
+from .booking import Booking
+
 class Property(db.Model):
     __tablename__ = 'properties'
     
@@ -65,7 +67,7 @@ class Property(db.Model):
     # Relationships
     bookings = db.relationship('Booking', backref='property', lazy=True, cascade="all, delete-orphan")
     viewing_slots = db.relationship('ViewingSlot', back_populates='booked_property', foreign_keys='ViewingSlot.booked_for_property_id', lazy=True)
-    
+
     def __repr__(self):
         return f'<Property {self.title}>'
     

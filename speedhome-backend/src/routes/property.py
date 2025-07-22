@@ -663,12 +663,18 @@ def add_recurring_availability(property_id):
 
 @property_bp.route('/properties/<int:property_id>/available-slots', methods=['GET'])
 def get_available_slots(property_id):
-    """Fetch all available, non-booked viewing slots for a property."""
+    """Fetch all available, non-booked viewing slots for a property's landlord."""
     try:
-        # This is a simpler, more reliable query.
-        # It gets all slots for this property that are marked as available.
+        # Step 1: Find the property to identify its owner (the landlord)
+        prop = Property.query.get(property_id)
+        if not prop:
+            return jsonify({'success': False, 'error': 'Property not found'}), 404
+
+        landlord_id = prop.owner_id
+
+        # Step 2: Find all available slots belonging to that landlord
         slots = ViewingSlot.query.filter(
-            ViewingSlot.property_id == property_id,
+            ViewingSlot.landlord_id == landlord_id,
             ViewingSlot.is_available == True
         ).order_by(ViewingSlot.date, ViewingSlot.start_time).all()
 

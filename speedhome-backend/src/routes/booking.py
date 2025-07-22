@@ -1,14 +1,15 @@
 from flask import Blueprint, request, jsonify, session
 from datetime import datetime, date, time
+
+
+from sqlalchemy.orm import joinedload
+
+from ..models.viewing_slot import ViewingSlot
 from ..models.booking import Booking
 from ..models.property import Property
 from ..models.user import User
-from sqlalchemy.orm import joinedload
-from ..models.notification import Notification 
-
-# Import models directly to avoid circular dependencies
-# Import the shared 'db' instance from a central location (user.py)
-from ..models.user import db 
+from ..models.notification import Notification
+from ..models.user import db
 
 
 
@@ -609,3 +610,61 @@ def mark_booking_as_seen(booking_id):
     db.session.commit()
     
     return jsonify({'success': True, 'message': 'Booking marked as seen.'})
+
+
+@booking_bp.route('/bookings/create-from-slot', methods=['POST'])
+def create_booking_from_slot():
+    """Create a new booking by consuming a viewing slot."""
+    try:
+        # Check if user is authenticated
+        if 'user_id' not in session:
+            return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': 'No data provided'}), 400
+
+        slot_id = data.get('viewing_slot_id')
+        property_id = data.get('property_id')
+
+        if not slot_id or not property_id:
+            return jsonify({'success': False, 'error': 'slot_id and property_id are required'}), 400
+
+        # Find the slot and verify it's available
+        slot = ViewingSlot.query.get(slot_id)
+        if not slot or not slot.is_available:
+            return jsonify({'success': False, 'error': 'Viewing slot not found or already booked'}), 404
+
+        # Mark the slot as booked and link it to the property
+        slot.is_available = False
+        slot.booked_by_user_id = session['user_id']
+        slot.booked_for_property_id = property_id
+
+        # Create the corresponding booking record
+        new_booking = Booking(
+            user_id=session['user_id'],
+            property_id=property_id,
+            name=data.get('name', 'N/A'),
+            email=data.get('email', 'N/A'),
+            phone=data.get('phone', 'N/A'),
+            message=data.get('message'),
+            appointment_date=slot.date,
+            appointment_time=slot.start_time,
+            occupation=data.get('occupation'),
+            monthly_income=data.get('monthly_income'),
+            number_of_occupants=data.get('number_of_occupants'),
+            status='pending',
+            viewing_slot_id=slot.id
+        )
+
+        db.session.add(new_booking)
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'booking': new_booking.to_dict()
+        }), 201
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': f'An error occurred: {str(e)}'}), 500
