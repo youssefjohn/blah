@@ -1104,12 +1104,6 @@ const handleApplicationResponse = async (applicationId, response) => {
           Edit
         </button>
         <button
-          onClick={() => handleManageAvailability(property)}
-          className="text-green-600 hover:text-green-900 px-2 py-1 rounded hover:bg-green-50 transition-colors"
-        >
-          Availability
-        </button>
-        <button
           onClick={() => handleDeleteProperty(property.id)}
           className="text-red-600 hover:text-red-900 px-2 py-1 rounded hover:bg-red-50 transition-colors"
         >

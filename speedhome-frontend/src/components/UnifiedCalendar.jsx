@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import PropertyAPI from '../services/PropertyAPI';
+import AvailabilityModal from './AvailabilityModal';
 
 const UnifiedCalendar = () => {
   const { user } = useAuth();
@@ -9,7 +10,7 @@ const UnifiedCalendar = () => {
   const [properties, setProperties] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedProperty, setSelectedProperty] = useState('all');
-  const [showAddAvailabilityModal, setShowAddAvailabilityModal] = useState(false);
+  const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
 
   // Calendar navigation
   const goToPreviousMonth = () => {
@@ -141,12 +142,12 @@ const UnifiedCalendar = () => {
             ))}
           </select>
           
-          {/* Add Availability Button */}
+          {/* Availability Button */}
           <button
-            onClick={() => setShowAddAvailabilityModal(true)}
-            className="px-4 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 transition-colors text-sm font-medium"
+            onClick={() => setShowAvailabilityModal(true)}
+            className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors text-sm font-medium"
           >
-            + Add Availability
+            Availability
           </button>
         </div>
       </div>
@@ -269,37 +270,32 @@ const UnifiedCalendar = () => {
           </div>
           <div className="text-sm text-blue-700">Total Properties</div>
         </div>
-      </div>
-
-      {/* Add Availability Modal Placeholder */}
-      {showAddAvailabilityModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Add Availability</h3>
-              <button
-                onClick={() => setShowAddAvailabilityModal(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            
-            <div className="text-center py-8">
-              <p className="text-gray-600 mb-4">
-                Use the "Availability" button on individual properties to set up viewing slots.
-              </p>
-              <button
-                onClick={() => setShowAddAvailabilityModal(false)}
-                className="px-4 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 transition-colors"
-              >
-                Got it
-              </button>
-            </div>
-          </div>
-        </div>
+      </div>      {/* Availability Modal */}
+      {showAvailabilityModal && (
+        <AvailabilityModal
+          onClose={() => setShowAvailabilityModal(false)}
+          onSuccess={(result) => {
+            alert(`Availability set successfully! Created ${result.slots_created || 0} viewing slots across ${result.properties_updated || 0} properties.`);
+            setShowAvailabilityModal(false);
+            // Reload the calendar data
+            const loadData = async () => {
+              if (!user) return;
+              
+              try {
+                setLoading(true);
+                const slotsResult = await PropertyAPI.getLandlordViewingSlots(user.id);
+                if (slotsResult.success) {
+                  setViewingSlots(slotsResult.slots);
+                }
+              } catch (error) {
+                console.error('Error reloading calendar data:', error);
+              } finally {
+                setLoading(false);
+              }
+            };
+            loadData();
+          }}
+        />
       )}
     </div>
   );
