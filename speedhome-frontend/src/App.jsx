@@ -413,6 +413,9 @@ function AppContent() {
   const [showRescheduleModal, setShowRescheduleModal] = useState(false);
   const [showAddPropertyModal, setShowAddPropertyModal] = useState(false);
   const [detailPageVersion, setDetailPageVersion] = useState(0);
+  const [availableSlots, setAvailableSlots] = useState([]);
+  const [isLoadingSlots, setIsLoadingSlots] = useState(false);
+  const [selectedSlot, setSelectedSlot] = useState(null);
 
   const { user, isAuthenticated } = useAuth();
   const [notifications, setNotifications] = useState([]);
@@ -457,6 +460,28 @@ function AppContent() {
       }));
     }
   }, [user, showScheduleModal]);
+
+  useEffect(() => {
+    // This runs when the schedule modal is opened
+    if (showScheduleModal && selectedProperty) {
+      const fetchSlots = async () => {
+        setIsLoadingSlots(true);
+        setAvailableSlots([]); // Clear old slots from a previous property
+        setSelectedSlot(null);  // Reset any previous selection
+        try {
+          // We use the PropertyAPI service we updated earlier
+          const slots = await PropertyAPI.getAvailableSlots(selectedProperty.id);
+          setAvailableSlots(slots);
+        } catch (error) {
+          console.error("Failed to fetch slots:", error);
+          // You could set an error state here to show in the UI
+        } finally {
+          setIsLoadingSlots(false);
+        }
+      };
+      fetchSlots();
+    }
+  }, [showScheduleModal, selectedProperty]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -522,40 +547,42 @@ function AppContent() {
       }
     };
 
-  const handleScheduleSubmit = async (e) => {
+  // REPLACE your old handleScheduleSubmit function with this one
+const handleScheduleSubmit = async (e) => {
     e.preventDefault();
     if (!selectedProperty) return alert('An error occurred. No property selected.');
-    if (!scheduleData.date || !scheduleData.time) return alert('Please select a date and time.');
+    if (!selectedSlot) return alert('Please select an available viewing slot.');
 
     try {
+        // We combine the tenant's details with the chosen slot ID
         const bookingDetails = {
-            property_id: selectedProperty.id,
+            viewing_slot_id: selectedSlot.id,
+            // The rest of the data comes from your existing form state
             name: scheduleData.name,
             email: scheduleData.email,
             phone: scheduleData.phone,
-            appointment_date: scheduleData.date,
-            appointment_time: scheduleData.time,
             message: scheduleData.message,
             occupation: scheduleData.occupation,
             monthly_income: scheduleData.monthlyIncome,
             number_of_occupants: scheduleData.numberOfOccupants
+            // Note: The backend will now pull date/time from the slot itself
         };
 
         const result = await BookingAPI.createBooking(bookingDetails);
 
         if (result.success) {
-            alert('Your viewing request has been sent to the landlord!');
+            alert('Your viewing has been confirmed for the selected time!');
             setShowScheduleModal(false);
-            setScheduleData(initialScheduleData);
-            setDetailPageVersion(v => v + 1);
+            setScheduleData(initialScheduleData); // Reset form
+            setDetailPageVersion(v => v + 1); // This refreshes the detail page
         } else {
-            alert(`Error: ${result.error || 'Could not submit viewing request.'}`);
+            alert(`Error: ${result.error || 'Could not book slot.'}`);
         }
     } catch (error) {
-        console.error('Failed to submit viewing request:', error);
-        alert('An unexpected server error occurred. Please try again later.');
+        console.error('Failed to book viewing slot:', error);
+        alert('An unexpected server error occurred.');
     }
-  };
+};
 
   const handleScheduleChange = (field, value) => {
     setScheduleData(prev => ({ ...prev, [field]: value }));
@@ -848,14 +875,39 @@ function AppContent() {
                     <label htmlFor="schedule-move-in" className="block text-sm font-medium text-gray-700 mb-1">Preferred Move-in Date</label>
                     <input type="date" id="schedule-move-in" value={scheduleData.moveInDate} onChange={(e) => handleScheduleChange('moveInDate', e.target.value)} required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   </div>
-                   <div>
-                    <label htmlFor="schedule-date" className="block text-sm font-medium text-gray-700 mb-1">Preferred Viewing Date</label>
-                    <input type="date" id="schedule-date" value={scheduleData.date} onChange={(e) => handleScheduleChange('date', e.target.value)} required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                  </div>
-                  <div>
-                    <label htmlFor="schedule-time" className="block text-sm font-medium text-gray-700 mb-1">Preferred Viewing Time</label>
-                    <input type="time" id="schedule-time" value={scheduleData.time} onChange={(e) => handleScheduleChange('time', e.target.value)} required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                  </div>
+                  {/* INSERT THIS NEW BLOCK IN PLACE OF THE OLD DATE/TIME INPUTS */}
+<div className="md:col-span-2">
+  <label className="block text-sm font-medium text-gray-700 mb-2">Select an available time slot:</label>
+  <div className="border rounded-lg p-3" style={{ minHeight: '120px' }}>
+    {isLoadingSlots ? (
+      <div className="text-center py-10 text-gray-500">Loading slots...</div>
+    ) : availableSlots.length > 0 ? (
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-48 overflow-y-auto">
+        {availableSlots.map(slot => (
+          <button
+            key={slot.id}
+            type="button"
+            onClick={() => setSelectedSlot(slot)}
+            className={`w-full text-center p-2 rounded-lg border text-sm transition-colors ${
+              selectedSlot?.id === slot.id
+              ? 'bg-blue-600 text-white border-blue-600'
+              : 'bg-white hover:bg-blue-50 hover:border-blue-400'
+            }`}
+          >
+            <div className="font-semibold">{new Date(slot.date + 'T' + slot.start_time).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</div>
+            <div>{slot.start_time}</div>
+          </button>
+        ))}
+      </div>
+    ) : (
+      <div className="text-center py-10 text-gray-500 bg-gray-50 rounded-lg">
+        Sorry, no viewing times are currently available.
+      </div>
+    )}
+  </div>
+</div>
+{/* END OF NEW BLOCK */}
+
                 </div>
                 <div>
                   <label htmlFor="schedule-message" className="block text-sm font-medium text-gray-700 mb-1">Message (Optional)</label>

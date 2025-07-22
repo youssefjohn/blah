@@ -240,3 +240,5 @@ class Property(db.Model):
         # Update timestamp
         self.date_updated = datetime.utcnow()
 
+
+

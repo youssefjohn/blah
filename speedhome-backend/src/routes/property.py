@@ -575,59 +575,48 @@ def add_recurring_availability(property_id):
         while current_date <= end_date:
             # Get the day of the week
             weekday = current_date.weekday()
+            print(f"Checking {current_date} (Weekday is {weekday})")
             
             # Check if this day is in the schedule
+            # PASTE THIS NEW BLOCK IN ITS PLACE
+            # REPLACE the for loop inside the `while current_date <= end_date:` loop
+            # with this final debug version.
+
             for day_name, day_config in schedule.items():
                 if day_name.lower() in day_mapping and day_mapping[day_name.lower()] == weekday:
-                    # Parse the time range
                     try:
                         from_time = datetime.strptime(day_config['from'], '%H:%M').time()
                         to_time = datetime.strptime(day_config['to'], '%H:%M').time()
-                    except (ValueError, KeyError) as e:
-                        return jsonify({
-                            'success': False,
-                            'error': f'Invalid time format for {day_name}: {str(e)}'
-                        }), 400
-                    
-                    # Validate time range
-                    if to_time <= from_time:
-                        return jsonify({
-                            'success': False,
-                            'error': f'End time must be after start time for {day_name}'
-                        }), 400
-                    
-                    # Create 30-minute slots for this day
-                    current_time = from_time
-                    while current_time < to_time:
-                        # Calculate end time for this slot (30 minutes later)
-                        end_slot_time = (datetime.combine(current_date, current_time) + timedelta(minutes=30)).time()
-                        
-                        # Don't create slot if it would exceed the day's end time
-                        if end_slot_time > to_time:
-                            break
-                        
-                        # Check if this slot already exists
-                        existing_slot = ViewingSlot.query.filter_by(
-                            property_id=property_id,
-                            date=current_date,
-                            start_time=current_time,
-                            end_time=end_slot_time
-                        ).first()
-                        
-                        # Only create if it doesn't exist
-                        if not existing_slot:
+
+                        if to_time <= from_time:
+                            continue
+
+                        start_datetime = datetime.combine(current_date, from_time)
+                        end_datetime = datetime.combine(current_date, to_time)
+
+                        current_slot_start = start_datetime
+                        while current_slot_start < end_datetime:
+                            current_slot_end = current_slot_start + timedelta(minutes=30)
+
+                            if current_slot_end > end_datetime:
+                                break
+
+                            # Create the slot directly without checking if it exists
                             new_slot = ViewingSlot(
                                 property_id=property_id,
-                                date=current_date,
-                                start_time=current_time,
-                                end_time=end_slot_time,
+                                date=current_slot_start.date(),
+                                start_time=current_slot_start.time(),
+                                end_time=current_slot_end.time(),
                                 is_available=True
                             )
                             db.session.add(new_slot)
                             slots_created += 1
-                        
-                        # Move to next 30-minute slot
-                        current_time = end_slot_time
+
+                            current_slot_start = current_slot_end
+
+                    except (ValueError, KeyError) as e:
+                        # This will skip any malformed entries in the schedule
+                        continue
             
             # Move to next date
             current_date += timedelta(days=1)
@@ -647,6 +636,30 @@ def add_recurring_availability(property_id):
         
     except Exception as e:
         db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': f'An error occurred: {str(e)}'
+        }), 500
+
+@property_bp.route('/properties/<int:property_id>/available-slots', methods=['GET'])
+def get_available_slots(property_id):
+    """Fetch all available, non-booked viewing slots for a property."""
+    try:
+        # This is a simpler, more reliable query.
+        # It gets all slots for this property that are marked as available.
+        slots = ViewingSlot.query.filter(
+            ViewingSlot.property_id == property_id,
+            ViewingSlot.is_available == True
+        ).order_by(ViewingSlot.date, ViewingSlot.start_time).all()
+
+        slots_data = [slot.to_dict() for slot in slots]
+
+        return jsonify({
+            'success': True,
+            'slots': slots_data
+        }), 200
+
+    except Exception as e:
         return jsonify({
             'success': False,
             'error': f'An error occurred: {str(e)}'

@@ -306,6 +306,23 @@ class PropertyAPI {
       throw error;
     }
   }
+  static async getAvailableSlots(propertyId) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/properties/${propertyId}/available-slots`);
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        return data.slots; // Return the array of slots
+
+    } catch (error) {
+        console.error('Error fetching available slots:', error);
+        throw error;
+    }
+  }
 }
 
 export default PropertyAPI;
