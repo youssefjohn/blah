@@ -568,6 +568,19 @@ def add_recurring_availability(property_id):
             'sunday': 6
         }
         
+        # Clear existing viewing slots for this property in the date range
+        print(f"Clearing existing slots for property {property_id} from {start_date} to {end_date}")
+        existing_slots = ViewingSlot.query.filter(
+            ViewingSlot.property_id == property_id,
+            ViewingSlot.date >= start_date,
+            ViewingSlot.date <= end_date
+        ).all()
+        
+        for slot in existing_slots:
+            db.session.delete(slot)
+        
+        print(f"Deleted {len(existing_slots)} existing slots")
+        
         slots_created = 0
         
         # Iterate through each date in the range
@@ -578,12 +591,11 @@ def add_recurring_availability(property_id):
             print(f"Checking {current_date} (Weekday is {weekday})")
             
             # Check if this day is in the schedule
-            # PASTE THIS NEW BLOCK IN ITS PLACE
-            # REPLACE the for loop inside the `while current_date <= end_date:` loop
-            # with this final debug version.
-
+            day_found = False
             for day_name, day_config in schedule.items():
                 if day_name.lower() in day_mapping and day_mapping[day_name.lower()] == weekday:
+                    day_found = True
+                    print(f"Found schedule for {day_name} on {current_date}")
                     try:
                         from_time = datetime.strptime(day_config['from'], '%H:%M').time()
                         to_time = datetime.strptime(day_config['to'], '%H:%M').time()
@@ -615,8 +627,12 @@ def add_recurring_availability(property_id):
                             current_slot_start = current_slot_end
 
                     except (ValueError, KeyError) as e:
-                        # This will skip any malformed entries in the schedule
+                        print(f"Error processing {day_name}: {e}")
                         continue
+                    break  # Only process one matching day per date
+            
+            if not day_found:
+                print(f"No schedule found for {current_date} (weekday {weekday})")
             
             # Move to next date
             current_date += timedelta(days=1)
