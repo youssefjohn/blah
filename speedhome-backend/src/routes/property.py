@@ -558,14 +558,17 @@ def add_recurring_availability(property_id):
             }), 400
         
         # Day name to weekday number mapping
+        # Frontend calendar: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+        # Python weekday(): Monday=0, Tuesday=1, ..., Saturday=5, Sunday=6
+        # We need to map frontend day names to Python weekday numbers
         day_mapping = {
-            'monday': 0,
-            'tuesday': 1,
-            'wednesday': 2,
-            'thursday': 3,
-            'friday': 4,
-            'saturday': 5,
-            'sunday': 6
+            'sunday': 6,    # Python: Sunday = 6
+            'monday': 0,    # Python: Monday = 0
+            'tuesday': 1,   # Python: Tuesday = 1
+            'wednesday': 2, # Python: Wednesday = 2
+            'thursday': 3,  # Python: Thursday = 3
+            'friday': 4,    # Python: Friday = 4
+            'saturday': 5   # Python: Saturday = 5
         }
         
         # Clear existing viewing slots for this property in the date range
