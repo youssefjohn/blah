@@ -76,17 +76,28 @@ const UnifiedCalendar = () => {
     return days;
   };
 
+  // Timezone-safe date creation from YYYY-MM-DD string
+  const createLocalDate = (dateStr) => {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(year, month - 1, day); // month - 1 because JS months are 0-indexed
+  };
+
   // Get slots for a specific date
   const getSlotsForDate = (date) => {
     const dateStr = date.toISOString().split('T')[0];
     const matchingSlots = viewingSlots.filter(slot => {
       const slotDate = slot.date;
-      const matchesDate = slotDate === dateStr;
+      
+      // Create timezone-safe date from slot date for comparison
+      const slotDateObj = createLocalDate(slotDate);
+      const slotDateStr = slotDateObj.toISOString().split('T')[0];
+      
+      const matchesDate = slotDateStr === dateStr;
       const matchesProperty = selectedProperty === 'all' || slot.property_id === parseInt(selectedProperty);
       
       // Debug logging
       if (matchesDate && matchesProperty) {
-        console.log(`🎯 SLOT MATCH: Calendar date ${dateStr} (${date.toDateString()}) matches slot date ${slotDate}`);
+        console.log(`🎯 SLOT MATCH: Calendar date ${dateStr} (${date.toDateString()}) matches slot date ${slotDate} (${slotDateObj.toDateString()})`);
       }
       
       return matchesDate && matchesProperty;
