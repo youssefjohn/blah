@@ -79,12 +79,20 @@ const UnifiedCalendar = () => {
   // Get slots for a specific date
   const getSlotsForDate = (date) => {
     const dateStr = date.toISOString().split('T')[0];
-    return viewingSlots.filter(slot => {
+    const matchingSlots = viewingSlots.filter(slot => {
       const slotDate = slot.date;
       const matchesDate = slotDate === dateStr;
       const matchesProperty = selectedProperty === 'all' || slot.property_id === parseInt(selectedProperty);
+      
+      // Debug logging
+      if (matchesDate && matchesProperty) {
+        console.log(`🎯 SLOT MATCH: Calendar date ${dateStr} (${date.toDateString()}) matches slot date ${slotDate}`);
+      }
+      
       return matchesDate && matchesProperty;
     });
+    
+    return matchingSlots;
   };
 
   // Format month/year for display
