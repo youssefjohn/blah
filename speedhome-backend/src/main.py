@@ -28,7 +28,7 @@ app = Flask(__name__, static_folder=os.path.join(os.path.dirname(__file__), 'sta
 app.config['SECRET_KEY'] = 'asdf#FGSgvasgf$5$WGT'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
 
-CORS(app, origins=['http://localhost:5174'], supports_credentials=True)
+CORS(app, origins=['http://localhost:5173', 'http://localhost:5174'], supports_credentials=True)
 
 # --- BLUEPRINT REGISTRATION ---
 app.register_blueprint(property_bp, url_prefix='/api')

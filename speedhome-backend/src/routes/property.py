@@ -488,11 +488,16 @@ def get_properties_for_favorites():
 def add_recurring_availability(property_id):
     """Add recurring availability for a property"""
     try:
+        # Debug session information
+        print(f"Session data: {dict(session)}")
+        print(f"User ID in session: {session.get('user_id')}")
+        
         # Check if user is logged in
         if 'user_id' not in session:
+            print("Authentication failed: No user_id in session")
             return jsonify({
                 'success': False,
-                'error': 'Authentication required'
+                'error': 'Authentication required. Please log in first.'
             }), 401
         
         # Get the property and verify ownership
