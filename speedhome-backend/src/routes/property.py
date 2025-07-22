@@ -626,6 +626,7 @@ def add_recurring_availability(property_id):
                             )
                             db.session.add(new_slot)
                             slots_created += 1
+                            print(f"Created slot: {current_slot_start.date()} ({current_slot_start.strftime('%A')}) {current_slot_start.time()} - {current_slot_end.time()}")
 
                             current_slot_start = current_slot_end
 
