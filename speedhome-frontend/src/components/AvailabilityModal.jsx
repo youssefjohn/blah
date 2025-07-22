@@ -45,40 +45,6 @@ const AvailabilityModal = ({ onClose, onSuccess }) => {
     };
   });
 
-  // State for properties
-  const [properties, setProperties] = useState([]);
-  const [selectedProperties, setSelectedProperties] = useState(() => {
-    const savedProperties = localStorage.getItem(`landlord_selected_properties_${user?.id}`);
-    if (savedProperties) {
-      return JSON.parse(savedProperties);
-    }
-    return [];
-  });
-
-  // Load landlord's properties
-  useEffect(() => {
-    const loadProperties = async () => {
-      if (!user) return;
-      
-      try {
-        const result = await PropertyAPI.getPropertiesByOwner(user.id);
-        if (result.success) {
-          setProperties(result.properties);
-          
-          // If no properties are selected yet, select all by default
-          if (selectedProperties.length === 0) {
-            const allPropertyIds = result.properties.map(p => p.id);
-            setSelectedProperties(allPropertyIds);
-          }
-        }
-      } catch (error) {
-        console.error('Error loading properties:', error);
-      }
-    };
-
-    loadProperties();
-  }, [user]);
-
   // Save to localStorage whenever state changes
   useEffect(() => {
     if (user) {
@@ -91,12 +57,6 @@ const AvailabilityModal = ({ onClose, onSuccess }) => {
       localStorage.setItem(`landlord_daterange_${user.id}`, JSON.stringify(dateRange));
     }
   }, [dateRange, user]);
-
-  useEffect(() => {
-    if (user) {
-      localStorage.setItem(`landlord_selected_properties_${user.id}`, JSON.stringify(selectedProperties));
-    }
-  }, [selectedProperties, user]);
 
   const daysOfWeek = [
     { key: 'monday', label: 'Monday' },
@@ -138,38 +98,12 @@ const AvailabilityModal = ({ onClose, onSuccess }) => {
     }));
   };
 
-  // Handle property selection
-  const handlePropertyToggle = (propertyId) => {
-    setSelectedProperties(prev => {
-      if (prev.includes(propertyId)) {
-        return prev.filter(id => id !== propertyId);
-      } else {
-        return [...prev, propertyId];
-      }
-    });
-  };
-
-  // Select/Deselect all properties
-  const handleSelectAllProperties = () => {
-    if (selectedProperties.length === properties.length) {
-      setSelectedProperties([]);
-    } else {
-      setSelectedProperties(properties.map(p => p.id));
-    }
-  };
-
   // Validate form data
   const validateForm = () => {
     // Check if at least one day is selected
     const hasEnabledDay = Object.values(schedule).some(day => day.enabled);
     if (!hasEnabledDay) {
       setError('Please select at least one day of the week.');
-      return false;
-    }
-
-    // Check if at least one property is selected
-    if (selectedProperties.length === 0) {
-      setError('Please select at least one property.');
       return false;
     }
 
@@ -233,26 +167,19 @@ const AvailabilityModal = ({ onClose, onSuccess }) => {
     try {
       const scheduleData = formatScheduleData();
       
-      // Call API for each selected property
-      let totalSlotsCreated = 0;
-      
-      for (const propertyId of selectedProperties) {
-        const result = await PropertyAPI.addRecurringAvailability(propertyId, scheduleData);
-        if (result.success) {
-          totalSlotsCreated += result.slots_created || 0;
-        } else {
-          throw new Error(result.error || 'Failed to set availability');
+      // Call the new landlord-based API
+      const result = await PropertyAPI.addLandlordRecurringAvailability(user.id, scheduleData);
+      if (result.success) {
+        if (onSuccess) {
+          onSuccess({ 
+            slots_created: result.slots_created || 0,
+            message: 'Availability set successfully for all your properties'
+          });
         }
+        onClose();
+      } else {
+        throw new Error(result.error || 'Failed to set availability');
       }
-
-      if (onSuccess) {
-        onSuccess({ 
-          slots_created: totalSlotsCreated,
-          properties_updated: selectedProperties.length
-        });
-      }
-      
-      onClose();
     } catch (error) {
       console.error('Error setting availability:', error);
       setError(error.message || 'Failed to set availability. Please try again.');
@@ -284,35 +211,6 @@ const AvailabilityModal = ({ onClose, onSuccess }) => {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Property Selection */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <label className="block text-sm font-medium text-gray-700">
-                  Select Properties
-                </label>
-                <button
-                  type="button"
-                  onClick={handleSelectAllProperties}
-                  className="text-sm text-blue-600 hover:text-blue-800"
-                >
-                  {selectedProperties.length === properties.length ? 'Deselect All' : 'Select All'}
-                </button>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-32 overflow-y-auto border rounded-lg p-3">
-                {properties.map(property => (
-                  <label key={property.id} className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      checked={selectedProperties.includes(property.id)}
-                      onChange={() => handlePropertyToggle(property.id)}
-                      className="rounded border-gray-300 text-green-600 focus:ring-green-500"
-                    />
-                    <span className="text-sm text-gray-700 truncate">{property.title}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
             {/* Date Range */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>

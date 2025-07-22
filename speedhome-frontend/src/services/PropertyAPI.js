@@ -306,6 +306,32 @@ class PropertyAPI {
       throw error;
     }
   }
+
+  // Add recurring availability for a landlord (landlord-based, not property-specific)
+  static async addLandlordRecurringAvailability(landlordId, scheduleData) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/landlord/${landlordId}/recurring-availability`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Include cookies for session authentication
+        body: JSON.stringify(scheduleData)
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error adding landlord recurring availability:', error);
+      throw error;
+    }
+  }
+
   static async getAvailableSlots(propertyId) {
     try {
         const response = await fetch(`${API_BASE_URL}/properties/${propertyId}/available-slots`);
