@@ -200,19 +200,22 @@ const AvailabilityModal = ({ onClose, onSuccess }) => {
 
   // Format schedule data for API
   const formatScheduleData = () => {
-    const enabledDays = Object.entries(schedule)
-      .filter(([_, config]) => config.enabled)
-      .map(([day, config]) => ({
-        day: day,
-        start_time: config.from,
-        end_time: config.to
-      }));
+    // Convert enabled days to object format expected by backend
+    const scheduleObject = {};
+    
+    Object.entries(schedule).forEach(([day, config]) => {
+      if (config.enabled) {
+        scheduleObject[day] = {
+          from: config.from,
+          to: config.to
+        };
+      }
+    });
 
     return {
-      schedule: enabledDays,
+      schedule: scheduleObject,
       start_date: dateRange.startDate,
-      end_date: dateRange.endDate,
-      property_ids: selectedProperties
+      end_date: dateRange.endDate
     };
   };
 
