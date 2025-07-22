@@ -17,6 +17,7 @@ class ViewingSlot(db.Model):
     booked_for_property_id = Column(Integer, ForeignKey('properties.id'), nullable=True)  # Which property was booked (if any)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
     
     # Relationships
     landlord = relationship("User", back_populates="landlord_slots", foreign_keys=[landlord_id])
