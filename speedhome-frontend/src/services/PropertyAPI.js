@@ -332,6 +332,27 @@ class PropertyAPI {
     }
   }
 
+  // Get all viewing slots for a landlord
+  static async getLandlordViewingSlots(landlordId) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/landlord/${landlordId}/viewing-slots`, {
+        method: 'GET',
+        credentials: 'include', // Include cookies for session authentication
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching landlord viewing slots:', error);
+      throw error;
+    }
+  }
+
   static async getAvailableSlots(propertyId) {
     try {
         const response = await fetch(`${API_BASE_URL}/properties/${propertyId}/available-slots`);

@@ -173,3 +173,43 @@ def add_landlord_recurring_availability(landlord_id):
             'error': f'An error occurred: {str(e)}'
         }), 500
 
+@landlord_bp.route('/landlord/<int:landlord_id>/viewing-slots', methods=['GET'])
+def get_landlord_viewing_slots(landlord_id):
+    """Get all viewing slots for a landlord"""
+    try:
+        # Get session data
+        user_id = session.get('user_id')
+        
+        if not user_id:
+            return jsonify({
+                'success': False,
+                'error': 'User not authenticated'
+            }), 401
+        
+        # Verify the landlord_id matches the session user_id
+        if user_id != landlord_id:
+            return jsonify({
+                'success': False,
+                'error': 'Unauthorized: Can only view your own slots'
+            }), 403
+        
+        # Get all viewing slots for this landlord
+        slots = ViewingSlot.query.filter(
+            ViewingSlot.landlord_id == landlord_id
+        ).order_by(ViewingSlot.date, ViewingSlot.start_time).all()
+        
+        # Convert to dictionary format
+        slots_data = [slot.to_dict() for slot in slots]
+        
+        return jsonify({
+            'success': True,
+            'slots': slots_data,
+            'total_slots': len(slots_data)
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'An error occurred: {str(e)}'
+        }), 500
+

@@ -7,9 +7,7 @@ const UnifiedCalendar = () => {
   const { user } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewingSlots, setViewingSlots] = useState([]);
-  const [properties, setProperties] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedProperty, setSelectedProperty] = useState('all');
   const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
 
   // Calendar navigation
@@ -25,19 +23,13 @@ const UnifiedCalendar = () => {
     setCurrentDate(new Date());
   };
 
-  // Load properties and viewing slots
+  // Load viewing slots for landlord
   useEffect(() => {
     const loadData = async () => {
       if (!user) return;
       
       try {
         setLoading(true);
-        
-        // Load landlord's properties
-        const propertiesResult = await PropertyAPI.getPropertiesByOwner(user.id);
-        if (propertiesResult.success) {
-          setProperties(propertiesResult.properties);
-        }
         
         // Load all viewing slots for the landlord using the new unified API
         const slotsResult = await PropertyAPI.getLandlordViewingSlots(user.id);
@@ -93,14 +85,13 @@ const UnifiedCalendar = () => {
       const slotDateStr = slotDateObj.toISOString().split('T')[0];
       
       const matchesDate = slotDateStr === dateStr;
-      const matchesProperty = selectedProperty === 'all' || slot.property_id === parseInt(selectedProperty);
       
       // Debug logging
-      if (matchesDate && matchesProperty) {
+      if (matchesDate) {
         console.log(`🎯 SLOT MATCH: Calendar date ${dateStr} (${date.toDateString()}) matches slot date ${slotDate} (${slotDateObj.toDateString()})`);
       }
       
-      return matchesDate && matchesProperty;
+      return matchesDate;
     });
     
     return matchingSlots;
@@ -147,20 +138,6 @@ const UnifiedCalendar = () => {
         </div>
         
         <div className="flex items-center space-x-4">
-          {/* Property Filter */}
-          <select
-            value={selectedProperty}
-            onChange={(e) => setSelectedProperty(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-yellow-500 focus:border-yellow-500"
-          >
-            <option value="all">All Properties</option>
-            {properties.map(property => (
-              <option key={property.id} value={property.id}>
-                {property.title}
-              </option>
-            ))}
-          </select>
-          
           {/* Availability Button */}
           <button
             onClick={() => setShowAvailabilityModal(true)}
@@ -285,16 +262,16 @@ const UnifiedCalendar = () => {
         
         <div className="bg-blue-50 p-4 rounded-lg">
           <div className="text-2xl font-bold text-blue-600">
-            {properties.length}
+            {viewingSlots.length}
           </div>
-          <div className="text-sm text-blue-700">Total Properties</div>
+          <div className="text-sm text-blue-700">Total Slots</div>
         </div>
       </div>      {/* Availability Modal */}
       {showAvailabilityModal && (
         <AvailabilityModal
           onClose={() => setShowAvailabilityModal(false)}
           onSuccess={(result) => {
-            alert(`Availability set successfully! Created ${result.slots_created || 0} viewing slots across ${result.properties_updated || 0} properties.`);
+            alert(`Availability set successfully! Created ${result.slots_created || 0} viewing slots.`);
             setShowAvailabilityModal(false);
             // Reload the calendar data
             const loadData = async () => {
