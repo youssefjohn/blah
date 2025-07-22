@@ -323,14 +323,6 @@ class PropertyAPI {
         throw error;
     }
   }
-}
-
-export default PropertyAPI;
-
-
-  
-
-
   // Get all viewing slots for a landlord across all properties
   static async getLandlordViewingSlots(landlordId) {
     try {
@@ -341,12 +333,12 @@ export default PropertyAPI;
         },
         credentials: 'include'
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
-      
+
       const data = await response.json();
       return data;
     } catch (error) {
@@ -365,12 +357,12 @@ export default PropertyAPI;
         },
         credentials: 'include'
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
-      
+
       const data = await response.json();
       return data;
     } catch (error) {
@@ -389,12 +381,12 @@ export default PropertyAPI;
         },
         credentials: 'include'
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
-      
+
       const data = await response.json();
       return data;
     } catch (error) {
@@ -402,4 +394,13 @@ export default PropertyAPI;
       throw error;
     }
   }
+
+}
+
+export default PropertyAPI;
+
+
+  
+
+
 

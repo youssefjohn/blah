@@ -234,7 +234,7 @@ const AvailabilityModal = ({ onClose, onSuccess }) => {
       let totalSlotsCreated = 0;
       
       for (const propertyId of selectedProperties) {
-        const result = await PropertyAPI.setRecurringAvailability(propertyId, scheduleData);
+        const result = await PropertyAPI.addRecurringAvailability(propertyId, scheduleData);
         if (result.success) {
           totalSlotsCreated += result.slots_created || 0;
         } else {
