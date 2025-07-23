@@ -148,7 +148,7 @@ def add_landlord_recurring_availability(landlord_id):
 
 @landlord_bp.route('/landlord/<int:landlord_id>/viewing-slots', methods=['GET'])
 def get_landlord_viewing_slots(landlord_id):
-    """Get all viewing slots for a landlord"""
+    """Get all viewing slots for a landlord with correct booking status filtering"""
     try:
         # Get session data
         user_id = session.get('user_id')
@@ -170,6 +170,23 @@ def get_landlord_viewing_slots(landlord_id):
         slots = ViewingSlot.query.filter(
             ViewingSlot.landlord_id == landlord_id
         ).order_by(ViewingSlot.date, ViewingSlot.start_time).all()
+        
+        # ✅ FIX: Update slot availability based on CONFIRMED bookings only
+        for slot in slots:
+            # Check if there's a CONFIRMED booking for this slot
+            confirmed_booking = Booking.query.filter(
+                Booking.viewing_slot_id == slot.id,
+                Booking.status == 'confirmed'  # Only consider confirmed bookings
+            ).first()
+            
+            if confirmed_booking:
+                # Slot is booked by a confirmed booking
+                slot.is_available = False
+                slot.booked_by_user_id = confirmed_booking.user_id
+            else:
+                # No confirmed booking - slot should be available
+                slot.is_available = True
+                slot.booked_by_user_id = None
         
         # Convert to dictionary format
         slots_data = [slot.to_dict() for slot in slots]
