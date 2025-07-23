@@ -649,7 +649,14 @@ def resolve_availability_conflicts():
                 booking.status = 'pending'
                 booking.reschedule_requested_by = 'landlord'
                 
-                # ✅ FIX: Find a valid available slot within the new schedule
+                # ✅ CRITICAL FIX: Free up the old viewing slot when reschedule is requested
+                if booking.viewing_slot_id:
+                    viewing_slot = ViewingSlot.query.get(booking.viewing_slot_id)
+                    if viewing_slot:
+                        viewing_slot.is_available = True
+                        viewing_slot.booked_by_user_id = None
+                        print(f"🔄 Freed up old viewing slot {viewing_slot.id} for reschedule: {viewing_slot.date} {viewing_slot.start_time}")
+                
                 # Store original date/time before proposing new one
                 if not booking.original_date:
                     booking.original_date = booking.appointment_date

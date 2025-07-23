@@ -82,11 +82,7 @@ const TenantBookingCalendar = ({ propertyId, onBookingSuccess, onClose, onSlotSe
   // Handle slot selection
   const handleSlotSelect = (slot) => {
     setSelectedSlot(slot);
-    
-    // If this is reschedule mode and onSlotSelect callback is provided, call it immediately
-    if (isReschedule && onSlotSelect) {
-      onSlotSelect(slot.id);
-    }
+    // Don't immediately call onSlotSelect - let user click submit button
   };
 
   // Handle booking confirmation
@@ -230,7 +226,11 @@ const TenantBookingCalendar = ({ propertyId, onBookingSuccess, onClose, onSlotSe
               )}
               
               <button
-                onClick={isReschedule ? () => onSlotSelect && onSlotSelect(selectedSlot.id) : handleBooking}
+                onClick={isReschedule ? () => {
+                  if (selectedSlot && onSlotSelect) {
+                    onSlotSelect(selectedSlot.id);
+                  }
+                } : handleBooking}
                 disabled={!selectedSlot || booking}
                 className={`px-6 py-2 rounded-md font-medium transition-colors ${
                   selectedSlot && !booking
