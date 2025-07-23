@@ -128,10 +128,18 @@ const AvailabilityModal = ({ onClose, onSuccess }) => {
         onClose();
       }
     } catch (error) {
+      console.log('🔍 Error caught:', error);
+      console.log('🔍 Error response:', error.response);
+      console.log('🔍 Error status:', error.response?.status);
+      console.log('🔍 Error data:', error.response?.data);
+      
       if (error.response && error.response.status === 409) {
-        setConflicts(error.response.data.conflicts || []);
+        const conflicts = error.response.data.conflicts || [];
+        console.log('🎯 CONFLICTS DETECTED:', conflicts);
+        setConflicts(conflicts);
         setView('conflict');
         setError('Your new schedule conflicts with existing bookings.');
+        console.log('🎯 View set to conflict, conflicts set:', conflicts.length);
       } else {
         setError(error.message || 'Failed to set availability. Please try again.');
       }
