@@ -315,13 +315,20 @@ class PropertyAPI {
         headers: {
           'Content-Type': 'application/json',
         },
-        credentials: 'include', // Include cookies for session authentication
+        credentials: 'include',
         body: JSON.stringify(scheduleData)
       });
-      
+
+      // If the response is not OK (e.g., 409 Conflict), we need to handle it
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        // Create a custom error object that includes the full response details
+        const error = new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        error.response = {
+            status: response.status,
+            data: errorData
+        };
+        throw error; // Throw the enhanced error so the component can inspect it
       }
       
       const data = await response.json();

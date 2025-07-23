@@ -276,6 +276,30 @@ static async createBooking(bookingDetails) {
     }
   }
 
+  static async resolveAvailabilityConflicts(data) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/bookings/resolve-conflicts`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify(data)
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        }
+
+        return await response.json();
+
+    } catch (error) {
+        console.error('Error resolving conflicts:', error);
+        throw error;
+    }
+}
+
 }
 
 export default BookingAPI;

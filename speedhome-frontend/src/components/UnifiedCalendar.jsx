@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import PropertyAPI from '../services/PropertyAPI';
 import AvailabilityModal from './AvailabilityModal';
@@ -9,6 +9,30 @@ const UnifiedCalendar = () => {
   const [viewingSlots, setViewingSlots] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
+
+  // --- STEP 1: The data loading logic is extracted into a reusable function ---
+  const loadData = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      setLoading(true);
+      // Load all viewing slots for the landlord
+      const slotsResult = await PropertyAPI.getLandlordViewingSlots(user.id);
+      if (slotsResult.success) {
+        setViewingSlots(slotsResult.slots);
+      }
+    } catch (error) {
+      console.error('Error loading calendar data:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+  // --- STEP 2: This calls the loadData function on initial component load ---
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
 
   // Calendar navigation
   const goToPreviousMonth = () => {
@@ -23,97 +47,54 @@ const UnifiedCalendar = () => {
     setCurrentDate(new Date());
   };
 
-  // Load viewing slots for landlord
-  useEffect(() => {
-    const loadData = async () => {
-      if (!user) return;
-      
-      try {
-        setLoading(true);
-        
-        // Load all viewing slots for the landlord using the new unified API
-        const slotsResult = await PropertyAPI.getLandlordViewingSlots(user.id);
-        if (slotsResult.success) {
-          setViewingSlots(slotsResult.slots);
-        }
-      } catch (error) {
-        console.error('Error loading calendar data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadData();
-  }, [user]);
-
   // Get calendar days for current month
   const getCalendarDays = () => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
-    
+
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
     const startDate = new Date(firstDay);
-    startDate.setDate(startDate.getDate() - firstDay.getDay()); // Start from Sunday
-    
+    startDate.setDate(startDate.getDate() - startDate.getDay());
+
     const days = [];
     const currentDay = new Date(startDate);
-    
-    // Generate 42 days (6 weeks) for calendar grid
+
     for (let i = 0; i < 42; i++) {
       days.push(new Date(currentDay));
       currentDay.setDate(currentDay.getDate() + 1);
     }
-    
+
     return days;
   };
 
-  // Timezone-safe date creation from YYYY-MM-DD string
   const createLocalDate = (dateStr) => {
     const [year, month, day] = dateStr.split('-').map(Number);
-    return new Date(year, month - 1, day); // month - 1 because JS months are 0-indexed
+    return new Date(year, month - 1, day);
   };
 
-  // Get slots for a specific date
   const getSlotsForDate = (date) => {
     const dateStr = date.toISOString().split('T')[0];
-    const matchingSlots = viewingSlots.filter(slot => {
-      const slotDate = slot.date;
-      
-      // Create timezone-safe date from slot date for comparison
-      const slotDateObj = createLocalDate(slotDate);
-      const slotDateStr = slotDateObj.toISOString().split('T')[0];
-      
-      const matchesDate = slotDateStr === dateStr;
-      
-      // Debug logging
-      if (matchesDate) {
-        console.log(`🎯 SLOT MATCH: Calendar date ${dateStr} (${date.toDateString()}) matches slot date ${slotDate} (${slotDateObj.toDateString()})`);
-      }
-      
-      return matchesDate;
+    return viewingSlots.filter(slot => {
+      const slotDateObj = createLocalDate(slot.date);
+      return slotDateObj.toISOString().split('T')[0] === dateStr;
     });
-    
-    return matchingSlots;
   };
 
-  // Format month/year for display
   const formatMonthYear = (date) => {
     return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   };
 
-  // Check if date is today
   const isToday = (date) => {
     const today = new Date();
     return date.toDateString() === today.toDateString();
   };
 
-  // Check if date is in current month
   const isCurrentMonth = (date) => {
     return date.getMonth() === currentDate.getMonth();
   };
 
-  if (loading) {
+  if (loading && viewingSlots.length === 0) { // Only show initial loading spinner
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-500"></div>
@@ -136,14 +117,13 @@ const UnifiedCalendar = () => {
             Today
           </button>
         </div>
-        
+
         <div className="flex items-center space-x-4">
-          {/* Availability Button */}
           <button
             onClick={() => setShowAvailabilityModal(true)}
             className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors text-sm font-medium"
           >
-            Availability
+            Manage Availability
           </button>
         </div>
       </div>
@@ -154,40 +134,34 @@ const UnifiedCalendar = () => {
           onClick={goToPreviousMonth}
           className="p-2 hover:bg-gray-100 rounded-md transition-colors"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
+          &lt;
         </button>
-        
+
         <h3 className="text-xl font-semibold text-gray-900">
           {formatMonthYear(currentDate)}
         </h3>
-        
+
         <button
           onClick={goToNextMonth}
           className="p-2 hover:bg-gray-100 rounded-md transition-colors"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
+          &gt;
         </button>
       </div>
 
       {/* Calendar Grid */}
       <div className="grid grid-cols-7 gap-1 mb-4">
-        {/* Day Headers */}
         {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
           <div key={day} className="p-3 text-center text-sm font-medium text-gray-500 bg-gray-50">
             {day}
           </div>
         ))}
-        
-        {/* Calendar Days */}
+
         {calendarDays.map((day, index) => {
           const slots = getSlotsForDate(day);
           const isCurrentMonthDay = isCurrentMonth(day);
           const isTodayDay = isToday(day);
-          
+
           return (
             <div
               key={index}
@@ -195,14 +169,12 @@ const UnifiedCalendar = () => {
                 isCurrentMonthDay ? 'bg-white' : 'bg-gray-50'
               } ${isTodayDay ? 'ring-2 ring-yellow-400' : ''}`}
             >
-              {/* Date Number */}
               <div className={`text-sm font-medium mb-1 ${
                 isCurrentMonthDay ? 'text-gray-900' : 'text-gray-400'
               } ${isTodayDay ? 'text-yellow-600 font-bold' : ''}`}>
                 {day.getDate()}
               </div>
-              
-              {/* Viewing Slots */}
+
               <div className="space-y-1">
                 {slots.slice(0, 3).map((slot, slotIndex) => (
                   <div
@@ -210,13 +182,12 @@ const UnifiedCalendar = () => {
                     className={`text-xs p-1 rounded text-white truncate ${
                       slot.is_available ? 'bg-green-500' : 'bg-red-500'
                     }`}
-                    title={`${slot.property_title} - ${slot.start_time}-${slot.end_time}`}
+                    title={`${slot.property_title || 'No Property Assigned'} - ${slot.start_time}-${slot.end_time}`}
                   >
                     {slot.start_time}-{slot.end_time}
                   </div>
                 ))}
-                
-                {/* Show count if more slots exist */}
+
                 {slots.length > 3 && (
                   <div className="text-xs text-gray-500 font-medium">
                     +{slots.length - 3} more
@@ -230,66 +201,27 @@ const UnifiedCalendar = () => {
 
       {/* Legend */}
       <div className="flex items-center justify-center space-x-6 text-sm">
-        <div className="flex items-center space-x-2">
-          <div className="w-3 h-3 bg-green-500 rounded"></div>
-          <span>Available</span>
-        </div>
-        <div className="flex items-center space-x-2">
-          <div className="w-3 h-3 bg-red-500 rounded"></div>
-          <span>Booked</span>
-        </div>
-        <div className="flex items-center space-x-2">
-          <div className="w-3 h-3 border-2 border-yellow-400 rounded"></div>
-          <span>Today</span>
-        </div>
+        <div className="flex items-center space-x-2"><div className="w-3 h-3 bg-green-500 rounded"></div><span>Available</span></div>
+        <div className="flex items-center space-x-2"><div className="w-3 h-3 bg-red-500 rounded"></div><span>Booked</span></div>
+        <div className="flex items-center space-x-2"><div className="w-3 h-3 border-2 border-yellow-400 rounded"></div><span>Today</span></div>
       </div>
 
       {/* Statistics */}
       <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-green-50 p-4 rounded-lg">
-          <div className="text-2xl font-bold text-green-600">
-            {viewingSlots.filter(slot => slot.is_available).length}
-          </div>
-          <div className="text-sm text-green-700">Available Slots</div>
-        </div>
-        
-        <div className="bg-red-50 p-4 rounded-lg">
-          <div className="text-2xl font-bold text-red-600">
-            {viewingSlots.filter(slot => !slot.is_available).length}
-          </div>
-          <div className="text-sm text-red-700">Booked Slots</div>
-        </div>
-        
-        <div className="bg-blue-50 p-4 rounded-lg">
-          <div className="text-2xl font-bold text-blue-600">
-            {viewingSlots.length}
-          </div>
-          <div className="text-sm text-blue-700">Total Slots</div>
-        </div>
-      </div>      {/* Availability Modal */}
+        <div className="bg-green-50 p-4 rounded-lg"><div className="text-2xl font-bold text-green-600">{viewingSlots.filter(slot => slot.is_available).length}</div><div className="text-sm text-green-700">Available Slots</div></div>
+        <div className="bg-red-50 p-4 rounded-lg"><div className="text-2xl font-bold text-red-600">{viewingSlots.filter(slot => !slot.is_available).length}</div><div className="text-sm text-red-700">Booked Slots</div></div>
+        <div className="bg-blue-50 p-4 rounded-lg"><div className="text-2xl font-bold text-blue-600">{viewingSlots.length}</div><div className="text-sm text-blue-700">Total Slots</div></div>
+      </div>
+
+      {/* Availability Modal */}
       {showAvailabilityModal && (
         <AvailabilityModal
           onClose={() => setShowAvailabilityModal(false)}
+          // --- STEP 3: The onSuccess handler now correctly calls the main loadData function ---
           onSuccess={(result) => {
-            alert(`Availability set successfully! Created ${result.slots_created || 0} viewing slots.`);
+            alert(result.message || `Availability set successfully!`);
             setShowAvailabilityModal(false);
-            // Reload the calendar data
-            const loadData = async () => {
-              if (!user) return;
-              
-              try {
-                setLoading(true);
-                const slotsResult = await PropertyAPI.getLandlordViewingSlots(user.id);
-                if (slotsResult.success) {
-                  setViewingSlots(slotsResult.slots);
-                }
-              } catch (error) {
-                console.error('Error reloading calendar data:', error);
-              } finally {
-                setLoading(false);
-              }
-            };
-            loadData();
+            loadData(); // This will re-fetch the slots and update the calendar
           }}
         />
       )}
@@ -298,4 +230,3 @@ const UnifiedCalendar = () => {
 };
 
 export default UnifiedCalendar;
-
