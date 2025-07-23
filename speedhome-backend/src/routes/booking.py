@@ -655,41 +655,15 @@ def resolve_availability_conflicts():
                     booking.original_date = booking.appointment_date
                     booking.original_time = booking.appointment_time
                 
-                # Find the first available slot in the new schedule
-                new_slot_found = False
-                current_check_date = start_date
+                # Clear proposed time - tenant will choose new slot
+                booking.proposed_date = None
+                booking.proposed_time = None
                 
-                while current_check_date <= end_date and not new_slot_found:
-                    weekday = current_check_date.weekday()
-                    
-                    # Check if this day is in the new schedule
-                    for day_name, day_config in schedule.items():
-                        if day_mapping.get(day_name.lower()) == weekday:
-                            try:
-                                from_time = datetime.strptime(day_config['from'], '%H:%M').time()
-                                to_time = datetime.strptime(day_config['to'], '%H:%M').time()
-                                
-                                if to_time > from_time:
-                                    # Propose the first available 30-minute slot
-                                    booking.proposed_date = current_check_date
-                                    booking.proposed_time = from_time
-                                    new_slot_found = True
-                                    print(f"🔄 Proposed new slot for booking {booking.id}: {current_check_date} at {from_time}")
-                                    break
-                            except (ValueError, KeyError):
-                                continue
-                    
-                    current_check_date += timedelta(days=1)
-                
-                # If no slot found, propose the original date with a note
-                if not new_slot_found:
-                    booking.proposed_date = booking.appointment_date
-                    booking.proposed_time = booking.appointment_time
-                    print(f"⚠️ No available slot found for booking {booking.id}, keeping original time")
+                print(f"🔄 Reschedule requested for booking {booking.id}: Tenant will choose from available slots")
                 
                 notification = Notification(
                     recipient_id=booking.user_id,
-                    message=f"The landlord has updated their schedule for '{booking.property.title}'. A new viewing time has been proposed.",
+                    message=f"The landlord has updated their schedule for '{booking.property.title}'. Please select a new viewing time from available slots.",
                     link="/dashboard"
                 )
                 db.session.add(notification)
@@ -747,3 +721,81 @@ def resolve_availability_conflicts():
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'error': f'An error occurred: {str(e)}'}), 500
+
+
+@booking_bp.route('/bookings/<int:booking_id>/select-reschedule-slot', methods=['POST'])
+def select_reschedule_slot(booking_id):
+    """Allow tenant to select a new slot when landlord requests reschedule"""
+    try:
+        if 'user_id' not in session:
+            return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+        data = request.get_json()
+        viewing_slot_id = data.get('viewing_slot_id')
+
+        if not viewing_slot_id:
+            return jsonify({'success': False, 'error': 'viewing_slot_id is required'}), 400
+
+        # Get the booking and verify tenant ownership
+        booking = Booking.query.get(booking_id)
+        if not booking:
+            return jsonify({'success': False, 'error': 'Booking not found'}), 404
+
+        if booking.user_id != session['user_id']:
+            return jsonify({'success': False, 'error': 'Unauthorized access'}), 403
+
+        # Verify this is a landlord reschedule request
+        if booking.reschedule_requested_by != 'landlord':
+            return jsonify({'success': False, 'error': 'No landlord reschedule request found'}), 400
+
+        # Get the selected viewing slot
+        viewing_slot = ViewingSlot.query.get(viewing_slot_id)
+        if not viewing_slot:
+            return jsonify({'success': False, 'error': 'Viewing slot not found'}), 404
+
+        if not viewing_slot.is_available:
+            return jsonify({'success': False, 'error': 'Selected slot is no longer available'}), 400
+
+        # Update the booking with the new slot
+        booking.appointment_date = viewing_slot.date
+        booking.appointment_time = viewing_slot.start_time
+        booking.status = 'confirmed'
+        booking.reschedule_requested_by = None
+        booking.proposed_date = None
+        booking.proposed_time = None
+        booking.viewing_slot_id = viewing_slot.id
+
+        # Mark the viewing slot as booked
+        viewing_slot.is_available = False
+        viewing_slot.booked_by_user_id = session['user_id']
+
+        # Free up the old viewing slot if it exists
+        if booking.viewing_slot_id and booking.viewing_slot_id != viewing_slot_id:
+            old_slot = ViewingSlot.query.get(booking.viewing_slot_id)
+            if old_slot:
+                old_slot.is_available = True
+                old_slot.booked_by_user_id = None
+
+        # Notify the landlord
+        property_obj = Property.query.get(booking.property_id)
+        tenant = User.query.get(booking.user_id)
+        
+        landlord_notification = Notification(
+            recipient_id=property_obj.owner_id,
+            message=f"{tenant.get_full_name()} has selected a new viewing time for '{property_obj.title}': {viewing_slot.date} at {viewing_slot.start_time}.",
+            link="/landlord"
+        )
+        db.session.add(landlord_notification)
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'New viewing time selected successfully',
+            'booking': booking.to_dict()
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': f'An error occurred: {str(e)}'}), 500
+

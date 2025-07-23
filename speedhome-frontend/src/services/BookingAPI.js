@@ -298,7 +298,32 @@ static async createBooking(bookingDetails) {
         console.error('Error resolving conflicts:', error);
         throw error;
     }
-}
+  }
+
+  // Method for tenants to select a new slot when landlord requests reschedule
+  static async selectRescheduleSlot(bookingId, slotId) {
+    try {
+      const response = await fetch(`/api/bookings/${bookingId}/select-reschedule-slot`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ viewing_slot_id: slotId })
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to select reschedule slot');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error selecting reschedule slot:', error);
+      throw error;
+    }
+  }
 
 }
 
