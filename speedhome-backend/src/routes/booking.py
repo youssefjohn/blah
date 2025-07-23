@@ -648,10 +648,49 @@ def resolve_availability_conflicts():
             elif resolution == 'reschedule':
                 booking.status = 'pending'
                 booking.reschedule_requested_by = 'landlord'
+                
+                # ✅ FIX: Find a valid available slot within the new schedule
+                # Store original date/time before proposing new one
+                if not booking.original_date:
+                    booking.original_date = booking.appointment_date
+                    booking.original_time = booking.appointment_time
+                
+                # Find the first available slot in the new schedule
+                new_slot_found = False
+                current_check_date = start_date
+                
+                while current_check_date <= end_date and not new_slot_found:
+                    weekday = current_check_date.weekday()
+                    
+                    # Check if this day is in the new schedule
+                    for day_name, day_config in schedule.items():
+                        if day_mapping.get(day_name.lower()) == weekday:
+                            try:
+                                from_time = datetime.strptime(day_config['from'], '%H:%M').time()
+                                to_time = datetime.strptime(day_config['to'], '%H:%M').time()
+                                
+                                if to_time > from_time:
+                                    # Propose the first available 30-minute slot
+                                    booking.proposed_date = current_check_date
+                                    booking.proposed_time = from_time
+                                    new_slot_found = True
+                                    print(f"🔄 Proposed new slot for booking {booking.id}: {current_check_date} at {from_time}")
+                                    break
+                            except (ValueError, KeyError):
+                                continue
+                    
+                    current_check_date += timedelta(days=1)
+                
+                # If no slot found, propose the original date with a note
+                if not new_slot_found:
+                    booking.proposed_date = booking.appointment_date
+                    booking.proposed_time = booking.appointment_time
+                    print(f"⚠️ No available slot found for booking {booking.id}, keeping original time")
+                
                 notification = Notification(
                     recipient_id=booking.user_id,
-                    message=f"The landlord has updated their schedule for '{booking.property.title}'. Please select a new viewing time.",
-                    link=f"/property/{booking.property_id}"
+                    message=f"The landlord has updated their schedule for '{booking.property.title}'. A new viewing time has been proposed.",
+                    link="/dashboard"
                 )
                 db.session.add(notification)
 
