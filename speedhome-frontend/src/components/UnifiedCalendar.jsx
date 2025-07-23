@@ -219,7 +219,8 @@ const UnifiedCalendar = () => {
           onClose={() => setShowAvailabilityModal(false)}
           // --- STEP 3: The onSuccess handler now correctly calls the main loadData function ---
           onSuccess={(result) => {
-            alert(result.message || `Availability set successfully!`);
+            const message = result?.message || result?.success_message || 'Availability updated successfully!';
+            alert(message);
             setShowAvailabilityModal(false);
             loadData(); // This will re-fetch the slots and update the calendar
           }}

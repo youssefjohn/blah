@@ -152,7 +152,7 @@ const AvailabilityModal = ({ onClose, onSuccess }) => {
 
         if (result.success) {
             // First, signal the parent component to refresh its data.
-            onSuccess();
+            onSuccess(result);
             // Then, close the modal.
             onClose();
         }
