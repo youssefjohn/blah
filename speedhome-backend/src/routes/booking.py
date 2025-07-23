@@ -629,6 +629,15 @@ def resolve_availability_conflicts():
         for booking in bookings_to_resolve:
             if resolution == 'cancel':
                 booking.status = 'cancelled'
+                
+                # ✅ CRITICAL FIX: Update the viewing slot to make it available again
+                if booking.viewing_slot_id:
+                    viewing_slot = ViewingSlot.query.get(booking.viewing_slot_id)
+                    if viewing_slot:
+                        viewing_slot.is_available = True
+                        viewing_slot.booked_by_user_id = None
+                        print(f"🔄 Freed up viewing slot {viewing_slot.id} for {viewing_slot.date} {viewing_slot.start_time}")
+                
                 notification = Notification(
                     recipient_id=booking.user_id,
                     message=f"Your viewing for '{booking.property.title}' has been cancelled by the landlord due to a schedule change.",
