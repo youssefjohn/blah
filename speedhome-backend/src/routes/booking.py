@@ -756,6 +756,9 @@ def select_reschedule_slot(booking_id):
         if not viewing_slot.is_available:
             return jsonify({'success': False, 'error': 'Selected slot is no longer available'}), 400
 
+        # Store the old viewing slot ID before updating
+        old_viewing_slot_id = booking.viewing_slot_id
+
         # Update the booking with the new slot
         booking.appointment_date = viewing_slot.date
         booking.appointment_time = viewing_slot.start_time
@@ -765,16 +768,19 @@ def select_reschedule_slot(booking_id):
         booking.proposed_time = None
         booking.viewing_slot_id = viewing_slot.id
 
-        # Mark the viewing slot as booked
+        # Mark the new viewing slot as booked
         viewing_slot.is_available = False
         viewing_slot.booked_by_user_id = session['user_id']
 
-        # Free up the old viewing slot if it exists
-        if booking.viewing_slot_id and booking.viewing_slot_id != viewing_slot_id:
-            old_slot = ViewingSlot.query.get(booking.viewing_slot_id)
+        # Free up the old viewing slot if it exists and is different
+        if old_viewing_slot_id and old_viewing_slot_id != viewing_slot.id:
+            old_slot = ViewingSlot.query.get(old_viewing_slot_id)
             if old_slot:
                 old_slot.is_available = True
                 old_slot.booked_by_user_id = None
+                print(f"🔄 Freed up old viewing slot {old_viewing_slot_id}")
+
+        print(f"✅ Updated booking {booking_id} to new slot {viewing_slot.id}")
 
         # Notify the landlord
         property_obj = Property.query.get(booking.property_id)
