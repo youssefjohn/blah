@@ -18,7 +18,7 @@ const RecurringAvailabilityManager = ({ propertyId, onClose, onSuccess }) => {
   
   // State for date range
   const [dateRange, setDateRange] = useState({
-    startDate: '',
+    startDate: new Date().toISOString().split('T')[0], // ✅ Default to today's date
     endDate: ''
   });
 
