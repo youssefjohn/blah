@@ -45,12 +45,12 @@ const TenantBookingCalendar = ({ propertyId, onBookingSuccess, onClose, onSlotSe
     return grouped;
   };
 
-  // Get next 14 days starting from today
-  const getNext14Days = () => {
+  // Get next 60 days starting from today to show more availability
+  const getNext60Days = () => {
     const days = [];
     const today = new Date();
     
-    for (let i = 0; i < 14; i++) {
+    for (let i = 0; i < 60; i++) {  // ✅ Extended from 14 to 60 days
       const date = new Date(today);
       date.setDate(today.getDate() + i);
       days.push(date);
@@ -124,7 +124,7 @@ const TenantBookingCalendar = ({ propertyId, onBookingSuccess, onClose, onSlotSe
   }
 
   const groupedSlots = groupSlotsByDate();
-  const next14Days = getNext14Days();
+  const next60Days = getNext60Days();
 
   return (
     <div className="bg-white rounded-lg shadow-lg p-6 max-w-4xl mx-auto">
@@ -156,7 +156,7 @@ const TenantBookingCalendar = ({ propertyId, onBookingSuccess, onClose, onSlotSe
         <div className="space-y-6">
           {/* Available Dates */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {next14Days.map((date, index) => {
+            {next60Days.map((date, index) => {
               const dateKey = formatDateKey(date);
               const slotsForDate = groupedSlots[dateKey] || [];
               
