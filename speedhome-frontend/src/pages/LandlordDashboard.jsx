@@ -1332,18 +1332,18 @@ const handleApplicationResponse = async (applicationId, response) => {
                                                 Reschedule Requested
                                               </span>
                                               <div className="text-xs text-gray-500">
-                                                New:{' '}
-                                                {request.proposed_date
-                                                  ? formatDate(request.proposed_date)
-                                                  : formatDate(
-                                                      request.appointment_date
-                                                    )}{' '}
-                                                at{' '}
-                                                {request.proposed_time
-                                                  ? formatTime(request.proposed_time)
-                                                  : formatTime(
-                                                      request.appointment_time
-                                                    )}
+                                                {request.proposed_date && request.proposed_time ? (
+                                                  <>
+                                                    New:{' '}
+                                                    {formatDate(request.proposed_date)}{' '}
+                                                    at{' '}
+                                                    {formatTime(request.proposed_time)}
+                                                  </>
+                                                ) : (
+                                                  request.reschedule_requested_by === 'landlord' ? 
+                                                    'Waiting for tenant response' : 
+                                                    'Tenant will choose new time'
+                                                )}
                                               </div>
                                   
                                               {/* Show Accept/Decline buttons ONLY if tenant requested reschedule */}

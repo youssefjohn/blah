@@ -477,17 +477,43 @@ def cancel_reschedule(booking_id):
                 (booking.reschedule_requested_by == 'landlord' and property_obj.owner_id != user_id)):
             return jsonify({'success': False, 'error': 'Only the reschedule initiator can cancel the request'}), 403
 
+        # ✅ FIX: Don't revert to original date if it's no longer available
+        # Instead, cancel the booking entirely since the original slot is unavailable
         if booking.original_date and booking.original_time:
-            booking.appointment_date = booking.original_date
-            booking.appointment_time = booking.original_time
-
+            # Check if the original viewing slot still exists and is available
+            original_slot = ViewingSlot.query.filter_by(
+                property_id=booking.property_id,
+                date=booking.original_date,
+                start_time=booking.original_time
+            ).first()
+            
+            if original_slot and original_slot.is_available:
+                # Original slot is available, revert to it
+                booking.appointment_date = booking.original_date
+                booking.appointment_time = booking.original_time
+                booking.viewing_slot_id = original_slot.id
+                
+                # Mark the slot as booked again
+                original_slot.is_available = False
+                original_slot.booked_by_user_id = booking.user_id
+                
+                booking.status = 'confirmed'
+                print(f"✅ Reverted booking {booking_id} to original slot: {booking.original_date} {booking.original_time}")
+            else:
+                # Original slot is no longer available, cancel the booking
+                booking.status = 'cancelled'
+                print(f"❌ Original slot unavailable, cancelled booking {booking_id}")
+        else:
+            # No original date/time stored, cancel the booking
+            booking.status = 'cancelled'
+        
+        # Clear reschedule-related fields
         booking.proposed_date = None
         booking.proposed_time = None
         booking.reschedule_requested_by = None
         booking.original_date = None
         booking.original_time = None
-
-        booking.status = 'confirmed'
+        
         booking.updated_at = datetime.utcnow()
 
         db.session.commit()
