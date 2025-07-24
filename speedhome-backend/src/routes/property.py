@@ -675,7 +675,6 @@ def get_available_slots(property_id):
         # Step 2: Find all available slots belonging to that landlord for this specific property
         slots = ViewingSlot.query.filter(
             ViewingSlot.landlord_id == landlord_id,
-            ViewingSlot.property_id == property_id,  # ✅ CRITICAL FIX: Filter by specific property
             ViewingSlot.is_available == True
         ).order_by(ViewingSlot.date, ViewingSlot.start_time).all()
 
