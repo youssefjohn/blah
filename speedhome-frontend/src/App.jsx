@@ -10,6 +10,7 @@ import PrivacyPolicy from './pages/PrivacyPolicy';
 import ContactUs from './pages/ContactUs';
 import UserDashboard from './pages/UserDashboard';
 import LandlordDashboard from './pages/LandlordDashboard';
+import ChatPage from './pages/ChatPage';
 import BookingAPI from './services/BookingAPI';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import ApplicationAPI from './services/ApplicationAPI';
@@ -797,6 +798,7 @@ const handleScheduleSubmit = async (e) => {
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         <Route path="/contact-us" element={<ContactUs />} />
         <Route path="/dashboard" element={<UserDashboard favorites={favorites} properties={properties} toggleFavorite={toggleFavorite} />} />
+        <Route path="/messages/:bookingId" element={<ChatPage />} />
       </Routes>
       <Footer />
 

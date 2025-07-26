@@ -122,6 +122,63 @@ class MessagingAPI {
     }
 
     /**
+     * Get or create a conversation for a booking
+     * @param {number} bookingId - The booking ID
+     */
+    async getOrCreateConversation(bookingId) {
+        try {
+            const response = await fetch(`${this.baseURL}/conversations/booking/${bookingId}`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    booking_id: bookingId
+                })
+            });
+
+            const data = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to get or create conversation');
+            }
+
+            return data;
+        } catch (error) {
+            console.error('Error getting or creating conversation:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get a specific conversation by ID
+     * @param {number} conversationId - The conversation ID
+     */
+    async getConversation(conversationId) {
+        try {
+            const response = await fetch(`${this.baseURL}/conversations/${conversationId}`, {
+                method: 'GET',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            const data = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to fetch conversation');
+            }
+
+            return data;
+        } catch (error) {
+            console.error('Error fetching conversation:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Edit an existing message
      * @param {number} messageId - The message ID
      * @param {string} messageBody - The new message content

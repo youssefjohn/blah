@@ -548,6 +548,19 @@ const UserDashboard = ({ favorites, toggleFavorite }) => {
                         <div className="mt-4 pt-4 border-t border-gray-100 flex flex-wrap gap-x-4 gap-y-2">
                           {booking.status !== 'cancelled' && booking.status !== 'completed' && (<button onClick={(e) => { e.stopPropagation(); cancelBooking(booking.id); }} className="text-red-600 hover:text-red-800 text-sm font-medium">Cancel Appointment</button>)}
                           {canRequestReschedule && !isRescheduleByTenant && !isRescheduleByLandlord && (<button onClick={(e) => { e.stopPropagation(); openRescheduleModal(booking.id); }} className="text-blue-600 hover:text-blue-800 text-sm font-medium">Request Reschedule</button>)}
+                          {/* Message Landlord button for pending and confirmed bookings */}
+                          {(booking.status === 'pending' || booking.status === 'confirmed' || 
+                            booking.status === 'Pending' || booking.status === 'Confirmed') && (
+                            <button 
+                              onClick={(e) => { 
+                                e.stopPropagation(); 
+                                navigate(`/messages/${booking.id}`); 
+                              }} 
+                              className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                            >
+                              💬 Message Landlord
+                            </button>
+                          )}
                           {isRescheduleByLandlord && (
                             <div onClick={(e) => e.stopPropagation()} className="flex items-center gap-2">
                               <button 

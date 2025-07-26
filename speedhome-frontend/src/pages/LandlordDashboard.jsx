@@ -1288,7 +1288,7 @@ const handleApplicationResponse = async (applicationId, response) => {
                                         {(request.status === 'Pending' ||
                                           request.status === 'pending') &&
                                           !request.reschedule_requested_by && (
-                                            <div className="flex space-x-2">
+                                            <div className="flex space-x-2 mb-2">
                                               <button
                                                 onClick={(e) => {
                                                   e.stopPropagation();
@@ -1317,6 +1317,19 @@ const handleApplicationResponse = async (applicationId, response) => {
                                               </button>
                                             </div>
                                           )}
+                                        {/* Message Tenant button for pending and confirmed bookings */}
+                                        {(request.status === 'Pending' || request.status === 'pending' || 
+                                          request.status === 'Confirmed' || request.status === 'confirmed') && (
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              navigate(`/messages/${request.id}`);
+                                            }}
+                                            className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded-md text-xs mb-2"
+                                          >
+                                            💬 Message Tenant
+                                          </button>
+                                        )}
                                         {/* This is the section that has been changed */}
                                         {(request.status === 'Confirmed' ||
                                           request.status === 'confirmed') && (
