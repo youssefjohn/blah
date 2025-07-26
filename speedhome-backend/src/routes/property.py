@@ -1,5 +1,7 @@
 from flask import Blueprint, request, jsonify, session
 from src.models.property import db, Property
+from src.models.viewing_slot import ViewingSlot
+from datetime import datetime, date, time, timedelta
 import json
 
 property_bp = Blueprint('property', __name__)
@@ -480,3 +482,211 @@ def get_properties_for_favorites():
             'error': str(e)
         }), 500
 
+
+
+@property_bp.route('/properties/<int:property_id>/recurring-availability', methods=['POST'])
+def add_recurring_availability(property_id):
+    """Add recurring availability for a property"""
+    try:
+        # Debug session information
+        print(f"Session data: {dict(session)}")
+        print(f"User ID in session: {session.get('user_id')}")
+        
+        # Check if user is logged in
+        if 'user_id' not in session:
+            print("Authentication failed: No user_id in session")
+            return jsonify({
+                'success': False,
+                'error': 'Authentication required. Please log in first.'
+            }), 401
+        
+        # Get the property and verify ownership
+        property_obj = Property.query.get(property_id)
+        if not property_obj:
+            return jsonify({
+                'success': False,
+                'error': 'Property not found'
+            }), 404
+        
+        # Verify the user owns this property
+        if property_obj.owner_id != session['user_id']:
+            return jsonify({
+                'success': False,
+                'error': 'You can only set availability for your own properties'
+            }), 403
+        
+        # Get the request data
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': 'No data provided'
+            }), 400
+        
+        # Validate required fields
+        required_fields = ['start_date', 'end_date', 'schedule']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({
+                    'success': False,
+                    'error': f'Missing required field: {field}'
+                }), 400
+        
+        # Parse dates
+        try:
+            start_date = datetime.strptime(data['start_date'], '%Y-%m-%d').date()
+            end_date = datetime.strptime(data['end_date'], '%Y-%m-%d').date()
+        except ValueError as e:
+            return jsonify({
+                'success': False,
+                'error': f'Invalid date format: {str(e)}'
+            }), 400
+        
+        # Validate date range
+        if end_date <= start_date:
+            return jsonify({
+                'success': False,
+                'error': 'End date must be after start date'
+            }), 400
+        
+        # Validate schedule data
+        schedule = data['schedule']
+        if not isinstance(schedule, dict) or not schedule:
+            return jsonify({
+                'success': False,
+                'error': 'Schedule must be a non-empty object'
+            }), 400
+        
+        # Day name to weekday number mapping
+        # Frontend calendar: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+        # Python weekday(): Monday=0, Tuesday=1, ..., Saturday=5, Sunday=6
+        # We need to map frontend day names to Python weekday numbers
+        day_mapping = {
+            'sunday': 6,    # Python: Sunday = 6
+            'monday': 0,    # Python: Monday = 0
+            'tuesday': 1,   # Python: Tuesday = 1
+            'wednesday': 2, # Python: Wednesday = 2
+            'thursday': 3,  # Python: Thursday = 3
+            'friday': 4,    # Python: Friday = 4
+            'saturday': 5   # Python: Saturday = 5
+        }
+        
+        # Clear existing viewing slots for this property in the date range
+        print(f"Clearing existing slots for property {property_id} from {start_date} to {end_date}")
+        existing_slots = ViewingSlot.query.filter(
+            ViewingSlot.property_id == property_id,
+            ViewingSlot.date >= start_date,
+            ViewingSlot.date <= end_date
+        ).all()
+        
+        for slot in existing_slots:
+            db.session.delete(slot)
+        
+        print(f"Deleted {len(existing_slots)} existing slots")
+        
+        slots_created = 0
+        
+        # Iterate through each date in the range
+        current_date = start_date
+        while current_date <= end_date:
+            # Get the day of the week
+            weekday = current_date.weekday()
+            print(f"Checking {current_date} (Weekday is {weekday})")
+            
+            # Check if this day is in the schedule
+            day_found = False
+            for day_name, day_config in schedule.items():
+                if day_name.lower() in day_mapping and day_mapping[day_name.lower()] == weekday:
+                    day_found = True
+                    print(f"Found schedule for {day_name} on {current_date}")
+                    try:
+                        from_time = datetime.strptime(day_config['from'], '%H:%M').time()
+                        to_time = datetime.strptime(day_config['to'], '%H:%M').time()
+
+                        if to_time <= from_time:
+                            continue
+
+                        start_datetime = datetime.combine(current_date, from_time)
+                        end_datetime = datetime.combine(current_date, to_time)
+
+                        current_slot_start = start_datetime
+                        while current_slot_start < end_datetime:
+                            current_slot_end = current_slot_start + timedelta(minutes=30)
+
+                            if current_slot_end > end_datetime:
+                                break
+
+                            # Create the slot directly without checking if it exists
+                            new_slot = ViewingSlot(
+                                property_id=property_id,
+                                date=current_slot_start.date(),
+                                start_time=current_slot_start.time(),
+                                end_time=current_slot_end.time(),
+                                is_available=True
+                            )
+                            db.session.add(new_slot)
+                            slots_created += 1
+                            print(f"Created slot: {current_slot_start.date()} ({current_slot_start.strftime('%A')}) {current_slot_start.time()} - {current_slot_end.time()}")
+
+                            current_slot_start = current_slot_end
+
+                    except (ValueError, KeyError) as e:
+                        print(f"Error processing {day_name}: {e}")
+                        continue
+                    break  # Only process one matching day per date
+            
+            if not day_found:
+                print(f"No schedule found for {current_date} (weekday {weekday})")
+            
+            # Move to next date
+            current_date += timedelta(days=1)
+        
+        # Commit all the new slots
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Successfully created {slots_created} viewing slots',
+            'slots_created': slots_created,
+            'date_range': {
+                'start_date': start_date.isoformat(),
+                'end_date': end_date.isoformat()
+            }
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': f'An error occurred: {str(e)}'
+        }), 500
+
+@property_bp.route('/properties/<int:property_id>/available-slots', methods=['GET'])
+def get_available_slots(property_id):
+    """Fetch all available, non-booked viewing slots for a property's landlord."""
+    try:
+        # Step 1: Find the property to identify its owner (the landlord)
+        prop = Property.query.get(property_id)
+        if not prop:
+            return jsonify({'success': False, 'error': 'Property not found'}), 404
+
+        landlord_id = prop.owner_id
+
+        # Step 2: Find all available slots belonging to that landlord for this specific property
+        slots = ViewingSlot.query.filter(
+            ViewingSlot.landlord_id == landlord_id,
+            ViewingSlot.is_available == True
+        ).order_by(ViewingSlot.date, ViewingSlot.start_time).all()
+
+        slots_data = [slot.to_dict() for slot in slots]
+
+        return jsonify({
+            'success': True,
+            'slots': slots_data
+        }), 200
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'An error occurred: {str(e)}'
+        }), 500

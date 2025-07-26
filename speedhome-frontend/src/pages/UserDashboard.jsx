@@ -5,6 +5,7 @@ import BookingAPI from '../services/BookingAPI';
 import PropertyAPI from '../services/PropertyAPI';
 import ApplicationAPI from '../services/ApplicationAPI';
 import { formatDate, formatTime } from '../utils/dateUtils';
+import TenantBookingCalendar from '../components/TenantBookingCalendar';
 
 const UserDashboard = ({ favorites, toggleFavorite }) => {
   const navigate = useNavigate();
@@ -34,6 +35,10 @@ const UserDashboard = ({ favorites, toggleFavorite }) => {
     newDate: '',
     newTime: ''
   });
+
+  // State for slot selection modal
+  const [showSlotSelectionModal, setShowSlotSelectionModal] = useState(false);
+  const [selectedBookingForReschedule, setSelectedBookingForReschedule] = useState(null);
 
   // Populate profile form when user data is available
   useEffect(() => {
@@ -252,6 +257,30 @@ const UserDashboard = ({ favorites, toggleFavorite }) => {
   const openRescheduleModal = (bookingId) => {
     setRescheduleData({ bookingId, newDate: '', newTime: '' });
     setShowRescheduleModal(true);
+  };
+
+  // Function to open slot selection modal for landlord reschedule requests
+  const openSlotSelectionModal = (booking) => {
+    setSelectedBookingForReschedule(booking);
+    setShowSlotSelectionModal(true);
+  };
+
+  // Function to handle slot selection for reschedule
+  const handleSlotSelection = async (slotId) => {
+    try {
+      const result = await BookingAPI.selectRescheduleSlot(selectedBookingForReschedule.id, slotId);
+      if (result.success) {
+        alert('New viewing time selected successfully!');
+        setShowSlotSelectionModal(false);
+        setSelectedBookingForReschedule(null);
+        loadBookings(); // Refresh bookings
+      } else {
+        alert(`Failed to select slot: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error selecting slot:', error);
+      alert('An error occurred while selecting the slot.');
+    }
   };
 
   const handleRescheduleSubmit = async (e) => {
@@ -518,7 +547,16 @@ const UserDashboard = ({ favorites, toggleFavorite }) => {
                         <div className="mt-4 pt-4 border-t border-gray-100 flex flex-wrap gap-x-4 gap-y-2">
                           {booking.status !== 'cancelled' && booking.status !== 'completed' && (<button onClick={(e) => { e.stopPropagation(); cancelBooking(booking.id); }} className="text-red-600 hover:text-red-800 text-sm font-medium">Cancel Appointment</button>)}
                           {canRequestReschedule && !isRescheduleByTenant && !isRescheduleByLandlord && (<button onClick={(e) => { e.stopPropagation(); openRescheduleModal(booking.id); }} className="text-blue-600 hover:text-blue-800 text-sm font-medium">Request Reschedule</button>)}
-                          {isRescheduleByLandlord && (<div onClick={(e) => e.stopPropagation()} className="flex items-center gap-2"><button onClick={() => respondToReschedule(booking.id, 'approved')} className="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 font-semibold">Accept</button><button onClick={() => respondToReschedule(booking.id, 'declined')} className="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 font-semibold">Decline</button></div>)}
+                          {isRescheduleByLandlord && (
+                            <div onClick={(e) => e.stopPropagation()} className="flex items-center gap-2">
+                              <button 
+                                onClick={() => openSlotSelectionModal(booking)} 
+                                className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 font-semibold"
+                              >
+                                View Available Slots
+                              </button>
+                            </div>
+                          )}
                           {isRescheduleByTenant && (<div onClick={(e) => e.stopPropagation()}><button onClick={() => cancelRescheduleRequest(booking.id)} className="px-3 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-700 font-semibold">Cancel Request</button></div>)}
                         </div>
                       </div>
@@ -604,6 +642,39 @@ const UserDashboard = ({ favorites, toggleFavorite }) => {
                   <button id="submitButton" type="submit" className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold">Submit Request</button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Slot Selection Modal for Landlord Reschedule Requests */}
+      {showSlotSelectionModal && selectedBookingForReschedule && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">Select New Viewing Time</h2>
+                  <p className="text-gray-600 mt-1">
+                    Choose a new time slot for your viewing of {selectedBookingForReschedule.propertyTitle}
+                  </p>
+                </div>
+                <button 
+                  onClick={() => {
+                    setShowSlotSelectionModal(false);
+                    setSelectedBookingForReschedule(null);
+                  }} 
+                  className="text-gray-400 hover:text-gray-600 text-2xl"
+                >
+                  ×
+                </button>
+              </div>
+              
+              <TenantBookingCalendar
+                propertyId={selectedBookingForReschedule.property_id}
+                onSlotSelect={handleSlotSelection}
+                isReschedule={true}
+              />
             </div>
           </div>
         </div>

@@ -1,27 +1,33 @@
+const API_BASE_URL = 'http://localhost:5001/api';
+
 class BookingAPI {
-  static async createBooking(bookingData) {
+  // Replace the old createBooking function with this one
+static async createBooking(bookingDetails) {
     try {
-      const response = await fetch('/api/bookings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify(bookingData)
-      });
+        // We now post to the new, more specific URL
+        const response = await fetch(`${API_BASE_URL}/bookings/create-from-slot`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify(bookingDetails)
+        });
 
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to create booking');
-      }
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            // This will now show the real error from the backend
+            throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        }
 
-      return data;
+        const data = await response.json();
+        return data;
+
     } catch (error) {
-      console.error('Error creating booking:', error);
-      throw error;
+        console.error('Error creating booking:', error);
+        throw error;
     }
-  }
+}
 
   static async getBookingsByUser(userId) {
     try {
@@ -266,6 +272,55 @@ class BookingAPI {
       return data;
     } catch (error) {
       console.error('Error declining reschedule:', error);
+      throw error;
+    }
+  }
+
+  static async resolveAvailabilityConflicts(data) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/bookings/resolve-conflicts`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify(data)
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        }
+
+        return await response.json();
+
+    } catch (error) {
+        console.error('Error resolving conflicts:', error);
+        throw error;
+    }
+  }
+
+  // Method for tenants to select a new slot when landlord requests reschedule
+  static async selectRescheduleSlot(bookingId, slotId) {
+    try {
+      const response = await fetch(`/api/bookings/${bookingId}/select-reschedule-slot`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ viewing_slot_id: slotId })
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to select reschedule slot');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error selecting reschedule slot:', error);
       throw error;
     }
   }

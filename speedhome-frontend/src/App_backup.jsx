@@ -16,7 +16,6 @@ import ApplicationAPI from './services/ApplicationAPI';
 import NotificationAPI from './services/NotificationAPI';
 import Lightbox from "yet-another-react-lightbox";
 import TenantBookingCalendar from './components/TenantBookingCalendar';
-import PropertyAPI from './services/PropertyAPI';
 
 const PropertyDetailPage = ({ properties, isFavorite, toggleFavorite, setSelectedProperty, onApplyClick, onScheduleClick }) => {
   const { propertyId } = useParams();
@@ -558,7 +557,7 @@ const handleScheduleSubmit = async (e) => {
         // We combine the tenant's details with the chosen slot ID
         const bookingDetails = {
             viewing_slot_id: selectedSlot.id,
-            property_id: selectedProperty.id,
+            // The rest of the data comes from your existing form state
             name: scheduleData.name,
             email: scheduleData.email,
             phone: scheduleData.phone,
@@ -566,6 +565,7 @@ const handleScheduleSubmit = async (e) => {
             occupation: scheduleData.occupation,
             monthly_income: scheduleData.monthlyIncome,
             number_of_occupants: scheduleData.numberOfOccupants
+            // Note: The backend will now pull date/time from the slot itself
         };
 
         const result = await BookingAPI.createBooking(bookingDetails);

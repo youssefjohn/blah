@@ -281,10 +281,180 @@ class PropertyAPI {
       throw error;
     }
   }
+
+  // Add recurring availability for a property
+  static async addRecurringAvailability(propertyId, scheduleData) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/properties/${propertyId}/recurring-availability`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Include cookies for session authentication
+        body: JSON.stringify(scheduleData)
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error adding recurring availability:', error);
+      throw error;
+    }
+  }
+
+  // Add recurring availability for a landlord (landlord-based, not property-specific)
+  static async addLandlordRecurringAvailability(landlordId, scheduleData) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/landlord/${landlordId}/recurring-availability`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(scheduleData)
+      });
+
+      // If the response is not OK (e.g., 409 Conflict), we need to handle it
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        // Create a custom error object that includes the full response details
+        const error = new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        error.response = {
+            status: response.status,
+            data: errorData
+        };
+        throw error; // Throw the enhanced error so the component can inspect it
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error adding landlord recurring availability:', error);
+      throw error;
+    }
+  }
+
+  // Get all viewing slots for a landlord
+  static async getLandlordViewingSlots(landlordId) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/landlord/${landlordId}/viewing-slots`, {
+        method: 'GET',
+        credentials: 'include', // Include cookies for session authentication
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching landlord viewing slots:', error);
+      throw error;
+    }
+  }
+
+  static async getAvailableSlots(propertyId) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/properties/${propertyId}/available-slots`);
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        return data.slots; // Return the array of slots
+
+    } catch (error) {
+        console.error('Error fetching available slots:', error);
+        throw error;
+    }
+  }
+  // Get all viewing slots for a landlord across all properties
+  static async getLandlordViewingSlots(landlordId) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/landlord/${landlordId}/viewing-slots`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching landlord viewing slots:', error);
+      throw error;
+    }
+  }
+
+  // Get calendar statistics for a landlord
+  static async getLandlordCalendarStats(landlordId) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/landlord/${landlordId}/calendar-stats`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching landlord calendar stats:', error);
+      throw error;
+    }
+  }
+
+  // Get viewing slots for a landlord on a specific date
+  static async getLandlordSlotsByDate(landlordId, date) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/landlord/${landlordId}/calendar-slots/${date}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching landlord slots by date:', error);
+      throw error;
+    }
+  }
+
 }
 
 export default PropertyAPI;
 
 
   
+
+
 

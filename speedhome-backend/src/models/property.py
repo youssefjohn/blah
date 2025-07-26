@@ -5,6 +5,8 @@ import json
 # Import db from user model to ensure single instance
 from .user import db
 
+from .booking import Booking
+
 class Property(db.Model):
     __tablename__ = 'properties'
     
@@ -62,9 +64,9 @@ class Property(db.Model):
     date_added = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     date_updated = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    # Add cascade="all, delete-orphan" to the end
+    # Relationships
     bookings = db.relationship('Booking', backref='property', lazy=True, cascade="all, delete-orphan")
-    
+
     def __repr__(self):
         return f'<Property {self.title}>'
     
@@ -238,4 +240,6 @@ class Property(db.Model):
         
         # Update timestamp
         self.date_updated = datetime.utcnow()
+
+
 

@@ -13,8 +13,10 @@ from src.models.property import Property
 from src.models.booking import Booking
 from src.models.application import Application
 from src.models.notification import Notification
+from src.models.viewing_slot import ViewingSlot
 
 from src.routes.property import property_bp
+from src.routes.property_landlord import landlord_bp
 from src.routes.auth import auth_bp
 from src.routes.profile import profile_bp
 from src.routes.booking import booking_bp
@@ -27,10 +29,11 @@ app = Flask(__name__, static_folder=os.path.join(os.path.dirname(__file__), 'sta
 app.config['SECRET_KEY'] = 'asdf#FGSgvasgf$5$WGT'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
 
-CORS(app, origins=['http://localhost:5174'], supports_credentials=True)
+CORS(app, origins=['http://localhost:5173', 'http://localhost:5174'], supports_credentials=True)
 
 # --- BLUEPRINT REGISTRATION ---
 app.register_blueprint(property_bp, url_prefix='/api')
+app.register_blueprint(landlord_bp, url_prefix='/api')
 app.register_blueprint(auth_bp, url_prefix='/api/auth')
 app.register_blueprint(profile_bp, url_prefix='/api')
 app.register_blueprint(booking_bp, url_prefix='/api')

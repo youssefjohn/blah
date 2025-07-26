@@ -24,6 +24,10 @@ class Booking(db.Model):
     occupation = db.Column(db.String(100), nullable=True)
     monthly_income = db.Column(db.Integer, nullable=True)
     number_of_occupants = db.Column(db.Integer, nullable=True)
+
+    viewing_slot_id = db.Column(db.Integer, db.ForeignKey('viewing_slots.id'), unique=True, nullable=True)
+    viewing_slot = db.relationship('ViewingSlot', backref='booking')
+
     
     # Status and management
     status = db.Column(db.String(20), default='pending')

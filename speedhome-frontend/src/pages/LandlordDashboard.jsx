@@ -6,6 +6,8 @@ import BookingAPI from '../services/BookingAPI';
 import { formatDate, formatTime, formatDateTime } from '../utils/dateUtils';
 import ApplicationAPI from '../services/ApplicationAPI';
 import ProfileAPI from '../services/ProfileAPI';
+import RecurringAvailabilityManager from '../components/RecurringAvailabilityManager';
+import UnifiedCalendar from '../components/UnifiedCalendar';
 
 
 const LandlordDashboard = ({ onAddProperty }) => {
@@ -24,6 +26,10 @@ const LandlordDashboard = ({ onAddProperty }) => {
     newDate: '',
     newTime: ''
   });
+
+  // --- NEW: State for the Availability Manager Modal ---
+  const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
+  const [selectedPropertyForAvailability, setSelectedPropertyForAvailability] = useState(null);
 
 // START REPLACING HERE
 const [profileData, setProfileData] = useState({
@@ -735,6 +741,24 @@ const handleApplicationResponse = async (applicationId, response) => {
     }
   };
 
+  // Handle opening availability manager modal
+  const handleManageAvailability = (property) => {
+    setSelectedPropertyForAvailability(property);
+    setShowAvailabilityModal(true);
+  };
+
+  // Handle closing availability manager modal
+  const handleCloseAvailabilityModal = () => {
+    setShowAvailabilityModal(false);
+    setSelectedPropertyForAvailability(null);
+  };
+
+  // Handle successful availability setting
+  const handleAvailabilitySuccess = (result) => {
+    alert(`Availability set successfully! Created ${result.slots_created || 0} viewing slots.`);
+    // Optionally refresh properties or show success message
+  };
+
   // Handle form input changes
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -941,6 +965,16 @@ const handleApplicationResponse = async (applicationId, response) => {
                 } whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm`}
               >
                 Earnings
+              </button>
+              <button
+                onClick={() => setActiveTab('calendar')}
+                className={`${
+                  activeTab === 'calendar'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                } whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm`}
+              >
+                📅 My Calendar
               </button>
 
                         <button
@@ -1298,18 +1332,18 @@ const handleApplicationResponse = async (applicationId, response) => {
                                                 Reschedule Requested
                                               </span>
                                               <div className="text-xs text-gray-500">
-                                                New:{' '}
-                                                {request.proposed_date
-                                                  ? formatDate(request.proposed_date)
-                                                  : formatDate(
-                                                      request.appointment_date
-                                                    )}{' '}
-                                                at{' '}
-                                                {request.proposed_time
-                                                  ? formatTime(request.proposed_time)
-                                                  : formatTime(
-                                                      request.appointment_time
-                                                    )}
+                                                {request.proposed_date && request.proposed_time ? (
+                                                  <>
+                                                    New:{' '}
+                                                    {formatDate(request.proposed_date)}{' '}
+                                                    at{' '}
+                                                    {formatTime(request.proposed_time)}
+                                                  </>
+                                                ) : (
+                                                  request.reschedule_requested_by === 'landlord' ? 
+                                                    'Waiting for tenant response' : 
+                                                    'Tenant will choose new time'
+                                                )}
                                               </div>
                                   
                                               {/* Show Accept/Decline buttons ONLY if tenant requested reschedule */}
@@ -1708,7 +1742,12 @@ const handleApplicationResponse = async (applicationId, response) => {
               </div>
             )}
 
-
+            {/* Calendar Tab */}
+            {activeTab === 'calendar' && (
+              <div>
+                <UnifiedCalendar />
+              </div>
+            )}
 
 {activeTab === 'profile' && (
   <div>
@@ -2945,6 +2984,15 @@ const handleApplicationResponse = async (applicationId, response) => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Recurring Availability Manager Modal */}
+      {showAvailabilityModal && selectedPropertyForAvailability && (
+        <RecurringAvailabilityManager
+          propertyId={selectedPropertyForAvailability.id}
+          onClose={handleCloseAvailabilityModal}
+          onSuccess={handleAvailabilitySuccess}
+        />
       )}
       </div>
     </div>
