@@ -6,6 +6,7 @@ import PropertyAPI from '../services/PropertyAPI';
 import ApplicationAPI from '../services/ApplicationAPI';
 import { formatDate, formatTime } from '../utils/dateUtils';
 import TenantBookingCalendar from '../components/TenantBookingCalendar';
+import MessagingCenter from '../components/MessagingCenter';
 
 const UserDashboard = ({ favorites, toggleFavorite }) => {
   const navigate = useNavigate();
@@ -603,6 +604,12 @@ const UserDashboard = ({ favorites, toggleFavorite }) => {
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Messages Section */}
+          <div className="bg-white shadow-lg rounded-xl p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-6">💬 Messages</h2>
+            <MessagingCenter user={user} />
           </div>
         </div>
       </div>

@@ -14,6 +14,8 @@ from src.models.booking import Booking
 from src.models.application import Application
 from src.models.notification import Notification
 from src.models.viewing_slot import ViewingSlot
+from src.models.conversation import Conversation
+from src.models.message import Message
 
 from src.routes.property import property_bp
 from src.routes.property_landlord import landlord_bp
@@ -22,6 +24,7 @@ from src.routes.profile import profile_bp
 from src.routes.booking import booking_bp
 from src.routes.application import application_bp
 from src.routes.notification import notification_bp
+from src.routes.messaging import messaging_bp
 
 app = Flask(__name__, static_folder=os.path.join(os.path.dirname(__file__), 'static'))
 
@@ -39,6 +42,7 @@ app.register_blueprint(profile_bp, url_prefix='/api')
 app.register_blueprint(booking_bp, url_prefix='/api')
 app.register_blueprint(application_bp)
 app.register_blueprint(notification_bp, url_prefix='/api')
+app.register_blueprint(messaging_bp, url_prefix='/api')
 
 # --- DATABASE CONFIGURATION ---
 app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{os.path.join(os.path.dirname(__file__), 'database', 'app.db')}"
