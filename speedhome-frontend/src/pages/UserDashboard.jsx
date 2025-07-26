@@ -7,10 +7,15 @@ import ApplicationAPI from '../services/ApplicationAPI';
 import { formatDate, formatTime } from '../utils/dateUtils';
 import TenantBookingCalendar from '../components/TenantBookingCalendar';
 import MessagingCenter from '../components/MessagingCenter';
+import MessagingAPI from '../services/MessagingAPI';
 
 const UserDashboard = ({ favorites, toggleFavorite }) => {
   const navigate = useNavigate();
   const { user, isAuthenticated, isTenant, updateProfile, refreshUser } = useAuth();
+  
+  // Tab state management
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [selectedConversationId, setSelectedConversationId] = useState(null);
   
   const [bookings, setBookings] = useState([]);
   const [applications, setApplications] = useState([]);
@@ -353,6 +358,37 @@ const UserDashboard = ({ favorites, toggleFavorite }) => {
     <div className="min-h-screen bg-gray-100 py-8 px-4 sm:px-6 lg:px-8 font-sans">
       <div className="max-w-6xl mx-auto">
         <h1 className="text-3xl font-bold text-gray-900 mb-8">My Dashboard</h1>
+        
+        {/* Tab Navigation */}
+        <div className="bg-white shadow-sm rounded-lg mb-8">
+          <div className="border-b border-gray-200">
+            <nav className="-mb-px flex space-x-8 px-6">
+              <button
+                onClick={() => setActiveTab('dashboard')}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'dashboard'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                📊 Dashboard
+              </button>
+              <button
+                onClick={() => setActiveTab('messages')}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'messages'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                💬 Messages
+              </button>
+            </nav>
+          </div>
+        </div>
+
+        {/* Dashboard Tab Content */}
+        {activeTab === 'dashboard' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-1 space-y-8">
             <div className="bg-white shadow-lg rounded-xl p-6">
@@ -552,9 +588,20 @@ const UserDashboard = ({ favorites, toggleFavorite }) => {
                           {(booking.status === 'pending' || booking.status === 'confirmed' || 
                             booking.status === 'Pending' || booking.status === 'Confirmed') && (
                             <button 
-                              onClick={(e) => { 
+                              onClick={async (e) => { 
                                 e.stopPropagation(); 
-                                navigate(`/messages/${booking.id}`); 
+                                try {
+                                  // Get or create conversation for this booking
+                                  const response = await MessagingAPI.getOrCreateConversation(booking.id);
+                                  if (response.success) {
+                                    // Switch to Messages tab and select the conversation
+                                    setActiveTab('messages');
+                                    setSelectedConversationId(response.conversation.id);
+                                  }
+                                } catch (error) {
+                                  console.error('Error opening conversation:', error);
+                                  alert('Failed to open conversation');
+                                }
                               }} 
                               className="text-blue-600 hover:text-blue-800 text-sm font-medium"
                             >
@@ -618,14 +665,21 @@ const UserDashboard = ({ favorites, toggleFavorite }) => {
               )}
             </div>
           </div>
-
-          {/* Messages Section */}
-          <div className="bg-white shadow-lg rounded-xl p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-6">💬 Messages</h2>
-            <MessagingCenter user={user} />
-          </div>
         </div>
+        )}
+
+        {/* Messages Tab Content */}
+        {activeTab === 'messages' && (
+          <div className="bg-white shadow-lg rounded-lg h-[600px]">
+            <MessagingCenter 
+              user={user} 
+              selectedConversationId={selectedConversationId}
+              onConversationSelect={setSelectedConversationId}
+            />
+          </div>
+        )}
       </div>
+
       {showRescheduleModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl max-w-md w-full shadow-2xl">
