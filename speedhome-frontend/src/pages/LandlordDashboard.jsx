@@ -9,12 +9,14 @@ import ProfileAPI from '../services/ProfileAPI';
 import RecurringAvailabilityManager from '../components/RecurringAvailabilityManager';
 import UnifiedCalendar from '../components/UnifiedCalendar';
 import MessagingCenter from '../components/MessagingCenter';
+import MessagingAPI from '../services/MessagingAPI';
 
 
 const LandlordDashboard = ({ onAddProperty }) => {
   const navigate = useNavigate();
   const { user, isAuthenticated, isLandlord } = useAuth();
   const [activeTab, setActiveTab] = useState('properties');
+  const [selectedConversationId, setSelectedConversationId] = useState(null);
   const [showAddPropertyModal, setShowAddPropertyModal] = useState(false);
   const [showEditPropertyModal, setShowEditPropertyModal] = useState(false);
   const [editingProperty, setEditingProperty] = useState(null);
@@ -1321,9 +1323,20 @@ const handleApplicationResponse = async (applicationId, response) => {
                                         {(request.status === 'Pending' || request.status === 'pending' || 
                                           request.status === 'Confirmed' || request.status === 'confirmed') && (
                                           <button
-                                            onClick={(e) => {
+                                            onClick={async (e) => {
                                               e.stopPropagation();
-                                              navigate(`/messages/${request.id}`);
+                                              try {
+                                                // Get or create conversation for this booking
+                                                const response = await MessagingAPI.getOrCreateConversation(request.id);
+                                                if (response.success) {
+                                                  // Switch to Messages tab and select the conversation
+                                                  setActiveTab('messages');
+                                                  setSelectedConversationId(response.conversation.id);
+                                                }
+                                              } catch (error) {
+                                                console.error('Error opening conversation:', error);
+                                                alert('Failed to open conversation');
+                                              }
                                             }}
                                             className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded-md text-xs mb-2"
                                           >
@@ -1834,9 +1847,12 @@ const handleApplicationResponse = async (applicationId, response) => {
 
             {/* Messages Tab */}
             {activeTab === 'messages' && (
-              <div>
-                <h2 className="text-xl font-bold text-gray-800 mb-6">💬 Messages</h2>
-                <MessagingCenter user={user} />
+              <div className="h-[600px]">
+                <MessagingCenter 
+                  user={user} 
+                  selectedConversationId={selectedConversationId}
+                  onConversationSelect={setSelectedConversationId}
+                />
               </div>
             )}
           </div>
