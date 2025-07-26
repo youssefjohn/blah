@@ -655,9 +655,15 @@ def resolve_availability_conflicts():
         for booking in bookings_to_resolve:
             if resolution == 'cancel':
                 booking.status = 'cancelled'
-                
 
-                
+                if booking.viewing_slot_id:
+                    slot_to_delete = ViewingSlot.query.get(booking.viewing_slot_id)
+                    if slot_to_delete:
+                        # Unlink the booking from the slot before deleting
+                        booking.viewing_slot_id = None
+                        db.session.delete(slot_to_delete)
+                        print(f"🗑️ Deleting obsolete viewing slot {slot_to_delete.id}")
+
                 notification = Notification(
                     recipient_id=booking.user_id,
                     message=f"Your viewing for '{booking.property.title}' has been cancelled by the landlord due to a schedule change.",

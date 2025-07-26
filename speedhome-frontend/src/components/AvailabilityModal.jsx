@@ -32,15 +32,32 @@ const AvailabilityModal = ({ onClose, onSuccess }) => {
 
   // State for date range with memory functionality
   const [dateRange, setDateRange] = useState(() => {
-    const savedDateRange = localStorage.getItem(`landlord_daterange_${user?.id}`);
-    if (savedDateRange) {
-      return JSON.parse(savedDateRange);
+    const todayStr = new Date().toISOString().split('T')[0];
+    const savedDateRangeJSON = localStorage.getItem(`landlord_daterange_${user?.id}`);
+
+    if (savedDateRangeJSON) {
+      const savedDateRange = JSON.parse(savedDateRangeJSON);
+
+      // If the saved start date is in the past, use today's date instead.
+      if (savedDateRange.startDate < todayStr) {
+        savedDateRange.startDate = todayStr;
+      }
+
+      // Ensure end date is always after start date
+      if (savedDateRange.endDate <= savedDateRange.startDate) {
+        const nextDate = new Date(savedDateRange.startDate);
+        nextDate.setDate(nextDate.getDate() + 1);
+        savedDateRange.endDate = nextDate.toISOString().split('T')[0];
+      }
+
+      return savedDateRange;
     }
-    const today = new Date();
+
+    // Default for new users
     const nextMonth = new Date();
-    nextMonth.setDate(today.getDate() + 30);
+    nextMonth.setDate(new Date().getDate() + 30);
     return {
-      startDate: today.toISOString().split('T')[0],
+      startDate: todayStr,
       endDate: nextMonth.toISOString().split('T')[0]
     };
   });
@@ -197,7 +214,7 @@ const AvailabilityModal = ({ onClose, onSuccess }) => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
-                  <input type="date" value={dateRange.startDate} onChange={(e) => handleDateRangeChange('startDate', e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md" required />
+                  <input type="date" min={new Date().toISOString().split('T')[0]} value={dateRange.startDate} onChange={(e) => handleDateRangeChange('startDate', e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md" required />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">End Date</label>

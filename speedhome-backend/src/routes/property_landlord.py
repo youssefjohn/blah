@@ -52,7 +52,7 @@ def add_landlord_recurring_availability(landlord_id):
         # 2. Find all confirmed bookings for those properties within the date range.
         all_bookings_in_range = Booking.query.filter(
             Booking.property_id.in_(landlord_property_ids),
-            Booking.status == 'confirmed',
+            Booking.status.in_(['confirmed', 'pending']),
             Booking.appointment_date.between(start_date, end_date)
         ).all()
 
