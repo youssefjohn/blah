@@ -212,7 +212,7 @@ const LandlordDashboard = ({ onAddProperty }) => {
   // State for tenant applications
   const [tenantApplications, setTenantApplications] = useState([]);
 
-
+  const hasNewApplications = tenantApplications.some(app => !app.is_seen_by_landlord);
   // State for application details modal
   const [showApplicationDetails, setShowApplicationDetails] = useState(false);
   const [selectedApplication, setSelectedApplication] = useState(null);
@@ -460,6 +460,22 @@ const LandlordDashboard = ({ onAddProperty }) => {
     }
   };
 
+  const handleMarkApplicationAsSeen = async (applicationId) => {
+  try {
+    // This is a new API endpoint you'll need to create
+    await ApplicationAPI.markAsSeen(applicationId);
+    setTenantApplications(prevApps =>
+      prevApps.map(app =>
+        app.id === applicationId ? { ...app, is_seen_by_landlord: true } : app
+      )
+    );
+  } catch (error) {
+    console.error("Failed to mark application as seen:", error);
+  }
+};
+
+
+
   // Handle cancel reschedule request
   const handleCancelReschedule = async (bookingId) => {
     if (!confirm('Are you sure you want to cancel this reschedule request? The original date and time will be restored.')) {
@@ -487,6 +503,11 @@ const LandlordDashboard = ({ onAddProperty }) => {
 
   // Handle tenant application response
   const handleApplicationResponse = async (applicationId, response) => {
+    const application = tenantApplications.find(app => app.id === applicationId);
+  if (application && !application.is_seen_by_landlord) {
+    handleMarkApplicationAsSeen(applicationId);
+  }
+
     const newStatus = response === 'approved' ? 'approved' : 'rejected';
 
     try {
@@ -508,9 +529,12 @@ const LandlordDashboard = ({ onAddProperty }) => {
 
   // Handle viewing application details
   const handleViewApplicationDetails = (application) => {
-    setSelectedApplication(application);
-    setShowApplicationDetails(true);
-  };
+  if (!application.is_seen_by_landlord) {
+    handleMarkApplicationAsSeen(application.id);
+  }
+  setSelectedApplication(application);
+  setShowApplicationDetails(true);
+};
 
   // Handle closing application details modal
   const handleCloseApplicationDetails = () => {
@@ -1248,90 +1272,96 @@ const LandlordDashboard = ({ onAddProperty }) => {
                             </tr>
                           </thead>
                           <tbody className="bg-white divide-y divide-gray-200">
-                            {tenantApplications.map((application) => (
-                              <tr key={application.id}>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <div className="text-sm font-medium text-gray-900">
-                                    {application.property?.title || 'N/A'}
-                                  </div>
-                                  <div className="text-sm text-gray-500">
-                                    {application.property?.location || 'N/A'}
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <div className="text-sm font-medium text-gray-900">
-                                    {application.tenant?.full_name || 'N/A'}
-                                  </div>
-                                  <div className="text-sm text-gray-500">
-                                    {application.tenant?.phone_number || 'N/A'}
-                                  </div>
-                                  <div className="text-sm text-gray-500">
-                                    {application.tenant?.email || 'N/A'}
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <div className="text-sm text-gray-900">
-                                    Applied: {formatDate(application.created_at)}
-                                  </div>
-                                  <div className="text-sm text-gray-500">
-                                    Move-in: {application.moveInDate || 'N/A'}
-                                  </div>
-                                  <div className="text-sm text-gray-500">
-                                    Income: {application.monthlyIncome ? `RM ${application.monthlyIncome}` : 'N/A'}
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <span
-                                    className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${application.status === 'approved'
-                                        ? 'bg-green-100 text-green-800'
-                                        : application.status === 'pending'
-                                          ? 'bg-yellow-100 text-yellow-800'
-                                          : 'bg-red-100 text-red-800'
-                                      }`}
-                                  >
-                                    {application.status}
-                                  </span>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                  {application.status === 'pending' && (
-                                    <div className="flex space-x-2">
-                                      <button
-                                        onClick={() =>
-                                          handleApplicationResponse(
-                                            application.id,
-                                            'approved'
-                                          )
-                                        }
-                                        id="approveButton"
-                                        className="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded-md text-xs"
-                                      >
-                                        Approve
-                                      </button>
-                                      <button
-                                        onClick={() =>
-                                          handleApplicationResponse(
-                                            application.id,
-                                            'rejected'
-                                          )
-                                        }
-                                        id="rejectButton"
-                                        className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded-md text-xs"
-                                      >
-                                        Reject
-                                      </button>
-                                    </div>
-                                  )}
-                                  <button
-                                    onClick={() =>
-                                      handleViewApplicationDetails(application)
-                                    }
-                                    className="text-blue-600 hover:text-blue-900 text-xs mt-1"
-                                  >
-                                    View Details
-                                  </button>
-                                </td>
-                              </tr>
-                            ))}
+                            {tenantApplications.map((application) => {
+  // Checks if the application has been seen
+  const isNew = !application.is_seen_by_landlord;
+
+  return (
+    // Applies a blue background if 'isNew' is true
+    <tr key={application.id} className={isNew ? 'bg-blue-50' : ''}>
+      <td className="px-6 py-4 whitespace-nowrap">
+        <div className="text-sm font-medium text-gray-900">
+          {application.property?.title || 'N/A'}
+        </div>
+        <div className="text-sm text-gray-500">
+          {application.property?.location || 'N/A'}
+        </div>
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap">
+        <div className="text-sm font-medium text-gray-900">
+          {application.tenant?.full_name || 'N/A'}
+        </div>
+        <div className="text-sm text-gray-500">
+          {application.tenant?.phone_number || 'N/A'}
+        </div>
+        <div className="text-sm text-gray-500">
+          {application.tenant?.email || 'N/A'}
+        </div>
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap">
+        <div className="text-sm text-gray-900">
+          Applied: {formatDate(application.created_at)}
+        </div>
+        <div className="text-sm text-gray-500">
+          Move-in: {application.moveInDate || 'N/A'}
+        </div>
+        <div className="text-sm text-gray-500">
+          Income: {application.monthlyIncome ? `RM ${application.monthlyIncome}` : 'N/A'}
+        </div>
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap">
+        <span
+          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${application.status === 'approved'
+              ? 'bg-green-100 text-green-800'
+              : application.status === 'pending'
+                ? 'bg-yellow-100 text-yellow-800'
+                : 'bg-red-100 text-red-800'
+            }`}
+        >
+          {application.status}
+        </span>
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+        {application.status === 'pending' && (
+          <div className="flex space-x-2">
+            <button
+              onClick={() =>
+                handleApplicationResponse(
+                  application.id,
+                  'approved'
+                )
+              }
+              id="approveButton"
+              className="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded-md text-xs"
+            >
+              Approve
+            </button>
+            <button
+              onClick={() =>
+                handleApplicationResponse(
+                  application.id,
+                  'rejected'
+                )
+              }
+              id="rejectButton"
+              className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded-md text-xs"
+            >
+              Reject
+            </button>
+          </div>
+        )}
+        <button
+          onClick={() =>
+            handleViewApplicationDetails(application)
+          }
+          className="text-blue-600 hover:text-blue-900 text-xs mt-1"
+        >
+          View Details
+        </button>
+      </td>
+    </tr>
+  );
+})}
                           </tbody>
                         </table>
                       </div>
@@ -1718,14 +1748,17 @@ const LandlordDashboard = ({ onAddProperty }) => {
                 )}
               </button>
               <button
-                onClick={() => setActiveTab('applications')}
-                className={`${activeTab === 'applications'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  } whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm`}
-              >
-                Tenant Applications
-              </button>
+  onClick={() => setActiveTab('applications')}
+  className={`${activeTab === 'applications'
+      ? 'border-blue-500 text-blue-600'
+      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+    } relative whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm flex items-center`}
+>
+  <span>Tenant Applications</span>
+  {hasNewApplications && (
+    <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-500 text-white">New</span>
+  )}
+</button>
               <button
                 onClick={() => setActiveTab('earnings')}
                 className={`${activeTab === 'earnings'
