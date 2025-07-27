@@ -4,7 +4,7 @@ import ConversationList from './ConversationList';
 import ChatWindow from './ChatWindow';
 import './MessagingCenter.css';
 
-const MessagingCenter = ({ user, selectedConversationId, onConversationSelect }) => {
+const MessagingCenter = ({ user, selectedConversationId, onConversationSelect, onConversationRead }) => {
     const [conversations, setConversations] = useState([]);
     const [selectedConversation, setSelectedConversation] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -38,17 +38,46 @@ const MessagingCenter = ({ user, selectedConversationId, onConversationSelect })
         }
     };
 
-    const handleConversationSelect = (conversation) => {
+    const handleConversationSelect = async (conversation) => {
         setSelectedConversation(conversation);
         if (onConversationSelect) {
             onConversationSelect(conversation.id);
         }
+
+        // --- START: NEW LOGIC ---
+        // Check if the conversation has unread messages
+        if (conversation.unread_count > 0) {
+            try {
+                // Tell the backend the conversation has been read
+                await MessagingAPI.markConversationAsRead(conversation.id);
+
+                // Tell the parent dashboard to refresh its own conversation list to update the badge
+                if (onConversationRead) {
+                    onConversationRead();
+                }
+
+                // Refresh this component's conversation list to update the unread count visually
+                loadConversations();
+
+            } catch (error) {
+                console.error("Failed to mark conversation as read:", error);
+            }
+        }
+        // --- END: NEW LOGIC ---
     };
 
-    const handleMessageSent = () => {
-        // Refresh conversations to update last message info
-        loadConversations();
-    };
+    const handleMessageSent = async () => {
+    // This fetches the updated conversation list silently
+    // without triggering the main loading spinner.
+    try {
+        const response = await MessagingAPI.getConversations();
+        if (response.success) {
+            setConversations(response.conversations);
+        }
+    } catch (error) {
+        console.error("Failed to refresh conversations after sending message:", error);
+    }
+};
 
     if (loading) {
         return (

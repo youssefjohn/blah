@@ -9,6 +9,7 @@ const ChatWindow = ({ conversation, currentUser, onMessageSent }) => {
     const [error, setError] = useState(null);
     const [sending, setSending] = useState(false);
     const messagesEndRef = useRef(null);
+    const scrollContainerRef = useRef(null);
 
     useEffect(() => {
         if (conversation?.id) {
@@ -17,8 +18,10 @@ const ChatWindow = ({ conversation, currentUser, onMessageSent }) => {
     }, [conversation?.id]);
 
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
-    }, [messages, loading]);
+    if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+    }
+}, [messages, loading]);
 
     const loadMessages = async () => {
         try {
@@ -77,7 +80,7 @@ const ChatWindow = ({ conversation, currentUser, onMessageSent }) => {
             </div>
 
             {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 min-h-0">
+            <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 min-h-0">
                 {loading && (
                     <div className="flex justify-center items-center h-full">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>

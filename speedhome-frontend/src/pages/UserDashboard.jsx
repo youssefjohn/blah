@@ -12,6 +12,7 @@ import MessagingAPI from '../services/MessagingAPI';
 const UserDashboard = ({ favorites, toggleFavorite }) => {
   const navigate = useNavigate();
   const { user, isAuthenticated, isTenant, updateProfile, refreshUser } = useAuth();
+  const [conversations, setConversations] = useState([]);
   
   // Tab state management
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -237,6 +238,23 @@ const UserDashboard = ({ favorites, toggleFavorite }) => {
     }
   };
 
+  useEffect(() => {
+  const loadConversations = async () => {
+    try {
+      const response = await MessagingAPI.getConversations();
+      if (response.success) {
+        setConversations(response.conversations);
+      }
+    } catch (error) {
+      console.error("Failed to load conversations:", error);
+    }
+  };
+  loadConversations();
+}, []);
+
+// Checks if any conversation has an unread_count greater than 0
+const hasNewMessages = conversations.some(convo => convo.unread_count > 0);
+
   const getStatusInfo = (booking) => {
     const isRescheduleByLandlord = (booking.status === 'pending' || booking.status === 'Reschedule Requested') && (booking.reschedule_requested_by === 'landlord' || booking.rescheduleRequestedBy === 'landlord');
     const isRescheduleByTenant = (booking.status === 'pending' || booking.status === 'Reschedule Requested') && (booking.reschedule_requested_by === 'tenant' || booking.rescheduleRequestedBy === 'tenant');
@@ -250,6 +268,17 @@ const UserDashboard = ({ favorites, toggleFavorite }) => {
     };
     return statusMap[booking.status] || { text: booking.status, color: 'bg-gray-100 text-gray-800', description: '' };
   };
+
+  const handleConversationRead = async () => {
+  try {
+    const response = await MessagingAPI.getConversations();
+    if (response.success) {
+      setConversations(response.conversations);
+    }
+  } catch (error) {
+    console.error("Failed to re-load conversations:", error);
+  }
+};
 
   const getApplicationStatusInfo = (status) => {
     const statusMap = {
@@ -374,15 +403,18 @@ const UserDashboard = ({ favorites, toggleFavorite }) => {
                 📊 Dashboard
               </button>
               <button
-                onClick={() => setActiveTab('messages')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'messages'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                💬 Messages
-              </button>
+                  onClick={() => setActiveTab('messages')}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center ${
+                    activeTab === 'messages'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <span>💬 Messages</span>
+                  {hasNewMessages && (
+                    <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-500 text-white">New</span>
+                  )}
+               </button>
             </nav>
           </div>
         </div>
@@ -672,7 +704,8 @@ const UserDashboard = ({ favorites, toggleFavorite }) => {
         {activeTab === 'messages' && (
           <div className="bg-white shadow-lg rounded-lg h-[600px] flex">
             <MessagingCenter 
-              user={user} 
+              user={user}
+              onConversationRead={handleConversationRead}
               selectedConversationId={selectedConversationId}
               onConversationSelect={setSelectedConversationId}
             />

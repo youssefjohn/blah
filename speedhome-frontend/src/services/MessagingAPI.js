@@ -277,6 +277,35 @@ class MessagingAPI {
         }
         return 'Active';
     }
+
+    /**
+     * Mark all messages in a conversation as read for the current user
+     * @param {number} conversationId - The conversation ID
+     */
+    async markConversationAsRead(conversationId) {
+        try {
+            const response = await fetch(`${this.baseURL}/conversations/${conversationId}/mark-read`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            });
+
+            // It's possible the backend sends no content on success, which is fine
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.error || 'Failed to mark conversation as read');
+            }
+
+            // Return a simple success object if there's no data
+            return await response.json().catch(() => ({ success: true }));
+
+        } catch (error) {
+            console.error('Error marking conversation as read:', error);
+            throw error;
+        }
+    }
 }
 
 // Export singleton instance

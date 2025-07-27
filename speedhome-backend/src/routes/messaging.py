@@ -167,6 +167,9 @@ def send_message(conversation_id):
         # Update conversation metadata
         conversation.last_message_at = datetime.utcnow()
         conversation.last_message_by = user_id
+
+        conversation.last_message_body = message_body
+
         conversation.updated_at = datetime.utcnow()
         
         db.session.commit()
@@ -318,4 +321,29 @@ def delete_message(message_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'error': f'An error occurred: {str(e)}'}), 500
+
+
+@messaging_bp.route('/conversations/<int:conversation_id>/mark-read', methods=['POST'])
+def mark_conversation_as_read(conversation_id):
+    """Mark all unread messages in a conversation as read for the current user."""
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+    # Security check: Ensure the user is a participant in the conversation
+    conversation = Conversation.query.get(conversation_id)
+    if not conversation or (user_id != conversation.tenant_id and user_id != conversation.landlord_id):
+        return jsonify({'success': False, 'error': 'Conversation not found or unauthorized'}), 404
+
+    # --- THIS IS THE FIX ---
+    # Find all unread messages sent TO the current user (i.e., where the sender is NOT the current user)
+    Message.query.filter(
+        Message.conversation_id == conversation_id,
+        Message.sender_id != user_id,  # Changed from recipient_id to sender_id
+        Message.is_read == False
+    ).update({'is_read': True})
+
+    db.session.commit()
+
+    return jsonify({'success': True, 'message': 'Messages marked as read'}), 200
 
