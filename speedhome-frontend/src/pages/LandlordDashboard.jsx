@@ -1467,12 +1467,14 @@ const LandlordDashboard = ({ onAddProperty }) => {
         );
       case 'messages':
         return (
-          <div className="h-[600px] flex">
-            <MessagingCenter
-              user={user}
-              selectedConversationId={selectedConversationId}
-              onConversationSelect={setSelectedConversationId}
-            />
+          <div className="bg-white rounded-lg shadow">
+            <div className="h-[600px] flex">
+              <MessagingCenter
+                user={user}
+                selectedConversationId={selectedConversationId}
+                onConversationSelect={setSelectedConversationId}
+              />
+            </div>
           </div>
         );
       case 'profile':
