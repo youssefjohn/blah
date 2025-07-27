@@ -1466,17 +1466,17 @@ const LandlordDashboard = ({ onAddProperty }) => {
           </div>
         );
       case 'messages':
-        return (
-          <div className="bg-white rounded-lg shadow">
-            <div className="h-[600px] flex">
-              <MessagingCenter
-                user={user}
-                selectedConversationId={selectedConversationId}
-                onConversationSelect={setSelectedConversationId}
-              />
-            </div>
-          </div>
-        );
+  return (
+    <div className="bg-white rounded-lg shadow max-h-[600px] overflow-hidden">
+      <div className="h-[600px] flex">
+        <MessagingCenter
+          user={user}
+          selectedConversationId={selectedConversationId}
+          onConversationSelect={setSelectedConversationId}
+        />
+      </div>
+    </div>
+  );
       case 'profile':
         return (
           <div>
@@ -1693,7 +1693,7 @@ const LandlordDashboard = ({ onAddProperty }) => {
         </div>
 
         {/* Dashboard Tabs */}
-        <div className="bg-white shadow rounded-lg overflow-hidden mb-8">
+        <div className="relative z-10 bg-white shadow rounded-lg overflow-hidden mb-8">
           <div className="border-b border-gray-200">
             <nav className="-mb-px flex">
               <button

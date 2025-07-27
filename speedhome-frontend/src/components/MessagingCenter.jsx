@@ -117,7 +117,7 @@ const MessagingCenter = ({ user, selectedConversationId, onConversationSelect })
                 </div>
 
                 {/* Chat Window - Right Side */}
-                <div className="chat-window-panel w-2/3 flex flex-col">
+                <div className="chat-window-panel w-2/3 flex flex-col max-h-full overflow-hidden">
                     {selectedConversation ? (
                         <ChatWindow
                             conversation={selectedConversation}

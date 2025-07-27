@@ -58,7 +58,7 @@ const ChatWindow = ({ conversation, currentUser, onMessageSent }) => {
     };
 
     return (
-        <div className="flex flex-col h-full bg-white">
+        <div className="flex flex-col h-full bg-white max-h-full overflow-hidden">
             {/* Chat Header */}
             <div className="flex items-center p-3 border-b border-gray-200 flex-shrink-0">
                 <div className="relative flex-shrink-0 mr-3">
