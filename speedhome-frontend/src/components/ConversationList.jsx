@@ -1,119 +1,110 @@
 import React from 'react';
-import MessagingAPI from '../services/MessagingAPI';
-import './ConversationList.css';
 
-const ConversationList = ({ conversations, onConversationSelect, currentUser }) => {
-    const handleConversationClick = (conversation) => {
-        onConversationSelect(conversation);
-    };
+// Note: Assuming MessagingAPI.formatTimestamp is available, otherwise replace with a date formatting library.
+// import { format } from 'date-fns';
 
-    const getConversationTitle = (conversation) => {
-        if (currentUser?.role === 'landlord') {
-            return conversation.tenant_name || 'Tenant';
+const ConversationList = ({ conversations, selectedConversation, onConversationSelect, currentUser }) => {
+
+    const getOtherParticipant = (conversation) => {
+        if (!currentUser) return { name: 'Unknown', avatarInitial: '?' };
+
+        if (currentUser.role === 'landlord') {
+            return {
+                name: conversation.other_participant?.name || 'Tenant',
+                avatarInitial: (conversation.other_participant?.name || 'T').charAt(0).toUpperCase()
+            };
         } else {
-            return conversation.landlord_name || 'Landlord';
+            return {
+                name: conversation.other_participant?.name || 'Landlord',
+                avatarInitial: (conversation.other_participant?.name || 'L').charAt(0).toUpperCase()
+            };
         }
-    };
-
-    const getConversationSubtitle = (conversation) => {
-        return conversation.property_title || 'Property';
     };
 
     const getLastMessagePreview = (conversation) => {
-        if (!conversation.last_message_at) {
-            return 'No messages yet';
+        if (conversation.last_message_body) {
+            return conversation.last_message_body;
         }
-        
-        // This would ideally come from the API, but for now we'll show a generic message
-        return 'Tap to view conversation';
+        return 'No messages yet';
     };
 
-    const getBookingStatusBadge = (bookingStatus) => {
-        const statusConfig = {
-            'pending': { color: '#f59e0b', text: 'Pending' },
-            'confirmed': { color: '#10b981', text: 'Confirmed' },
-            'completed': { color: '#6b7280', text: 'Completed' },
-            'cancelled': { color: '#ef4444', text: 'Cancelled' },
-            'declined': { color: '#ef4444', text: 'Declined' }
-        };
-
-        const config = statusConfig[bookingStatus] || { color: '#6b7280', text: bookingStatus };
-        
-        return (
-            <span 
-                className="booking-status-badge"
-                style={{ backgroundColor: config.color }}
-            >
-                {config.text}
-            </span>
-        );
+    // A simplified timestamp formatter. Replace with a robust one if needed.
+    const formatTimestamp = (timestamp) => {
+        if (!timestamp) return '';
+        const date = new Date(timestamp);
+        // Simple logic: if it's today, show time, else show date.
+        if (new Date().toDateString() === date.toDateString()) {
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+        return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
     };
 
-    if (conversations.length === 0) {
-        return (
-            <div className="conversation-list-empty">
-                <div className="empty-state-icon">💬</div>
-                <h3>No conversations</h3>
-                <p>Your conversations will appear here</p>
-            </div>
-        );
+
+    if (!conversations || conversations.length === 0) {
+        // This part can be simplified or kept as is.
+        // For this example, we assume the parent handles the "no conversations" state.
+        return null;
     }
 
     return (
-        <div className="conversation-list">
-            <div className="conversation-list-header">
-                <h3>Conversations ({conversations.length})</h3>
-            </div>
-            
-            <div className="conversation-list-items">
-                {conversations.map((conversation) => (
+        <div className="h-full overflow-y-auto">
+            {conversations.map((conversation) => {
+                const otherParticipant = getOtherParticipant(conversation);
+                const isSelected = selectedConversation?.id === conversation.id;
+
+                return (
                     <div
                         key={conversation.id}
-                        className="conversation-item"
-                        onClick={() => handleConversationClick(conversation)}
+                        onClick={() => onConversationSelect(conversation)}
+                        // ✅ This is the key for the active state and hover effects
+                        className={`
+                            flex items-center p-3 space-x-3 cursor-pointer border-b border-gray-200
+                            transition-colors duration-150
+                            ${isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'}
+                        `}
                     >
-                        <div className="conversation-avatar">
-                            <div className="avatar-circle">
-                                {getConversationTitle(conversation).charAt(0).toUpperCase()}
+                        {/* Avatar */}
+                        <div className="relative flex-shrink-0">
+                            <div className="h-12 w-12 rounded-full bg-gray-300 flex items-center justify-center">
+                                <span className="text-xl font-semibold text-gray-600">
+                                    {otherParticipant.avatarInitial}
+                                </span>
                             </div>
                             {conversation.unread_count > 0 && (
-                                <div className="unread-indicator">
+                                <span className="absolute top-0 right-0 block h-4 w-4 rounded-full bg-red-500 text-white text-xs flex items-center justify-center border-2 border-white">
                                     {conversation.unread_count}
-                                </div>
+                                </span>
                             )}
                         </div>
-                        
-                        <div className="conversation-content">
-                            <div className="conversation-header">
-                                <h4 className="conversation-title">
-                                    {getConversationTitle(conversation)}
+
+                        {/* Content */}
+                        <div className="flex-grow overflow-hidden">
+                            <div className="flex justify-between items-baseline">
+                                {/* ✅ Name is now bold for hierarchy */}
+                                <h4 className="font-semibold text-sm text-gray-800 truncate">
+                                    {otherParticipant.name}
                                 </h4>
-                                <span className="conversation-time">
-                                    {MessagingAPI.formatTimestamp(conversation.last_message_at || conversation.created_at)}
+                                {/* ✅ Timestamp is smaller and lighter */}
+                                <span className="text-xs text-gray-400 flex-shrink-0">
+                                    {formatTimestamp(conversation.last_message_at || conversation.created_at)}
                                 </span>
                             </div>
-                            
-                            <div className="conversation-subtitle">
-                                <span className="property-name">
-                                    📍 {getConversationSubtitle(conversation)}
-                                </span>
-                                {getBookingStatusBadge(conversation.booking_status)}
-                            </div>
-                            
-                            <div className="conversation-preview">
+
+                            {/* ✅ Property title is prominent but secondary */}
+                            <p className="text-xs text-gray-500 truncate mt-0.5">
+                                {conversation.property_title || 'Property Details'}
+                            </p>
+
+                            {/* ✅ Message preview is lighter and truncates */}
+                            <p className="text-sm text-gray-500 truncate mt-1">
                                 {getLastMessagePreview(conversation)}
-                            </div>
-                        </div>
-                        
-                        <div className="conversation-arrow">
-                            →
+                            </p>
                         </div>
                     </div>
-                ))}
-            </div>
+                );
+            })}
         </div>
     );
 };
 
 export default ConversationList;
-

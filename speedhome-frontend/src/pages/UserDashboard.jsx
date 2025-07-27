@@ -670,7 +670,7 @@ const UserDashboard = ({ favorites, toggleFavorite }) => {
 
         {/* Messages Tab Content */}
         {activeTab === 'messages' && (
-          <div className="bg-white shadow-lg rounded-lg h-[600px]">
+          <div className="bg-white shadow-lg rounded-lg h-[600px] flex">
             <MessagingCenter 
               user={user} 
               selectedConversationId={selectedConversationId}

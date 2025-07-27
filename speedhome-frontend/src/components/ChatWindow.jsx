@@ -2,9 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import MessagingAPI from '../services/MessagingAPI';
 import MessageBubble from './MessageBubble';
 import MessageInput from './MessageInput';
-import './ChatWindow.css';
 
-const ChatWindow = ({ conversation, currentUser, onBack, onMessageSent }) => {
+const ChatWindow = ({ conversation, currentUser, onMessageSent }) => {
     const [messages, setMessages] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -18,25 +17,21 @@ const ChatWindow = ({ conversation, currentUser, onBack, onMessageSent }) => {
     }, [conversation?.id]);
 
     useEffect(() => {
-        scrollToBottom();
-    }, [messages]);
+        messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+    }, [messages, loading]);
 
     const loadMessages = async () => {
         try {
             setLoading(true);
+            setError(null);
             const response = await MessagingAPI.getMessages(conversation.id);
             setMessages(response.messages || []);
-            setError(null);
-        } catch (error) {
-            console.error('Error loading messages:', error);
-            setError('Failed to load messages');
+        } catch (err) {
+            console.error('Error loading messages:', err);
+            setError('Failed to load messages. Please try again.');
         } finally {
             setLoading(false);
         }
-    };
-
-    const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
 
     const handleSendMessage = async (messageText) => {
@@ -45,110 +40,78 @@ const ChatWindow = ({ conversation, currentUser, onBack, onMessageSent }) => {
         try {
             setSending(true);
             const response = await MessagingAPI.sendMessage(conversation.id, messageText.trim());
-            
-            // Add the new message to the list
             setMessages(prev => [...prev, response.message]);
-            
-            // Notify parent component
             onMessageSent();
-            
-        } catch (error) {
-            console.error('Error sending message:', error);
-            alert('Failed to send message: ' + error.message);
+        } catch (err) {
+            console.error('Error sending message:', err);
+            // Optionally show a toast notification for send errors
         } finally {
             setSending(false);
         }
     };
 
-    const getOtherParticipant = () => {
-        if (currentUser?.role === 'landlord') {
-            return {
-                name: conversation.tenant_name || 'Tenant',
-                role: 'tenant'
-            };
-        } else {
-            return {
-                name: conversation.landlord_name || 'Landlord',
-                role: 'landlord'
-            };
-        }
-    };
-
-    const getConversationStatus = () => {
-        return MessagingAPI.getStatusDisplay(conversation.status, conversation.booking_status);
-    };
+    const otherParticipant = conversation?.other_participant || { name: 'User', role: 'tenant' };
 
     const canSendMessages = () => {
-        return conversation.status === 'active' && 
+        return conversation.status === 'active' &&
                ['pending', 'confirmed'].includes(conversation.booking_status);
     };
 
-    const otherParticipant = getOtherParticipant();
-
     return (
-        <div className="chat-window">
+        <div className="flex flex-col h-full bg-white">
             {/* Chat Header */}
-            <div className="chat-header">
-                <button className="back-button" onClick={onBack}>
-                    ← Back
-                </button>
-                
-                <div className="chat-header-info">
-                    <div className="participant-info">
-                        <div className="participant-avatar">
+            <div className="flex items-center p-3 border-b border-gray-200 flex-shrink-0">
+                <div className="relative flex-shrink-0 mr-3">
+                    <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
+                        <span className="text-lg font-semibold text-gray-600">
                             {otherParticipant.name.charAt(0).toUpperCase()}
-                        </div>
-                        <div className="participant-details">
-                            <h3 className="participant-name">{otherParticipant.name}</h3>
-                            <p className="property-info">📍 {conversation.property_title}</p>
-                        </div>
-                    </div>
-                    
-                    <div className="conversation-status">
-                        <span className={`status-badge status-${conversation.status}`}>
-                            {getConversationStatus()}
                         </span>
                     </div>
+                </div>
+                <div className="flex-grow">
+                    <h3 className="font-semibold text-gray-800">{otherParticipant.name}</h3>
+                    <p className="text-xs text-gray-500 truncate">
+                        Regarding: {conversation.property_title}
+                    </p>
                 </div>
             </div>
 
             {/* Messages Area */}
-            <div className="messages-container">
-                {loading ? (
-                    <div className="messages-loading">
-                        <div className="loading-spinner"></div>
-                        <p>Loading messages...</p>
+            <div className="flex-grow overflow-y-auto p-4 space-y-4 bg-gray-50">
+                {loading && (
+                    <div className="flex justify-center items-center h-full">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
                     </div>
-                ) : error ? (
-                    <div className="messages-error">
-                        <p>❌ {error}</p>
-                        <button onClick={loadMessages} className="retry-button">
+                )}
+                {error && (
+                    <div className="text-center p-4">
+                        <p className="text-red-500 mb-2">{error}</p>
+                        <button onClick={loadMessages} className="px-3 py-1 bg-blue-500 text-white rounded text-sm">
                             Try Again
                         </button>
                     </div>
-                ) : messages.length === 0 ? (
-                    <div className="no-messages">
-                        <div className="no-messages-icon">💬</div>
-                        <h4>Start the conversation</h4>
-                        <p>Send a message to {otherParticipant.name} about {conversation.property_title}</p>
-                    </div>
-                ) : (
-                    <div className="messages-list">
-                        {messages.map((message) => (
-                            <MessageBubble
-                                key={message.id}
-                                message={message}
-                                isOwn={message.sender_id === currentUser?.id}
-                                currentUser={currentUser}
-                            />
-                        ))}
-                        <div ref={messagesEndRef} />
+                )}
+                {!loading && !error && messages.length === 0 && (
+                     <div className="text-center p-4 text-gray-500">
+                        <div className="text-5xl mb-2">💬</div>
+                        <h4 className="font-semibold">Start the conversation</h4>
+                        <p className="text-sm">Send a message to {otherParticipant.name}.</p>
                     </div>
                 )}
+                {!loading && !error && messages.length > 0 && (
+                    messages.map((message) => (
+                        <MessageBubble
+                            key={message.id}
+                            message={message}
+                            isOwn={message.sender_id === currentUser?.id}
+                        />
+                    ))
+                )}
+                <div ref={messagesEndRef} />
             </div>
 
             {/* Message Input */}
-            <div className="message-input-container">
+            <div className="p-3 border-t border-gray-200 flex-shrink-0 bg-white">
                 {canSendMessages() ? (
                     <MessageInput
                         onSendMessage={handleSendMessage}
@@ -156,13 +119,8 @@ const ChatWindow = ({ conversation, currentUser, onBack, onMessageSent }) => {
                         placeholder={`Message ${otherParticipant.name}...`}
                     />
                 ) : (
-                    <div className="messaging-disabled">
-                        <p>
-                            {conversation.status === 'read_only' 
-                                ? `This conversation is read-only because the booking is ${conversation.booking_status}.`
-                                : 'Messaging is not available for this conversation.'
-                            }
-                        </p>
+                    <div className="text-center text-sm text-gray-500 p-2 bg-gray-100 rounded-lg">
+                        Messaging is disabled for this conversation.
                     </div>
                 )}
             </div>
@@ -171,4 +129,3 @@ const ChatWindow = ({ conversation, currentUser, onBack, onMessageSent }) => {
 };
 
 export default ChatWindow;
-

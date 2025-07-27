@@ -79,12 +79,12 @@ const handleProfileSave = async (e) => {
     alert('An error occurred while saving your profile.');
   }
 };
-  
+
   const handleMarkAsSeen = async (bookingId) => {
     try {
       await BookingAPI.markAsSeen(bookingId);
-      setViewingRequests(prevRequests => 
-        prevRequests.map(req => 
+      setViewingRequests(prevRequests =>
+        prevRequests.map(req =>
           req.id === bookingId ? { ...req, is_seen_by_landlord: true } : req
         )
       );
@@ -211,7 +211,7 @@ const handleProfileSave = async (e) => {
 
   // State for tenant applications
   const [tenantApplications, setTenantApplications] = useState([]);
-  
+
 
   // State for application details modal
   const [showApplicationDetails, setShowApplicationDetails] = useState(false);
@@ -230,7 +230,7 @@ const handleProfileSave = async (e) => {
       console.error('Error loading applications:', error);
     }
   };
-  
+
   // Call this new function inside a useEffect
   useEffect(() => {
     loadApplications();
@@ -262,7 +262,7 @@ const handleStatusChange = async (propertyId, newStatus) => {
 
     if (result.success) {
       await loadProperties(); // This updates the dashboard
-      
+
       // ✅ THIS IS THE MISSING LINE:
       // This sends the signal to App.jsx to update the homepage
       window.dispatchEvent(new CustomEvent('propertyUpdated'));
@@ -424,7 +424,7 @@ const handleStatusChange = async (propertyId, newStatus) => {
   const toggleRequestDetails = (requestId) => {
     setExpandedRequestId(expandedRequestId === requestId ? null : requestId);
   };
-  
+
 
   // Handle reschedule response
   const handleRescheduleResponse = async (bookingId, response) => {
@@ -440,7 +440,7 @@ const handleStatusChange = async (propertyId, newStatus) => {
         }
       } else if (response === 'declined') {
         // This now calls your existing, correct BookingAPI function
-        result = await BookingAPI.declineReschedule(bookingId); 
+        result = await BookingAPI.declineReschedule(bookingId);
         if (result.success) {
           alert('Reschedule request has been declined!');
         } else {
@@ -448,13 +448,13 @@ const handleStatusChange = async (propertyId, newStatus) => {
           return; // Stop if it failed
         }
       }
-  
+
       // If either action was successful, refresh the data
       const updatedResult = await BookingAPI.getBookingsByLandlord(user.id);
       if (updatedResult.success) {
         setViewingRequests(updatedResult.bookings);
       }
-  
+
     } catch (error) {
       console.error('Error responding to reschedule request:', error);
       alert('An error occurred while responding to the reschedule request');
@@ -505,7 +505,7 @@ const handleApplicationResponse = async (applicationId, response) => {
   }
 };
 
-    
+
 
   // Handle viewing application details
   const handleViewApplicationDetails = (application) => {
@@ -673,7 +673,7 @@ const handleApplicationResponse = async (applicationId, response) => {
       if (result.success) {
         // Refresh properties from database
         await loadProperties();
-        
+
         // Dispatch custom event to notify other components
         window.dispatchEvent(new CustomEvent('propertyUpdated'));
 
@@ -727,10 +727,10 @@ const handleApplicationResponse = async (applicationId, response) => {
 
         if (result.success) {
           alert('Property deleted successfully!');
-          
+
           // Refresh the property list from the server to update the UI
           await loadProperties();
-          
+
           // Notify other parts of the app (like the homepage) that a property has changed
           window.dispatchEvent(new CustomEvent('propertyUpdated'));
 
@@ -769,6 +769,112 @@ const handleApplicationResponse = async (applicationId, response) => {
       ...prev,
       [name]: value,
     }));
+  };
+  const renderActiveTab = () => {
+    switch (activeTab) {
+      case 'properties':
+        return (
+          <div>
+            <div className="flex flex-col">
+              <div className="-my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+                <div className="py-2 align-middle inline-block min-w-full sm:px-6 lg:px-8">
+                  <div className="shadow overflow-hidden border-b border-gray-200 sm:rounded-lg">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        {/* Table Headers */}
+                        <tr>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Property</th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Views</th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Inquiries</th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {properties.map((property) => (
+                          <tr key={property.id} onClick={() => navigate(`/property/${property.id}`)} className="hover:bg-gray-50 cursor-pointer">
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center">
+                                <div className="flex-shrink-0 h-10 w-10">
+                                  <img className="h-10 w-10 rounded-md object-cover" src={property.image} alt={property.title}/>
+                                </div>
+                                <div className="ml-4">
+                                  <div className="text-sm font-medium text-gray-900">{property.title}</div>
+                                  <div className="text-sm text-gray-500">{property.location}</div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${property.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>{property.status}</span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{property.views}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{property.inquiries}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">RM {property.price.toLocaleString()}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                              <div className="flex space-x-2" onClick={(e) => e.stopPropagation()}>
+                                <button onClick={() => handleEditProperty(property)} className="text-blue-600 hover:text-blue-900">Edit</button>
+                                <button onClick={() => handleDeleteProperty(property.id)} className="text-red-600 hover:text-red-900">Delete</button>
+                                <select value={property.status} onChange={(e) => handleStatusChange(property.id, e.target.value)} className="text-gray-600 text-sm border-gray-300 rounded-md">
+                                  <option value="Active">Active</option>
+                                  <option value="Inactive">Inactive</option>
+                                  <option value="Rented">Rented</option>
+                                </select>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      case 'viewings':
+        return (
+          <div>
+             {/* Viewing Requests Table JSX */}
+          </div>
+        );
+      case 'applications':
+        return (
+          <div>
+            {/* Tenant Applications Table JSX */}
+          </div>
+        );
+      case 'earnings':
+        return (
+          <div>
+            {/* Earnings Tab JSX */}
+          </div>
+        );
+      case 'calendar':
+        return (
+          <div>
+            <UnifiedCalendar />
+          </div>
+        );
+      case 'messages':
+        return (
+          <div className="h-[600px] flex">
+            <MessagingCenter
+              user={user}
+              selectedConversationId={selectedConversationId}
+              onConversationSelect={setSelectedConversationId}
+            />
+          </div>
+        );
+      case 'profile':
+        return (
+          <div>
+            {/* Profile Edit Form JSX */}
+          </div>
+        );
+      default:
+        return null; // Or return the default tab content, e.g., properties
+    }
   };
 
   return (
@@ -1218,11 +1324,11 @@ const handleApplicationResponse = async (applicationId, response) => {
                               viewingRequests.map((request) => {
                                 // Get the property ID from the request object
                                 const propertyId = request.propertyId || request.property_id || request.propertyID;
-                                
+
                                 // Use the ID to find the matching property in your `properties` state array
                                 const property = properties.find(p => p.id == propertyId);
                                 const isNew = !request.is_seen_by_landlord;
-                                
+
                                 return (
                                   <React.Fragment key={request.id}>
                                     <tr
@@ -1320,7 +1426,7 @@ const handleApplicationResponse = async (applicationId, response) => {
                                             </div>
                                           )}
                                         {/* Message Tenant button for pending and confirmed bookings */}
-                                        {(request.status === 'Pending' || request.status === 'pending' || 
+                                        {(request.status === 'Pending' || request.status === 'pending' ||
                                           request.status === 'Confirmed' || request.status === 'confirmed') && (
                                           <button
                                             onClick={async (e) => {
@@ -1377,12 +1483,12 @@ const handleApplicationResponse = async (applicationId, response) => {
                                                     {formatTime(request.proposed_time)}
                                                   </>
                                                 ) : (
-                                                  request.reschedule_requested_by === 'landlord' ? 
-                                                    'Waiting for tenant response' : 
+                                                  request.reschedule_requested_by === 'landlord' ?
+                                                    'Waiting for tenant response' :
                                                     'Tenant will choose new time'
                                                 )}
                                               </div>
-                                  
+
                                               {/* Show Accept/Decline buttons ONLY if tenant requested reschedule */}
                                               {request.reschedule_requested_by ===
                                                 'tenant' ||
@@ -1465,7 +1571,7 @@ const handleApplicationResponse = async (applicationId, response) => {
                                                 <div className="space-y-1 text-sm">
                                                   <div><span className="font-medium">Date:</span> {formatDate(request.appointment_date)}</div>
                                                   <div><span className="font-medium">Time:</span> {formatTime(request.appointment_time)}</div>
-                                                  <div><span className="font-medium">Status:</span> 
+                                                  <div><span className="font-medium">Status:</span>
                                                     <span className={`ml-1 px-2 py-1 text-xs rounded-full ${
                                                       request.status === 'Confirmed' ? 'bg-green-100 text-green-800' :
                                                       request.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
@@ -1848,8 +1954,8 @@ const handleApplicationResponse = async (applicationId, response) => {
             {/* Messages Tab */}
             {activeTab === 'messages' && (
               <div className="h-[600px]">
-                <MessagingCenter 
-                  user={user} 
+                <MessagingCenter
+                  user={user}
                   selectedConversationId={selectedConversationId}
                   onConversationSelect={setSelectedConversationId}
                 />
@@ -2928,8 +3034,8 @@ const handleApplicationResponse = async (applicationId, response) => {
           {/* --- Tenant Profile Section --- */}
           <div className="bg-gray-50 p-4 rounded-lg border">
             <div className="flex items-center space-x-4">
-              <img 
-                src={selectedApplication.tenant?.profile_picture || `https://ui-avatars.com/api/?name=${selectedApplication.tenant?.full_name || 'T'}&background=fbbF24&color=fff`} 
+              <img
+                src={selectedApplication.tenant?.profile_picture || `https://ui-avatars.com/api/?name=${selectedApplication.tenant?.full_name || 'T'}&background=fbbF24&color=fff`}
                 alt="Tenant Profile"
                 className="w-20 h-20 rounded-full object-cover border-2 border-white shadow"
               />

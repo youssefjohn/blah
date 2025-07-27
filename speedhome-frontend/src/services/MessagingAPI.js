@@ -125,9 +125,13 @@ class MessagingAPI {
      * Get or create a conversation for a booking
      * @param {number} bookingId - The booking ID
      */
+    // In src/services/MessagingAPI.js
+
     async getOrCreateConversation(bookingId) {
         try {
-            const response = await fetch(`${this.baseURL}/conversations/booking/${bookingId}`, {
+            // --- THIS IS THE FIX ---
+            // The URL has been changed to the correct backend endpoint.
+            const response = await fetch(`${this.baseURL}/conversations/create`, {
                 method: 'POST',
                 credentials: 'include',
                 headers: {
@@ -139,7 +143,7 @@ class MessagingAPI {
             });
 
             const data = await response.json();
-            
+
             if (!response.ok) {
                 throw new Error(data.error || 'Failed to get or create conversation');
             }

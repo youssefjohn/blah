@@ -1,13 +1,5 @@
 /* MessagingCenter.css */
-.messaging-center {
-    max-width: 800px;
-    margin: 0 auto;
-    padding: 20px;
-    background: #fff;
-    border-radius: 12px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    min-height: 600px;
-}
+
 
 .messaging-header {
     text-align: center;
