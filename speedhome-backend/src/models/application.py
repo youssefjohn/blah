@@ -142,12 +142,12 @@ class Application(db.Model):
     
     def calculate_rent_to_income_ratio(self):
         """Calculate rent-to-income ratio for financial analysis."""
-        if self.monthly_income and self.property and self.property.rent:
+        if self.monthly_income and self.property and self.property.price:
             total_income = float(self.monthly_income)
             if self.additional_income:
                 total_income += float(self.additional_income)
             
             if total_income > 0:
-                ratio = (float(self.property.rent) / total_income) * 100
+                ratio = (float(self.property.price) / total_income) * 100
                 return round(ratio, 2)
         return None
