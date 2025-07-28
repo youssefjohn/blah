@@ -60,16 +60,7 @@ const EnhancedApplicationForm = ({ propertyId, onClose, onSuccess }) => {
   useEffect(() => {
     console.log('Enhanced Application Form - propertyId received:', propertyId);
     console.log('Enhanced Application Form - propertyId type:', typeof propertyId);
-  }, [propertyId]);mployment_letter: null,
-      bank_statement: null,
-      reference_letter: null,
-      additional_documents: []
-    }
-  });
-
-  const [uploadedFiles, setUploadedFiles] = useState({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errors, setErrors] = useState({});
+  }, [propertyId]);
 
   const steps = [
     { title: 'Personal Information', icon: '👤' },
