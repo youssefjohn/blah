@@ -9,6 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
 import { Upload, FileText, CheckCircle, AlertCircle } from 'lucide-react';
 import ApplicationAPI from '../services/ApplicationAPI';
+import DocumentUpload from './DocumentUpload';
 
 const EnhancedApplicationForm = ({ propertyId, onClose, onSuccess }) => {
   const [currentStep, setCurrentStep] = useState(0);
@@ -55,6 +56,7 @@ const EnhancedApplicationForm = ({ propertyId, onClose, onSuccess }) => {
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState({});
+  const [applicationId, setApplicationId] = useState(null);
 
   // Debug propertyId
   useEffect(() => {
@@ -203,6 +205,13 @@ const EnhancedApplicationForm = ({ propertyId, onClose, onSuccess }) => {
       
       if (response.success) {
         console.log('Enhanced Application Form - Calling onSuccess callback');
+        
+        // Store application ID for document uploads
+        if (response.data && response.data.id) {
+          setApplicationId(response.data.id);
+          console.log('Enhanced Application Form - Application ID set:', response.data.id);
+        }
+        
         onSuccess && onSuccess();
       } else {
         console.log('Enhanced Application Form - API response failed:', response.error);
@@ -587,63 +596,54 @@ const EnhancedApplicationForm = ({ propertyId, onClose, onSuccess }) => {
             </div>
             
             {[
-              { key: 'id_document', label: 'ID Document *', required: true },
-              { key: 'income_proof', label: 'Income Proof *', required: true },
+              { key: 'id_document', label: 'ID Document', required: true },
+              { key: 'income_proof', label: 'Income Proof', required: true },
               { key: 'employment_letter', label: 'Employment Letter', required: false },
               { key: 'bank_statement', label: 'Bank Statement', required: false },
               { key: 'reference_letter', label: 'Reference Letter', required: false }
             ].map(({ key, label, required }) => (
-              <div key={key} className="border-2 border-dashed border-gray-300 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <Label className="font-medium">{label}</Label>
-                  {uploadedFiles[key] && <CheckCircle className="h-5 w-5 text-green-500" />}
-                </div>
-                
-                {uploadedFiles[key] ? (
-                  <div className="flex items-center space-x-2 text-sm text-gray-600">
-                    <FileText className="h-4 w-4" />
-                    <span>{uploadedFiles[key].name}</span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setUploadedFiles(prev => {
-                          const newFiles = { ...prev };
-                          delete newFiles[key];
-                          return newFiles;
-                        });
-                      }}
-                    >
-                      Remove
-                    </Button>
-                  </div>
-                ) : (
-                  <div>
-                    <input
-                      type="file"
-                      id={key}
-                      accept=".pdf,.jpg,.jpeg,.png"
-                      onChange={(e) => handleFileUpload(key, e.target.files[0])}
-                      className="hidden"
-                    />
-                    <Label
-                      htmlFor={key}
-                      className="flex items-center justify-center space-x-2 cursor-pointer bg-gray-50 hover:bg-gray-100 rounded-md p-3 transition-colors"
-                    >
-                      <Upload className="h-4 w-4" />
-                      <span>Click to upload {label.toLowerCase()}</span>
-                    </Label>
-                  </div>
-                )}
-                
-                {errors[key] && (
-                  <div className="flex items-center space-x-1 text-red-500 text-sm mt-2">
-                    <AlertCircle className="h-4 w-4" />
-                    <span>{errors[key]}</span>
-                  </div>
-                )}
-              </div>
+              <DocumentUpload
+                key={key}
+                applicationId={applicationId}
+                documentType={key}
+                label={label}
+                required={required}
+                uploadedFile={uploadedFiles[key]}
+                onUploadSuccess={(docType, fileInfo) => {
+                  setUploadedFiles(prev => ({
+                    ...prev,
+                    [docType]: fileInfo
+                  }));
+                  setErrors(prev => {
+                    const newErrors = { ...prev };
+                    delete newErrors[docType];
+                    return newErrors;
+                  });
+                }}
+                onUploadError={(docType, error) => {
+                  setErrors(prev => ({
+                    ...prev,
+                    [docType]: error
+                  }));
+                }}
+                onDelete={(docType) => {
+                  setUploadedFiles(prev => {
+                    const newFiles = { ...prev };
+                    delete newFiles[docType];
+                    return newFiles;
+                  });
+                }}
+                disabled={!applicationId}
+              />
             ))}
+            
+            {!applicationId && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+                <p className="text-sm text-yellow-800">
+                  Please complete and submit your application first to enable document uploads.
+                </p>
+              </div>
+            )}
           </div>
         );
 

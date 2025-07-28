@@ -18,6 +18,7 @@ import Lightbox from "yet-another-react-lightbox";
 import TenantBookingCalendar from './components/TenantBookingCalendar';
 import PropertyAPI from './services/PropertyAPI';
 import EnhancedApplicationForm from './components/EnhancedApplicationForm';
+import DocumentUploadTest from './pages/DocumentUploadTest';
 
 const PropertyDetailPage = ({ properties, isFavorite, toggleFavorite, setSelectedProperty, onApplyClick, onScheduleClick }) => {
   const { propertyId } = useParams();
@@ -783,6 +784,7 @@ function AppContent() {
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         <Route path="/contact-us" element={<ContactUs />} />
         <Route path="/dashboard" element={<UserDashboard favorites={favorites} properties={properties} toggleFavorite={toggleFavorite} />} />
+        <Route path="/document-upload-test" element={<DocumentUploadTest />} />
       </Routes>
       <Footer />
 

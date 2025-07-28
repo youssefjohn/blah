@@ -1,11 +1,70 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { Eye, Download, X } from 'lucide-react';
+import DocumentAPI from '../services/DocumentAPI';
 
 const ApplicationDetailsModal = ({ application, onClose, onApprove, onReject }) => {
+  const [previewDocument, setPreviewDocument] = useState(null);
+  
   if (!application) return null;
 
   const formatCurrency = (amount) => {
     if (!amount) return 'Not specified';
     return `RM ${parseFloat(amount).toLocaleString()}`;
+  };
+
+  const handleDocumentPreview = (documentType) => {
+    if (!application.id) return;
+    
+    const previewUrl = DocumentAPI.getPreviewUrl(application.id, documentType);
+    setPreviewDocument({
+      type: documentType,
+      url: previewUrl,
+      name: DocumentAPI.getDocumentDisplayName(documentType)
+    });
+  };
+
+  const handleDocumentDownload = (documentType) => {
+    if (!application.id) return;
+    
+    const downloadUrl = DocumentAPI.getDownloadUrl(application.id, documentType);
+    window.open(downloadUrl, '_blank');
+  };
+
+  const closePreview = () => {
+    setPreviewDocument(null);
+  };
+
+  const renderDocumentRow = (documentType, label, path) => {
+    const hasDocument = !!path;
+    
+    return (
+      <div key={documentType} className="flex justify-between items-center py-2">
+        <span className="text-gray-600">{label}:</span>
+        <div className="flex items-center space-x-2">
+          <span className={`font-medium ${hasDocument ? 'text-green-600' : 'text-red-600'}`}>
+            {hasDocument ? '✓ Uploaded' : '✗ Not uploaded'}
+          </span>
+          {hasDocument && (
+            <div className="flex space-x-1">
+              <button
+                onClick={() => handleDocumentPreview(documentType)}
+                className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
+                title="Preview document"
+              >
+                <Eye className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => handleDocumentDownload(documentType)}
+                className="p-1 text-green-600 hover:text-green-800 hover:bg-green-50 rounded"
+                title="Download document"
+              >
+                <Download className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
   };
 
   const formatDate = (dateString) => {
@@ -281,44 +340,19 @@ const ApplicationDetailsModal = ({ application, onClose, onApprove, onReject }) 
             </div>
 
             {/* Documents Section */}
-            <div className="bg-orange-50 p-6 rounded-lg border border-orange-200">
-              <h4 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
-                <span className="w-2 h-2 bg-orange-500 rounded-full mr-2"></span>
-                Document Status
-              </h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">ID Document:</span>
-                  <span className={`font-medium ${application.id_document_path ? 'text-green-600' : 'text-red-600'}`}>
-                    {application.id_document_path ? '✓ Uploaded' : '✗ Not uploaded'}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Income Proof:</span>
-                  <span className={`font-medium ${application.income_proof_path ? 'text-green-600' : 'text-red-600'}`}>
-                    {application.income_proof_path ? '✓ Uploaded' : '✗ Not uploaded'}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Employment Letter:</span>
-                  <span className={`font-medium ${application.employment_letter_path ? 'text-green-600' : 'text-red-600'}`}>
-                    {application.employment_letter_path ? '✓ Uploaded' : '✗ Not uploaded'}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Bank Statement:</span>
-                  <span className={`font-medium ${application.bank_statement_path ? 'text-green-600' : 'text-red-600'}`}>
-                    {application.bank_statement_path ? '✓ Uploaded' : '✗ Not uploaded'}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Reference Letter:</span>
-                  <span className={`font-medium ${application.reference_letter_path ? 'text-green-600' : 'text-red-600'}`}>
-                    {application.reference_letter_path ? '✓ Uploaded' : '✗ Not uploaded'}
-                  </span>
+              <div className="bg-orange-50 p-6 rounded-lg border border-orange-200">
+                <h4 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
+                  <span className="w-2 h-2 bg-orange-500 rounded-full mr-2"></span>
+                  Document Status
+                </h4>
+                <div className="space-y-2 text-sm">
+                  {renderDocumentRow('id_document', 'ID Document', application.id_document_path)}
+                  {renderDocumentRow('income_proof', 'Income Proof', application.income_proof_path)}
+                  {renderDocumentRow('employment_letter', 'Employment Letter', application.employment_letter_path)}
+                  {renderDocumentRow('bank_statement', 'Bank Statement', application.bank_statement_path)}
+                  {renderDocumentRow('reference_letter', 'Reference Letter', application.reference_letter_path)}
                 </div>
               </div>
-            </div>
 
             {/* Application Status */}
             <div className="bg-blue-50 p-6 rounded-lg border border-blue-200">
@@ -376,6 +410,78 @@ const ApplicationDetailsModal = ({ application, onClose, onApprove, onReject }) 
           </div>
         </div>
       </div>
+      
+      {/* Document Preview Modal */}
+      {previewDocument && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-4xl max-h-[90vh] w-full flex flex-col">
+            {/* Preview Header */}
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="text-lg font-semibold">
+                Preview: {previewDocument.name}
+              </h3>
+              <button
+                onClick={closePreview}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Preview Content */}
+            <div className="flex-1 p-4 overflow-auto">
+              {previewDocument.type && (previewDocument.type.includes('image') || 
+                application[`${previewDocument.type}_path`]?.toLowerCase().includes('.jpg') ||
+                application[`${previewDocument.type}_path`]?.toLowerCase().includes('.jpeg') ||
+                application[`${previewDocument.type}_path`]?.toLowerCase().includes('.png')) ? (
+                <img
+                  src={previewDocument.url}
+                  alt={`Preview of ${previewDocument.name}`}
+                  className="max-w-full h-auto mx-auto"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    e.target.nextSibling.style.display = 'block';
+                  }}
+                />
+              ) : (
+                <iframe
+                  src={previewDocument.url}
+                  className="w-full h-96 border rounded"
+                  title={`Preview of ${previewDocument.name}`}
+                />
+              )}
+              
+              {/* Fallback for failed image loads */}
+              <div className="text-center text-gray-500 py-8 hidden">
+                <p>Preview not available</p>
+                <button
+                  onClick={() => handleDocumentDownload(previewDocument.type)}
+                  className="mt-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
+                  Download to view
+                </button>
+              </div>
+            </div>
+
+            {/* Preview Footer */}
+            <div className="flex justify-end space-x-2 p-4 border-t">
+              <button
+                onClick={() => handleDocumentDownload(previewDocument.type)}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center space-x-2"
+              >
+                <Download className="h-4 w-4" />
+                <span>Download</span>
+              </button>
+              <button
+                onClick={closePreview}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
