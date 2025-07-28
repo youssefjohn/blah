@@ -10,6 +10,7 @@ import RecurringAvailabilityManager from '../components/RecurringAvailabilityMan
 import UnifiedCalendar from '../components/UnifiedCalendar';
 import MessagingCenter from '../components/MessagingCenter';
 import MessagingAPI from '../services/MessagingAPI';
+import ApplicationDetailsModal from '../components/ApplicationDetailsModal';
 
 
 const LandlordDashboard = ({ onAddProperty }) => {
@@ -2893,88 +2894,20 @@ const LandlordDashboard = ({ onAddProperty }) => {
 
         {/* Application Details Modal */}
         {/* This is the NEW modal code */}
+        {/* Enhanced Application Details Modal */}
         {showApplicationDetails && selectedApplication && (
-          <div className="fixed inset-0 bg-gray-600 bg-opacity-70 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
-            <div className="relative mx-auto border w-full max-w-2xl shadow-lg rounded-xl bg-white">
-              <div className="p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <h3 className="text-2xl font-bold text-gray-900">Tenant Application</h3>
-                    <p className="text-sm text-gray-500">For property: {selectedApplication.property?.title || 'N/A'}</p>
-                  </div>
-                  <button onClick={handleCloseApplicationDetails} className="text-gray-400 hover:text-gray-600">
-                    <span className="sr-only">Close</span>
-                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                  </button>
-                </div>
-
-                <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2">
-                  {/* --- Tenant Profile Section --- */}
-                  <div className="bg-gray-50 p-4 rounded-lg border">
-                    <div className="flex items-center space-x-4">
-                      <img
-                        src={selectedApplication.tenant?.profile_picture || `https://ui-avatars.com/api/?name=${selectedApplication.tenant?.full_name || 'T'}&background=fbbF24&color=fff`}
-                        alt="Tenant Profile"
-                        className="w-20 h-20 rounded-full object-cover border-2 border-white shadow"
-                      />
-                      <div className="flex-1">
-                        <h4 className="text-lg font-bold text-gray-800">{selectedApplication.tenant?.full_name || 'N/A'}</h4>
-                        <p className="text-sm text-gray-600">{selectedApplication.tenant?.email || 'N/A'}</p>
-                        <p className="text-sm text-gray-600">{selectedApplication.tenant?.phone || 'N/A'}</p>
-                      </div>
-                    </div>
-                    {selectedApplication.tenant?.bio && (
-                      <div className="mt-4 pt-4 border-t">
-                        <h5 className="text-sm font-semibold text-gray-700 mb-1">About Me</h5>
-                        <p className="text-sm text-gray-600 whitespace-pre-wrap">{selectedApplication.tenant.bio}</p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* --- Employment Information --- */}
-                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                    <h4 className="text-md font-semibold text-gray-900 mb-2">Employment Information</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                      <div><span className="font-medium text-gray-600">Occupation:</span><p className="font-semibold text-gray-800">{selectedApplication.tenant?.occupation || 'N/A'}</p></div>
-                      <div><span className="font-medium text-gray-600">Company:</span><p className="font-semibold text-gray-800">{selectedApplication.tenant?.company_name || 'N/A'}</p></div>
-                    </div>
-                  </div>
-
-                  {/* --- Application Message --- */}
-                  {selectedApplication.message && (
-                    <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-                      <h4 className="text-md font-semibold text-gray-900 mb-2">Message from Applicant</h4>
-                      <p className="text-sm text-gray-700 italic">"{selectedApplication.message}"</p>
-                    </div>
-                  )}
-
-                  {/* --- Application Details --- */}
-                  <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-                    <h4 className="text-md font-semibold text-gray-900 mb-2">Application Details</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                      <div><span className="font-medium text-gray-600">Application Date:</span><p className="font-semibold text-gray-800">{formatDate(selectedApplication.created_at)}</p></div>
-                      <div><span className="font-medium text-gray-600">Status:</span>
-                        <span className={`ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${selectedApplication.status === 'approved' ? 'bg-green-100 text-green-800' : selectedApplication.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}`}>
-                          {selectedApplication.status}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* --- Action Buttons --- */}
-                <div className="flex justify-end space-x-4 pt-6 border-t mt-6">
-                  <button onClick={handleCloseApplicationDetails} className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">Close</button>
-                  {selectedApplication.status === 'pending' && (
-                    <>
-                      <button onClick={() => { handleApplicationResponse(selectedApplication.id, 'rejected'); handleCloseApplicationDetails(); }} className="px-6 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700">Reject</button>
-                      <button onClick={() => { handleApplicationResponse(selectedApplication.id, 'approved'); handleCloseApplicationDetails(); }} className="px-6 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700">Approve Application</button>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
+          <ApplicationDetailsModal
+            application={selectedApplication}
+            onClose={handleCloseApplicationDetails}
+            onApprove={(applicationId) => {
+              handleApplicationResponse(applicationId, 'approved');
+              handleCloseApplicationDetails();
+            }}
+            onReject={(applicationId) => {
+              handleApplicationResponse(applicationId, 'rejected');
+              handleCloseApplicationDetails();
+            }}
+          />
         )}
 
         {showRescheduleModal && (
