@@ -25,6 +25,11 @@ const PropertyDetailPage = ({ properties, isFavorite, toggleFavorite, setSelecte
   const [property, setProperty] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasApplied, setHasApplied] = useState(false);
+  
+  // Debug hasApplied state changes
+  useEffect(() => {
+    console.log('App.jsx - hasApplied state changed to:', hasApplied);
+  }, [hasApplied]);
   const [hasScheduledViewing, setHasScheduledViewing] = useState(false);
   const [mainImage, setMainImage] = useState(null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
