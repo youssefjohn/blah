@@ -321,10 +321,31 @@ static async createBooking(bookingDetails) {
       return data;
     } catch (error) {
       console.error('Error selecting reschedule slot:', error);
-      throw error;
+        throw error;
     }
   }
 
-}
+  static async getBookingById(bookingId) {
+    try {
+      const response = await fetch(`/api/bookings/${bookingId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include'
+      });
 
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to fetch booking');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error fetching booking:', error);
+      throw error;
+    }
+  }
+}
 export default BookingAPI;

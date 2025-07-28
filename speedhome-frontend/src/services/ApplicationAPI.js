@@ -87,6 +87,37 @@ class ApplicationAPI {
       return { success: false, error: error.message };
     }
   }
+  static async markAsSeen(applicationId) {
+  try {
+    // We use fetch, just like in your BookingAPI.js
+    const response = await fetch(`/api/applications/${applicationId}/mark-seen`, {
+      method: 'POST', // Use 'POST' for an action that updates something
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include', // Make sure this is included for authentication
+    });
+
+    // It's good practice to check if the response has content before parsing
+    const text = await response.text();
+    const data = text ? JSON.parse(text) : {};
+
+    if (!response.ok) {
+      // Throw an error if the server responded with a status like 404 or 500
+      throw new Error(data.error || 'Failed to mark application as seen');
+    }
+
+    return { success: true, data: data };
+
+  } catch (error) {
+    // The console.error will now show a much more useful message
+    console.error('API Error - Failed to mark application as seen:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
 }
 
 export default ApplicationAPI;

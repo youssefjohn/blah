@@ -18,6 +18,8 @@ class Application(db.Model):
     tenant_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     landlord_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
 
+    is_seen_by_landlord = db.Column(db.Boolean, default=False, nullable=False)
+
     # Relationships
     tenant = db.relationship('User', foreign_keys=[tenant_id], backref='sent_applications')
     property = db.relationship('Property', foreign_keys=[property_id], backref='applications')
@@ -30,6 +32,7 @@ class Application(db.Model):
             'message': self.message,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'property_id': self.property_id,
+            'is_seen_by_landlord': self.is_seen_by_landlord,
             'property': self.property.to_dict() if self.property else None,
             'tenant': self.tenant.to_dict() if self.tenant else None
         }

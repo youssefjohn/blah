@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import PropertyAPI from '../services/PropertyAPI';
@@ -8,18 +8,25 @@ import ApplicationAPI from '../services/ApplicationAPI';
 import ProfileAPI from '../services/ProfileAPI';
 import RecurringAvailabilityManager from '../components/RecurringAvailabilityManager';
 import UnifiedCalendar from '../components/UnifiedCalendar';
+import MessagingCenter from '../components/MessagingCenter';
+import MessagingAPI from '../services/MessagingAPI';
 
 
 const LandlordDashboard = ({ onAddProperty }) => {
   const navigate = useNavigate();
   const { user, isAuthenticated, isLandlord } = useAuth();
   const [activeTab, setActiveTab] = useState('properties');
+  const [selectedConversationId, setSelectedConversationId] = useState(null);
   const [showAddPropertyModal, setShowAddPropertyModal] = useState(false);
   const [showEditPropertyModal, setShowEditPropertyModal] = useState(false);
   const [editingProperty, setEditingProperty] = useState(null);
   const [expandedRequestId, setExpandedRequestId] = useState(null);
+  const [conversations, setConversations] = useState([]);
+  // Add this line near your other state declarations
+  const hasNewMessages = conversations.some(convo => convo.unread_count > 0);
 
-// --- NEW: State for the Reschedule Modal ---
+
+  // --- NEW: State for the Reschedule Modal ---
   const [showRescheduleModal, setShowRescheduleModal] = useState(false);
   const [rescheduleData, setRescheduleData] = useState({
     bookingId: null,
@@ -31,57 +38,75 @@ const LandlordDashboard = ({ onAddProperty }) => {
   const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
   const [selectedPropertyForAvailability, setSelectedPropertyForAvailability] = useState(null);
 
-// START REPLACING HERE
-const [profileData, setProfileData] = useState({
-  first_name: '',
-  last_name: '',
-  phone: '',
-  email: '',
-});
+  // START REPLACING HERE
+  const [profileData, setProfileData] = useState({
+    first_name: '',
+    last_name: '',
+    phone: '',
+    email: '',
+  });
 
-useEffect(() => {
-  const fetchProfileData = async () => {
-    if (user) {
-      const result = await ProfileAPI.getProfile();
+  useEffect(() => {
+    const fetchProfileData = async () => {
+      if (user) {
+        const result = await ProfileAPI.getProfile();
+        if (result.success) {
+          setProfileData(result.profile);
+        } else {
+          console.error("Failed to load profile data:", result.error);
+        }
+      }
+    };
+    fetchProfileData();
+  }, [user]);
+
+  // Add this useEffect hook to load conversations when the component mounts
+    useEffect(() => {
+      const loadConversations = async () => {
+        if (user) {
+          try {
+            const response = await MessagingAPI.getConversations();
+            if (response.success) {
+              setConversations(response.conversations);
+            }
+          } catch (error) {
+            console.error("Failed to load conversations:", error);
+          }
+        }
+      };
+
+      loadConversations();
+    }, [user]); // This runs once when the user is loaded
+
+  const handleProfileChange = (e) => {
+    const { name, value } = e.target;
+    setProfileData(prevData => ({
+      ...prevData,
+      [name]: value,
+    }));
+  };
+
+  const handleProfileSave = async (e) => {
+    e.preventDefault();
+    try {
+      const result = await ProfileAPI.updateProfile(profileData);
       if (result.success) {
+        alert('Profile updated successfully!');
+        // Optionally re-fetch data to confirm
         setProfileData(result.profile);
       } else {
-        console.error("Failed to load profile data:", result.error);
+        alert(`Failed to update profile: ${result.error}`);
       }
+    } catch (error) {
+      alert('An error occurred while saving your profile.');
     }
   };
-  fetchProfileData();
-}, [user]);
 
-const handleProfileChange = (e) => {
-  const { name, value } = e.target;
-  setProfileData(prevData => ({
-    ...prevData,
-    [name]: value,
-  }));
-};
-
-const handleProfileSave = async (e) => {
-  e.preventDefault();
-  try {
-    const result = await ProfileAPI.updateProfile(profileData);
-    if (result.success) {
-      alert('Profile updated successfully!');
-      // Optionally re-fetch data to confirm
-      setProfileData(result.profile);
-    } else {
-      alert(`Failed to update profile: ${result.error}`);
-    }
-  } catch (error) {
-    alert('An error occurred while saving your profile.');
-  }
-};
-  
   const handleMarkAsSeen = async (bookingId) => {
     try {
       await BookingAPI.markAsSeen(bookingId);
-      setViewingRequests(prevRequests => 
-        prevRequests.map(req => 
+      setViewingRequests(prevRequests =>
+        prevRequests.map(req =>
           req.id === bookingId ? { ...req, is_seen_by_landlord: true } : req
         )
       );
@@ -208,8 +233,8 @@ const handleProfileSave = async (e) => {
 
   // State for tenant applications
   const [tenantApplications, setTenantApplications] = useState([]);
-  
 
+  const hasNewApplications = tenantApplications.some(app => !app.is_seen_by_landlord);
   // State for application details modal
   const [showApplicationDetails, setShowApplicationDetails] = useState(false);
   const [selectedApplication, setSelectedApplication] = useState(null);
@@ -227,7 +252,7 @@ const handleProfileSave = async (e) => {
       console.error('Error loading applications:', error);
     }
   };
-  
+
   // Call this new function inside a useEffect
   useEffect(() => {
     loadApplications();
@@ -244,35 +269,35 @@ const handleProfileSave = async (e) => {
 
 
   // In LandlordDashboard.js
-const handleStatusChange = async (propertyId, newStatus) => {
-  try {
-    const propertyToUpdate = properties.find(p => p.id === propertyId);
-    if (!propertyToUpdate) {
-      alert('Error: Could not find the property to update.');
-      return;
+  const handleStatusChange = async (propertyId, newStatus) => {
+    try {
+      const propertyToUpdate = properties.find(p => p.id === propertyId);
+      if (!propertyToUpdate) {
+        alert('Error: Could not find the property to update.');
+        return;
+      }
+
+      const updatedPropertyData = { ...propertyToUpdate, status: newStatus };
+
+      // Use the working updateProperty API call
+      const result = await PropertyAPI.updateProperty(propertyId, updatedPropertyData);
+
+      if (result.success) {
+        await loadProperties(); // This updates the dashboard
+
+        // ✅ THIS IS THE MISSING LINE:
+        // This sends the signal to App.jsx to update the homepage
+        window.dispatchEvent(new CustomEvent('propertyUpdated'));
+
+        alert(`Property status changed to ${newStatus}`);
+      } else {
+        alert(`Failed to update property status: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error updating property status:', error);
+      alert('An error occurred while updating the property status.');
     }
-
-    const updatedPropertyData = { ...propertyToUpdate, status: newStatus };
-
-    // Use the working updateProperty API call
-    const result = await PropertyAPI.updateProperty(propertyId, updatedPropertyData);
-
-    if (result.success) {
-      await loadProperties(); // This updates the dashboard
-      
-      // ✅ THIS IS THE MISSING LINE:
-      // This sends the signal to App.jsx to update the homepage
-      window.dispatchEvent(new CustomEvent('propertyUpdated'));
-
-      alert(`Property status changed to ${newStatus}`);
-    } else {
-      alert(`Failed to update property status: ${result.error}`);
-    }
-  } catch (error) {
-    console.error('Error updating property status:', error);
-    alert('An error occurred while updating the property status.');
-  }
-};
+  };
 
 
   // Handle viewing request response
@@ -282,14 +307,14 @@ const handleStatusChange = async (propertyId, newStatus) => {
       prevRequests.map((request) =>
         request.id === requestId
           ? {
-              ...request,
-              status:
-                response === 'confirmed'
-                  ? 'Confirmed'
-                  : response === 'declined'
+            ...request,
+            status:
+              response === 'confirmed'
+                ? 'Confirmed'
+                : response === 'declined'
                   ? 'Declined'
                   : 'Rescheduled',
-            }
+          }
           : request
       )
     );
@@ -299,8 +324,8 @@ const handleStatusChange = async (propertyId, newStatus) => {
       response === 'confirmed'
         ? 'confirmed'
         : response === 'declined'
-        ? 'declined'
-        : 'rescheduled';
+          ? 'declined'
+          : 'rescheduled';
     alert(`Viewing request has been ${actionText} successfully!`);
 
     // In a real app, this would also:
@@ -330,8 +355,7 @@ const handleStatusChange = async (propertyId, newStatus) => {
         alert(`Viewing request has been ${actionText} successfully!`);
       } else {
         alert(
-          `Failed to ${
-            response === 'approved' ? 'approve' : 'decline'
+          `Failed to ${response === 'approved' ? 'approve' : 'decline'
           } viewing request: ${result.error}`
         );
       }
@@ -421,7 +445,7 @@ const handleStatusChange = async (propertyId, newStatus) => {
   const toggleRequestDetails = (requestId) => {
     setExpandedRequestId(expandedRequestId === requestId ? null : requestId);
   };
-  
+
 
   // Handle reschedule response
   const handleRescheduleResponse = async (bookingId, response) => {
@@ -437,7 +461,7 @@ const handleStatusChange = async (propertyId, newStatus) => {
         }
       } else if (response === 'declined') {
         // This now calls your existing, correct BookingAPI function
-        result = await BookingAPI.declineReschedule(bookingId); 
+        result = await BookingAPI.declineReschedule(bookingId);
         if (result.success) {
           alert('Reschedule request has been declined!');
         } else {
@@ -445,18 +469,34 @@ const handleStatusChange = async (propertyId, newStatus) => {
           return; // Stop if it failed
         }
       }
-  
+
       // If either action was successful, refresh the data
       const updatedResult = await BookingAPI.getBookingsByLandlord(user.id);
       if (updatedResult.success) {
         setViewingRequests(updatedResult.bookings);
       }
-  
+
     } catch (error) {
       console.error('Error responding to reschedule request:', error);
       alert('An error occurred while responding to the reschedule request');
     }
   };
+
+  const handleMarkApplicationAsSeen = async (applicationId) => {
+  try {
+    // This is a new API endpoint you'll need to create
+    await ApplicationAPI.markAsSeen(applicationId);
+    setTenantApplications(prevApps =>
+      prevApps.map(app =>
+        app.id === applicationId ? { ...app, is_seen_by_landlord: true } : app
+      )
+    );
+  } catch (error) {
+    console.error("Failed to mark application as seen:", error);
+  }
+};
+
+
 
   // Handle cancel reschedule request
   const handleCancelReschedule = async (bookingId) => {
@@ -484,31 +524,39 @@ const handleStatusChange = async (propertyId, newStatus) => {
   };
 
   // Handle tenant application response
-const handleApplicationResponse = async (applicationId, response) => {
-  const newStatus = response === 'approved' ? 'approved' : 'rejected';
+  const handleApplicationResponse = async (applicationId, response) => {
+    const application = tenantApplications.find(app => app.id === applicationId);
+  if (application && !application.is_seen_by_landlord) {
+    handleMarkApplicationAsSeen(applicationId);
+  }
 
-  try {
+    const newStatus = response === 'approved' ? 'approved' : 'rejected';
+
+    try {
       const result = await ApplicationAPI.updateApplicationStatus(applicationId, newStatus);
       if (result.success) {
-          alert(`Tenant application has been ${newStatus} successfully!`);
-          // Refresh the list from the server to show the change
-          await loadApplications();
+        alert(`Tenant application has been ${newStatus} successfully!`);
+        // Refresh the list from the server to show the change
+        await loadApplications();
       } else {
-          alert(`Failed to update application: ${result.error}`);
+        alert(`Failed to update application: ${result.error}`);
       }
-  } catch (error) {
+    } catch (error) {
       console.error('Error updating application status:', error);
       alert('An error occurred while updating the application.');
-  }
-};
+    }
+  };
 
-    
+
 
   // Handle viewing application details
   const handleViewApplicationDetails = (application) => {
-    setSelectedApplication(application);
-    setShowApplicationDetails(true);
-  };
+  if (!application.is_seen_by_landlord) {
+    handleMarkApplicationAsSeen(application.id);
+  }
+  setSelectedApplication(application);
+  setShowApplicationDetails(true);
+};
 
   // Handle closing application details modal
   const handleCloseApplicationDetails = () => {
@@ -670,7 +718,7 @@ const handleApplicationResponse = async (applicationId, response) => {
       if (result.success) {
         // Refresh properties from database
         await loadProperties();
-        
+
         // Dispatch custom event to notify other components
         window.dispatchEvent(new CustomEvent('propertyUpdated'));
 
@@ -709,6 +757,17 @@ const handleApplicationResponse = async (applicationId, response) => {
     }
   };
 
+    const handleConversationRead = async () => {
+  // Re-fetch conversations to get the latest unread counts
+  try {
+    const response = await MessagingAPI.getConversations();
+    if (response.success) {
+      setConversations(response.conversations);
+    }
+  } catch (error) {
+    console.error("Failed to re-load conversations:", error);
+  }
+};
 
   // Handle deleting property
   const handleDeleteProperty = async (propertyId) => {
@@ -724,10 +783,10 @@ const handleApplicationResponse = async (applicationId, response) => {
 
         if (result.success) {
           alert('Property deleted successfully!');
-          
+
           // Refresh the property list from the server to update the UI
           await loadProperties();
-          
+
           // Notify other parts of the app (like the homepage) that a property has changed
           window.dispatchEvent(new CustomEvent('propertyUpdated'));
 
@@ -766,6 +825,784 @@ const handleApplicationResponse = async (applicationId, response) => {
       ...prev,
       [name]: value,
     }));
+  };
+  const renderActiveTab = () => {
+    switch (activeTab) {
+      case 'properties':
+        return (
+          <div>
+            <div className="flex flex-col">
+              <div className="-my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+                <div className="py-2 align-middle inline-block min-w-full sm:px-6 lg:px-8">
+                  <div className="shadow overflow-hidden border-b border-gray-200 sm:rounded-lg">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        {/* Table Headers */}
+                        <tr>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Property</th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Views</th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Inquiries</th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {properties.map((property) => (
+                          <tr key={property.id} onClick={() => navigate(`/property/${property.id}`)} className="hover:bg-gray-50 cursor-pointer">
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center">
+                                <div className="flex-shrink-0 h-10 w-10">
+                                  <img className="h-10 w-10 rounded-md object-cover" src={property.image} alt={property.title} />
+                                </div>
+                                <div className="ml-4">
+                                  <div className="text-sm font-medium text-gray-900">{property.title}</div>
+                                  <div className="text-sm text-gray-500">{property.location}</div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${property.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>{property.status}</span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{property.views}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{property.inquiries}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">RM {property.price.toLocaleString()}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                              <div className="flex space-x-2" onClick={(e) => e.stopPropagation()}>
+                                <button onClick={() => handleEditProperty(property)} className="text-blue-600 hover:text-blue-900">Edit</button>
+                                <button onClick={() => handleDeleteProperty(property.id)} className="text-red-600 hover:text-red-900">Delete</button>
+                                <select value={property.status} onChange={(e) => handleStatusChange(property.id, e.target.value)} className="text-gray-600 text-sm border-gray-300 rounded-md">
+                                  <option value="Active">Active</option>
+                                  <option value="Inactive">Inactive</option>
+                                  <option value="Rented">Rented</option>
+                                </select>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      case 'viewings':
+        return (
+          <div>
+                <div className="flex flex-col">
+                  <div className="-my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+                    <div className="py-2 align-middle inline-block min-w-full sm:px-6 lg:px-8">
+                      <div className="shadow overflow-hidden border-b border-gray-200 sm:rounded-lg">
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th
+                                scope="col"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                              >
+                                Property
+                              </th>
+                              <th
+                                scope="col"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                              >
+                                Tenant
+                              </th>
+                              <th
+                                scope="col"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                              >
+                                Date & Time
+                              </th>
+                              <th
+                                scope="col"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                              >
+                                Status
+                              </th>
+                              <th
+                                scope="col"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                              >
+                                Actions
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {viewingRequests.length === 0 ? (
+                              <tr>
+                                <td colSpan="5" className="px-6 py-8 text-center">
+                                  <div className="text-gray-500">
+                                    <svg
+                                      className="mx-auto h-12 w-12 text-gray-400"
+                                      fill="none"
+                                      viewBox="0 0 24 24"
+                                      stroke="currentColor"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                                      />
+                                    </svg>
+                                    <h3 className="mt-2 text-sm font-medium text-gray-900">
+                                      No viewing requests
+                                    </h3>
+                                    <p className="mt-1 text-sm text-gray-500">
+                                      When tenants schedule property viewings,
+                                      they will appear here.
+                                    </p>
+                                  </div>
+                                </td>
+                              </tr>
+                            ) : (
+                              viewingRequests.map((request) => {
+                                // Get the property ID from the request object
+                                const propertyId = request.propertyId || request.property_id || request.propertyID;
+
+                                // Use the ID to find the matching property in your `properties` state array
+                                const property = properties.find(p => p.id == propertyId);
+                                const isNew = !request.is_seen_by_landlord;
+
+                                return (
+                                  <React.Fragment key={request.id}>
+                                    <tr
+                                      // The key={request.id} is removed from here
+                                      className={`transition-colors duration-300 ${isNew ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-gray-50'}`}
+                                      onClick={() => {
+                                        if (isNew) {
+                                          handleMarkAsSeen(request.id);
+                                        }
+                                        toggleRequestDetails(request.id);
+                                      }}
+                                    >
+                                      <td className="px-6 py-4 whitespace-nowrap">
+                                        {/* Line 1: The Property Title */}
+                                        <div className="text-sm font-medium text-gray-900">
+                                          {property ? property.title : 'Title Unavailable'}
+                                        </div>
+                                        {/* Line 2: The Property Address/Location */}
+                                        <div className="text-sm text-gray-500">
+                                          {property ? property.location : 'Address Unavailable'}
+                                        </div>
+                                      </td>
+                                      <td className="px-6 py-4 whitespace-nowrap">
+                                        <div className="text-sm font-medium text-gray-900">
+                                          {request.name}
+                                        </div>
+                                        <div className="text-sm text-gray-500">
+                                          {request.phone}
+                                        </div>
+                                        <div className="text-sm text-gray-500">
+                                          {request.email}
+                                        </div>
+                                      </td>
+                                      <td className="px-6 py-4 whitespace-nowrap">
+                                        <div className="text-sm text-gray-900">
+                                          {formatDate(request.appointment_date)}
+                                        </div>
+                                        <div className="text-sm text-gray-500">
+                                          {formatTime(request.appointment_time)}
+                                        </div>
+                                      </td>
+                                      <td className="px-6 py-4 whitespace-nowrap">
+                                        <span
+                                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${request.status === 'Confirmed'
+                                              ? 'bg-green-100 text-green-800'
+                                              : request.status === 'Pending'
+                                                ? 'bg-yellow-100 text-yellow-800'
+                                                : 'bg-red-100 text-red-800'
+                                            }`}
+                                        >
+                                          {request.status}
+                                        </span>
+                                      </td>
+                                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            toggleRequestDetails(request.id);
+                                          }}
+                                          className="text-blue-600 hover:text-blue-900 text-xs mr-2 mb-1 block"
+                                        >
+                                          {expandedRequestId === request.id ? '▲ Hide Details' : '▼ View Details'}
+                                        </button>
+                                        {(request.status === 'Pending' ||
+                                          request.status === 'pending') &&
+                                          !request.reschedule_requested_by && (
+                                            <div className="flex space-x-2 mb-2">
+                                              <button
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  handleViewingRequestResponse(
+                                                    request.id,
+                                                    'approved'
+                                                  );
+                                                }}
+                                                id="confirmButton"
+                                                className="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded-md text-xs"
+                                              >
+                                                Confirm
+                                              </button>
+                                              <button
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  handleViewingRequestResponse(
+                                                    request.id,
+                                                    'declined'
+                                                  );
+                                                }}
+                                                id="declineButton"
+                                                className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded-md text-xs"
+                                              >
+                                                Decline
+                                              </button>
+                                            </div>
+                                          )}
+                                        {/* Message Tenant button for pending and confirmed bookings */}
+                                        {(request.status === 'Pending' || request.status === 'pending' ||
+                                          request.status === 'Confirmed' || request.status === 'confirmed') && (
+                                            <button
+                                              onClick={async (e) => {
+                                                e.stopPropagation();
+                                                try {
+                                                  // Get or create conversation for this booking
+                                                  const response = await MessagingAPI.getOrCreateConversation(request.id);
+                                                  if (response.success) {
+                                                    // Switch to Messages tab and select the conversation
+                                                    setActiveTab('messages');
+                                                    setSelectedConversationId(response.conversation.id);
+                                                  }
+                                                } catch (error) {
+                                                  console.error('Error opening conversation:', error);
+                                                  alert('Failed to open conversation');
+                                                }
+                                              }}
+                                              className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded-md text-xs mb-2"
+                                            >
+                                              💬 Message Tenant
+                                            </button>
+                                          )}
+                                        {/* This is the section that has been changed */}
+                                        {(request.status === 'Confirmed' ||
+                                          request.status === 'confirmed') && (
+                                            <div className="flex space-x-2">
+                                              {/* The "Confirmed" text span has been removed */}
+                                              <button
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  openRescheduleModal(request.id);
+                                                }}
+                                                id="rescheduleButton"
+                                                className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded-md text-xs"
+                                              >
+                                                Reschedule
+                                              </button>
+                                            </div>
+                                          )}
+                                        {/* Reschedule Status Display */}
+                                        {(request.status === 'pending' || request.status === 'Reschedule Requested') &&
+                                          (request.reschedule_requested_by ||
+                                            request.rescheduleRequestedBy) && (
+                                            <div className="flex flex-col space-y-1">
+                                              <span className="text-orange-600 text-xs font-medium">
+                                                Reschedule Requested
+                                              </span>
+                                              <div className="text-xs text-gray-500">
+                                                {request.proposed_date && request.proposed_time ? (
+                                                  <>
+                                                    New:{' '}
+                                                    {formatDate(request.proposed_date)}{' '}
+                                                    at{' '}
+                                                    {formatTime(request.proposed_time)}
+                                                  </>
+                                                ) : (
+                                                  request.reschedule_requested_by === 'landlord' ?
+                                                    'Waiting for tenant response' :
+                                                    'Tenant will choose new time'
+                                                )}
+                                              </div>
+
+                                              {/* Show Accept/Decline buttons ONLY if tenant requested reschedule */}
+                                              {request.reschedule_requested_by ===
+                                                'tenant' ||
+                                                request.rescheduleRequestedBy ===
+                                                'tenant' ? (
+                                                <div className="flex space-x-1">
+                                                  <button
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      handleRescheduleResponse(
+                                                        request.id,
+                                                        'approved'
+                                                      );
+                                                    }}
+                                                    id="acceptButton"
+                                                    className="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded-md text-xs"
+                                                  >
+                                                    Accept
+                                                  </button>
+                                                  <button
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      handleRescheduleResponse(
+                                                        request.id,
+                                                        'declined'
+                                                      );
+                                                    }}
+                                                    id="declineButton"
+                                                    className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded-md text-xs"
+                                                  >
+                                                    Decline
+                                                  </button>
+                                                </div>
+                                              ) : (
+                                                /* Show waiting message and cancel button for landlord-initiated reschedules */
+                                                <div className="flex flex-col space-y-1">
+                                                  <span className="text-xs text-blue-600">
+                                                    Waiting for tenant response
+                                                  </span>
+                                                  <button
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      handleCancelReschedule(request.id);
+                                                    }}
+                                                    className="bg-gray-500 hover:bg-gray-600 text-white px-2 py-1 rounded-md text-xs"
+                                                  >
+                                                    Cancel Request
+                                                  </button>
+                                                </div>
+                                              )}
+                                            </div>
+                                          )}
+                                        {(request.status === 'Declined' ||
+                                          request.status === 'declined' ||
+                                          request.status === 'cancelled') && (
+                                            <span className="text-red-600 text-xs font-medium">
+                                              Declined
+                                            </span>
+                                          )}
+                                      </td>
+                                    </tr>
+                                    {expandedRequestId === request.id && (
+                                      <tr className="bg-gray-50">
+                                        <td colSpan="5" className="px-6 py-4">
+                                          <div className="bg-white rounded-lg border border-gray-200 p-4">
+                                            <h4 className="text-lg font-semibold text-gray-900 mb-3">
+                                              Tenant Details
+                                            </h4>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                              <div>
+                                                <h5 className="font-medium text-gray-700 mb-2">Contact Information</h5>
+                                                <div className="space-y-1 text-sm">
+                                                  <div><span className="font-medium">Name:</span> {request.name}</div>
+                                                  <div><span className="font-medium">Email:</span> {request.email}</div>
+                                                  <div><span className="font-medium">Phone:</span> {request.phone}</div>
+                                                </div>
+                                              </div>
+                                              <div>
+                                                <h5 className="font-medium text-gray-700 mb-2">Appointment Details</h5>
+                                                <div className="space-y-1 text-sm">
+                                                  <div><span className="font-medium">Date:</span> {formatDate(request.appointment_date)}</div>
+                                                  <div><span className="font-medium">Time:</span> {formatTime(request.appointment_time)}</div>
+                                                  <div><span className="font-medium">Status:</span>
+                                                    <span className={`ml-1 px-2 py-1 text-xs rounded-full ${request.status === 'Confirmed' ? 'bg-green-100 text-green-800' :
+                                                        request.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
+                                                          'bg-red-100 text-red-800'
+                                                      }`}>
+                                                      {request.status}
+                                                    </span>
+                                                  </div>
+                                                </div>
+                                              </div>
+                                              <div className="md:col-span-2 border-t pt-4">
+                                                <h5 className="font-medium text-gray-700 mb-2">Employment & Occupancy</h5>
+                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                                                  <div>
+                                                    <span className="font-medium">Occupation:</span> {request.occupation || 'N/A'}
+                                                  </div>
+                                                  <div>
+                                                    <span className="font-medium">Monthly Income:</span> {request.monthly_income ? `RM ${request.monthly_income.toLocaleString()}` : 'N/A'}
+                                                  </div>
+                                                  <div>
+                                                    <span className="font-medium">Occupants:</span> {request.number_of_occupants || 'N/A'}
+                                                  </div>
+                                                </div>
+                                              </div>
+                                            </div>
+                                            {request.message && (
+                                              <div className="mt-4">
+                                                <h5 className="font-medium text-gray-700 mb-2">Additional Message</h5>
+                                                <div className="bg-gray-50 rounded-md p-3 text-sm text-gray-700">
+                                                  {request.message}
+                                                </div>
+                                              </div>
+                                            )}
+                                            <div className="mt-4 pt-3 border-t border-gray-200">
+                                              <div className="text-xs text-gray-500">
+                                                Request submitted: {formatDateTime(request.created_at)}
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    )}
+                                  </React.Fragment>
+                                );
+                              })
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+        );
+      case 'applications':
+        return (
+          <div>
+                <div className="flex flex-col">
+                  <div className="-my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+                    <div className="py-2 align-middle inline-block min-w-full sm:px-6 lg:px-8">
+                      <div className="shadow overflow-hidden border-b border-gray-200 sm:rounded-lg">
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th
+                                scope="col"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                              >
+                                Property
+                              </th>
+                              <th
+                                scope="col"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                              >
+                                Tenant
+                              </th>
+                              <th
+                                scope="col"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                              >
+                                Details
+                              </th>
+                              <th
+                                scope="col"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                              >
+                                Status
+                              </th>
+                              <th
+                                scope="col"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                              >
+                                Actions
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {tenantApplications.map((application) => {
+  // Checks if the application has been seen
+  const isNew = !application.is_seen_by_landlord;
+
+  return (
+    // Applies a blue background if 'isNew' is true
+    <tr key={application.id} className={isNew ? 'bg-blue-50' : ''}>
+      <td className="px-6 py-4 whitespace-nowrap">
+        <div className="text-sm font-medium text-gray-900">
+          {application.property?.title || 'N/A'}
+        </div>
+        <div className="text-sm text-gray-500">
+          {application.property?.location || 'N/A'}
+        </div>
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap">
+        <div className="text-sm font-medium text-gray-900">
+          {application.tenant?.full_name || 'N/A'}
+        </div>
+        <div className="text-sm text-gray-500">
+          {application.tenant?.phone_number || 'N/A'}
+        </div>
+        <div className="text-sm text-gray-500">
+          {application.tenant?.email || 'N/A'}
+        </div>
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap">
+        <div className="text-sm text-gray-900">
+          Applied: {formatDate(application.created_at)}
+        </div>
+        <div className="text-sm text-gray-500">
+          Move-in: {application.moveInDate || 'N/A'}
+        </div>
+        <div className="text-sm text-gray-500">
+          Income: {application.monthlyIncome ? `RM ${application.monthlyIncome}` : 'N/A'}
+        </div>
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap">
+        <span
+          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${application.status === 'approved'
+              ? 'bg-green-100 text-green-800'
+              : application.status === 'pending'
+                ? 'bg-yellow-100 text-yellow-800'
+                : 'bg-red-100 text-red-800'
+            }`}
+        >
+          {application.status}
+        </span>
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+        {application.status === 'pending' && (
+          <div className="flex space-x-2">
+            <button
+              onClick={() =>
+                handleApplicationResponse(
+                  application.id,
+                  'approved'
+                )
+              }
+              id="approveButton"
+              className="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded-md text-xs"
+            >
+              Approve
+            </button>
+            <button
+              onClick={() =>
+                handleApplicationResponse(
+                  application.id,
+                  'rejected'
+                )
+              }
+              id="rejectButton"
+              className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded-md text-xs"
+            >
+              Reject
+            </button>
+          </div>
+        )}
+        <button
+          onClick={() =>
+            handleViewApplicationDetails(application)
+          }
+          className="text-blue-600 hover:text-blue-900 text-xs mt-1"
+        >
+          View Details
+        </button>
+      </td>
+    </tr>
+  );
+})}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+        );
+      case 'earnings':
+        return (
+          <div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <div className="bg-white rounded-lg shadow p-4">
+                    <h3 className="text-lg font-medium text-gray-900">
+                      Total Earnings
+                    </h3>
+                    <p className="text-2xl font-bold text-green-600 mt-2">
+                      {earningsData.totalEarnings}
+                    </p>
+                  </div>
+                  <div className="bg-white rounded-lg shadow p-4">
+                    <h3 className="text-lg font-medium text-gray-900">
+                      This Month
+                    </h3>
+                    <p className="text-2xl font-bold text-blue-600 mt-2">
+                      {earningsData.thisMonth}
+                    </p>
+                  </div>
+                  <div className="bg-white rounded-lg shadow p-4">
+                    <h3 className="text-lg font-medium text-gray-900">
+                      Pending Payments
+                    </h3>
+                    <p className="text-2xl font-bold text-yellow-600 mt-2">
+                      {earningsData.pendingPayments}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-lg shadow overflow-hidden">
+                  <div className="px-4 py-5 sm:px-6">
+                    <h3 className="text-lg leading-6 font-medium text-gray-900">
+                      Transaction History
+                    </h3>
+                  </div>
+                  <div className="border-t border-gray-200">
+                    <div className="flex flex-col">
+                      <div className="-my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+                        <div className="py-2 align-middle inline-block min-w-full sm:px-6 lg:px-8">
+                          <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
+                              <tr>
+                                <th
+                                  scope="col"
+                                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                >
+                                  Property
+                                </th>
+                                <th
+                                  scope="col"
+                                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                >
+                                  Tenant
+                                </th>
+                                <th
+                                  scope="col"
+                                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                >
+                                  Date
+                                </th>
+                                <th
+                                  scope="col"
+                                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                >
+                                  Amount
+                                </th>
+                                <th
+                                  scope="col"
+                                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                >
+                                  Status
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                              {earningsData.transactions.map((transaction) => (
+                                <tr key={transaction.id}>
+                                  <td className="px-6 py-4 whitespace-nowrap">
+                                    <div className="text-sm font-medium text-gray-900">
+                                      {transaction.propertyTitle}
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap">
+                                    <div className="text-sm text-gray-900">
+                                      {transaction.tenantName}
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap">
+                                    <div className="text-sm text-gray-900">
+                                      {transaction.date}
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap">
+                                    <div className="text-sm font-medium text-gray-900">
+                                      {transaction.amount}
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap">
+                                    <span
+                                      className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${transaction.status === 'Received'
+                                          ? 'bg-green-100 text-green-800'
+                                          : 'bg-yellow-100 text-yellow-800'
+                                        }`}
+                                    >
+                                      {transaction.status}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+        );
+      case 'calendar':
+        return (
+          <div>
+            <UnifiedCalendar />
+          </div>
+        );
+      case 'messages':
+  return (
+    <div className="bg-white rounded-lg shadow max-h-[600px] overflow-hidden">
+      <div className="h-[600px] flex">
+        <MessagingCenter
+          user={user}
+          selectedConversationId={selectedConversationId}
+          onConversationSelect={setSelectedConversationId}
+          onConversationRead={handleConversationRead}
+        />
+      </div>
+    </div>
+  );
+      case 'profile':
+        return (
+          <div>
+                <h2 className="text-xl font-bold text-gray-800 mb-4">Edit Your Profile</h2>
+                <form onSubmit={handleProfileSave} className="space-y-6 max-w-lg">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">First Name</label>
+                      <input
+                        type="text"
+                        name="first_name"
+                        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
+                        value={profileData.first_name || ''}
+                        onChange={handleProfileChange}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Last Name</label>
+                      <input
+                        type="text"
+                        name="last_name"
+                        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
+                        value={profileData.last_name || ''}
+                        onChange={handleProfileChange}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Phone Number</label>
+                    <input
+                      type="text"
+                      name="phone"
+                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
+                      value={profileData.phone || ''}
+                      onChange={handleProfileChange}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Email Address</label>
+                    <input
+                      type="email"
+                      name="email"
+                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm bg-gray-100 cursor-not-allowed"
+                      value={profileData.email || ''}
+                      disabled
+                    />
+                    <p className="mt-1 text-xs text-gray-500">Email cannot be changed.</p>
+                  </div>
+                  <div className="flex justify-end">
+                    <button
+                      type="submit"
+                      className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-yellow-400 hover:bg-yellow-500"
+                    >
+                      Save Changes
+                    </button>
+                  </div>
+                </form>
+              </div>
+        );
+      default:
+        return null; // Or return the default tab content, e.g., properties
+    }
   };
 
   return (
@@ -920,26 +1757,24 @@ const handleApplicationResponse = async (applicationId, response) => {
         </div>
 
         {/* Dashboard Tabs */}
-        <div className="bg-white shadow rounded-lg overflow-hidden mb-8">
+        <div className="relative z-10 bg-white shadow rounded-lg overflow-hidden mb-8">
           <div className="border-b border-gray-200">
             <nav className="-mb-px flex">
               <button
                 onClick={() => setActiveTab('properties')}
-                className={`${
-                  activeTab === 'properties'
+                className={`${activeTab === 'properties'
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm`}
+                  } whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm`}
               >
                 My Properties
               </button>
               <button
                 onClick={() => setActiveTab('viewings')}
-                className={`${
-                  activeTab === 'viewings'
+                className={`${activeTab === 'viewings'
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } relative whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm flex items-center`}
+                  } relative whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm flex items-center`}
               >
                 <span>Viewing Requests</span>
                 {hasNewViewingRequests && (
@@ -947,866 +1782,63 @@ const handleApplicationResponse = async (applicationId, response) => {
                 )}
               </button>
               <button
-                onClick={() => setActiveTab('applications')}
-                className={`${
-                  activeTab === 'applications'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm`}
-              >
-                Tenant Applications
-              </button>
+  onClick={() => setActiveTab('applications')}
+  className={`${activeTab === 'applications'
+      ? 'border-blue-500 text-blue-600'
+      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+    } relative whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm flex items-center`}
+>
+  <span>Tenant Applications</span>
+  {hasNewApplications && (
+    <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-500 text-white">New</span>
+  )}
+</button>
               <button
                 onClick={() => setActiveTab('earnings')}
-                className={`${
-                  activeTab === 'earnings'
+                className={`${activeTab === 'earnings'
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm`}
+                  } whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm`}
               >
                 Earnings
               </button>
               <button
                 onClick={() => setActiveTab('calendar')}
-                className={`${
-                  activeTab === 'calendar'
+                className={`${activeTab === 'calendar'
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm`}
+                  } whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm`}
               >
                 📅 My Calendar
               </button>
+              <button
+                  onClick={() => setActiveTab('messages')}
+                  className={`${activeTab === 'messages'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    } relative whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm flex items-center`}
+                >
+                  <span>💬 Messages</span>
+                  {hasNewMessages && (
+                    <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-500 text-white">New</span>
+                  )}
+            </button>
 
-                        <button
-                              onClick={() => setActiveTab('profile')}
-                              className={`${
-                                activeTab === 'profile'
-                                  ? 'border-blue-500 text-blue-600'
-                                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                              } whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm`}
-                            >
-                              My Profile
-                </button>
+              <button
+                onClick={() => setActiveTab('profile')}
+                className={`${activeTab === 'profile'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  } whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm`}
+              >
+                My Profile
+              </button>
             </nav>
           </div>
 
           {/* Tab Content */}
           <div className="p-4 sm:p-6">
-            {/* Properties Tab */}
-            {activeTab === 'properties' && (
-              <div>
-                <div className="flex flex-col">
-                  <div className="-my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
-                    <div className="py-2 align-middle inline-block min-w-full sm:px-6 lg:px-8">
-                      <div className="shadow overflow-hidden border-b border-gray-200 sm:rounded-lg">
-                        <table className="min-w-full divide-y divide-gray-200">
-                          <thead className="bg-gray-50">
-                            <tr>
-                              <th
-                                scope="col"
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                              >
-                                Property
-                              </th>
-                              <th
-                                scope="col"
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                              >
-                                Status
-                              </th>
-                              <th
-                                scope="col"
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                              >
-                                Views
-                              </th>
-                              <th
-                                scope="col"
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                              >
-                                Inquiries
-                              </th>
-                              <th
-                                scope="col"
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                              >
-                                Price
-                              </th>
-                              <th
-                                scope="col"
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                              >
-                                Actions
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white divide-y divide-gray-200">
-                          {properties.map((property) => (
-  <tr
-    key={property.id}
-    onClick={() =>
-      handlePropertyRowClick(property.id)
-    }
-    className="hover:bg-gray-50 cursor-pointer transition-colors duration-200"
-  >
-    <td className="px-6 py-4 whitespace-nowrap">
-      <div className="flex items-center">
-        <div className="flex-shrink-0 h-10 w-10">
-          <img
-            className="h-10 w-10 rounded-md object-cover"
-            src={property.image}
-            alt={property.title}
-          />
-        </div>
-        <div className="ml-4">
-          <div className="text-sm font-medium text-gray-900">
-            {property.title}
-          </div>
-          <div className="text-sm text-gray-500">
-            {property.location}
-          </div>
-        </div>
-      </div>
-    </td>
-    <td className="px-6 py-4 whitespace-nowrap">
-      <span
-        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-          property.status === 'Active'
-            ? 'bg-green-100 text-green-800'
-            : property.status ===
-              'Pending Approval'
-            ? 'bg-yellow-100 text-yellow-800'
-            : 'bg-gray-100 text-gray-800'
-        }`}
-      >
-        {property.status}
-      </span>
-    </td>
-    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-      {property.views}
-    </td>
-    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-      {property.inquiries}
-    </td>
-    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-      RM {property.price.toLocaleString()}
-    </td>
-    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-      {/* This wrapper now handles stopping the click from navigating away */}
-      <div
-        className="flex space-x-2"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <button
-          onClick={() => handleEditProperty(property)}
-          className="text-blue-600 hover:text-blue-900 px-2 py-1 rounded hover:bg-blue-50 transition-colors"
-        >
-          Edit
-        </button>
-        <button
-          onClick={() => handleDeleteProperty(property.id)}
-          className="text-red-600 hover:text-red-900 px-2 py-1 rounded hover:bg-red-50 transition-colors"
-        >
-          Delete
-        </button>
-        <select
-          className="text-gray-600 text-sm border-gray-300 rounded-md px-2 py-1 hover:bg-gray-50 transition-colors"
-          value={property.status}
-          onChange={(e) => handleStatusChange(property.id, e.target.value)}
-        >
-          <option value="Active">Active</option>
-          <option value="Inactive">Inactive</option>
-          <option value="Rented">Rented</option>
-        </select>
-      </div>
-    </td>
-  </tr>
-))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Viewing Requests Tab */}
-            {activeTab === 'viewings' && (
-              <div>
-                <div className="flex flex-col">
-                  <div className="-my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
-                    <div className="py-2 align-middle inline-block min-w-full sm:px-6 lg:px-8">
-                      <div className="shadow overflow-hidden border-b border-gray-200 sm:rounded-lg">
-                        <table className="min-w-full divide-y divide-gray-200">
-                          <thead className="bg-gray-50">
-                            <tr>
-                              <th
-                                scope="col"
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                              >
-                                Property
-                              </th>
-                              <th
-                                scope="col"
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                              >
-                                Tenant
-                              </th>
-                              <th
-                                scope="col"
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                              >
-                                Date & Time
-                              </th>
-                              <th
-                                scope="col"
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                              >
-                                Status
-                              </th>
-                              <th
-                                scope="col"
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                              >
-                                Actions
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white divide-y divide-gray-200">
-                            {viewingRequests.length === 0 ? (
-                              <tr>
-                                <td colSpan="5" className="px-6 py-8 text-center">
-                                  <div className="text-gray-500">
-                                    <svg
-                                      className="mx-auto h-12 w-12 text-gray-400"
-                                      fill="none"
-                                      viewBox="0 0 24 24"
-                                      stroke="currentColor"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                                      />
-                                    </svg>
-                                    <h3 className="mt-2 text-sm font-medium text-gray-900">
-                                      No viewing requests
-                                    </h3>
-                                    <p className="mt-1 text-sm text-gray-500">
-                                      When tenants schedule property viewings,
-                                      they will appear here.
-                                    </p>
-                                  </div>
-                                </td>
-                              </tr>
-                            ) : (
-                              viewingRequests.map((request) => {
-                                // Get the property ID from the request object
-                                const propertyId = request.propertyId || request.property_id || request.propertyID;
-                                
-                                // Use the ID to find the matching property in your `properties` state array
-                                const property = properties.find(p => p.id == propertyId);
-                                const isNew = !request.is_seen_by_landlord;
-                                
-                                return (
-                                  <React.Fragment key={request.id}>
-                                    <tr
-                                      // The key={request.id} is removed from here
-                                      className={`transition-colors duration-300 ${isNew ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-gray-50'}`}
-                                      onClick={() => {
-                                        if (isNew) {
-                                          handleMarkAsSeen(request.id);
-                                        }
-                                        toggleRequestDetails(request.id);
-                                      }}
-                                    >
-                                      <td className="px-6 py-4 whitespace-nowrap">
-                                        {/* Line 1: The Property Title */}
-                                        <div className="text-sm font-medium text-gray-900">
-                                          {property ? property.title : 'Title Unavailable'}
-                                        </div>
-                                        {/* Line 2: The Property Address/Location */}
-                                        <div className="text-sm text-gray-500">
-                                          {property ? property.location : 'Address Unavailable'}
-                                        </div>
-                                      </td>
-                                      <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="text-sm font-medium text-gray-900">
-                                          {request.name}
-                                        </div>
-                                        <div className="text-sm text-gray-500">
-                                          {request.phone}
-                                        </div>
-                                        <div className="text-sm text-gray-500">
-                                          {request.email}
-                                        </div>
-                                      </td>
-                                      <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="text-sm text-gray-900">
-                                          {formatDate(request.appointment_date)}
-                                        </div>
-                                        <div className="text-sm text-gray-500">
-                                          {formatTime(request.appointment_time)}
-                                        </div>
-                                      </td>
-                                      <td className="px-6 py-4 whitespace-nowrap">
-                                        <span
-                                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                            request.status === 'Confirmed'
-                                              ? 'bg-green-100 text-green-800'
-                                              : request.status === 'Pending'
-                                              ? 'bg-yellow-100 text-yellow-800'
-                                              : 'bg-red-100 text-red-800'
-                                          }`}
-                                        >
-                                          {request.status}
-                                        </span>
-                                      </td>
-                                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          toggleRequestDetails(request.id);
-                                        }}
-                                        className="text-blue-600 hover:text-blue-900 text-xs mr-2 mb-1 block"
-                                      >
-                                        {expandedRequestId === request.id ? '▲ Hide Details' : '▼ View Details'}
-                                      </button>
-                                        {(request.status === 'Pending' ||
-                                          request.status === 'pending') &&
-                                          !request.reschedule_requested_by && (
-                                            <div className="flex space-x-2">
-                                              <button
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  handleViewingRequestResponse(
-                                                    request.id,
-                                                    'approved'
-                                                  );
-                                                }}
-                                                id="confirmButton"
-                                                className="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded-md text-xs"
-                                              >
-                                                Confirm
-                                              </button>
-                                              <button
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  handleViewingRequestResponse(
-                                                    request.id,
-                                                    'declined'
-                                                  );
-                                                }}
-                                                id="declineButton"
-                                                className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded-md text-xs"
-                                              >
-                                                Decline
-                                              </button>
-                                            </div>
-                                          )}
-                                        {/* This is the section that has been changed */}
-                                        {(request.status === 'Confirmed' ||
-                                          request.status === 'confirmed') && (
-                                          <div className="flex space-x-2">
-                                            {/* The "Confirmed" text span has been removed */}
-                                            <button
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                openRescheduleModal(request.id);
-                                              }}
-                                              id="rescheduleButton"
-                                              className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded-md text-xs"
-                                            >
-                                              Reschedule
-                                            </button>
-                                          </div>
-                                        )}
-                                        {/* Reschedule Status Display */}
-                                        {(request.status === 'pending' || request.status === 'Reschedule Requested') &&
-                                          (request.reschedule_requested_by ||
-                                            request.rescheduleRequestedBy) && (
-                                            <div className="flex flex-col space-y-1">
-                                              <span className="text-orange-600 text-xs font-medium">
-                                                Reschedule Requested
-                                              </span>
-                                              <div className="text-xs text-gray-500">
-                                                {request.proposed_date && request.proposed_time ? (
-                                                  <>
-                                                    New:{' '}
-                                                    {formatDate(request.proposed_date)}{' '}
-                                                    at{' '}
-                                                    {formatTime(request.proposed_time)}
-                                                  </>
-                                                ) : (
-                                                  request.reschedule_requested_by === 'landlord' ? 
-                                                    'Waiting for tenant response' : 
-                                                    'Tenant will choose new time'
-                                                )}
-                                              </div>
-                                  
-                                              {/* Show Accept/Decline buttons ONLY if tenant requested reschedule */}
-                                              {request.reschedule_requested_by ===
-                                                'tenant' ||
-                                              request.rescheduleRequestedBy ===
-                                                'tenant' ? (
-                                                <div className="flex space-x-1">
-                                                  <button
-                                                    onClick={(e) => {
-                                                      e.stopPropagation();
-                                                      handleRescheduleResponse(
-                                                        request.id,
-                                                        'approved'
-                                                      );
-                                                    }}
-                                                    id="acceptButton"
-                                                    className="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded-md text-xs"
-                                                  >
-                                                    Accept
-                                                  </button>
-                                                  <button
-                                                    onClick={(e) => {
-                                                      e.stopPropagation();
-                                                      handleRescheduleResponse(
-                                                        request.id,
-                                                        'declined'
-                                                      );
-                                                    }}
-                                                    id="declineButton"
-                                                    className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded-md text-xs"
-                                                  >
-                                                    Decline
-                                                  </button>
-                                                </div>
-                                              ) : (
-                                                /* Show waiting message and cancel button for landlord-initiated reschedules */
-                                                <div className="flex flex-col space-y-1">
-                                                  <span className="text-xs text-blue-600">
-                                                    Waiting for tenant response
-                                                  </span>
-                                                  <button
-                                                    onClick={(e) => {
-                                                      e.stopPropagation();
-                                                      handleCancelReschedule(request.id);
-                                                    }}
-                                                    className="bg-gray-500 hover:bg-gray-600 text-white px-2 py-1 rounded-md text-xs"
-                                                  >
-                                                    Cancel Request
-                                                  </button>
-                                                </div>
-                                              )}
-                                            </div>
-                                          )}
-                                        {(request.status === 'Declined' ||
-                                          request.status === 'declined' ||
-                                          request.status === 'cancelled') && (
-                                          <span className="text-red-600 text-xs font-medium">
-                                            Declined
-                                          </span>
-                                        )}
-                                      </td>
-                                    </tr>
-                                    {expandedRequestId === request.id && (
-                                      <tr className="bg-gray-50">
-                                        <td colSpan="5" className="px-6 py-4">
-                                          <div className="bg-white rounded-lg border border-gray-200 p-4">
-                                            <h4 className="text-lg font-semibold text-gray-900 mb-3">
-                                              Tenant Details
-                                            </h4>
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                              <div>
-                                                <h5 className="font-medium text-gray-700 mb-2">Contact Information</h5>
-                                                <div className="space-y-1 text-sm">
-                                                  <div><span className="font-medium">Name:</span> {request.name}</div>
-                                                  <div><span className="font-medium">Email:</span> {request.email}</div>
-                                                  <div><span className="font-medium">Phone:</span> {request.phone}</div>
-                                                </div>
-                                              </div>
-                                              <div>
-                                                <h5 className="font-medium text-gray-700 mb-2">Appointment Details</h5>
-                                                <div className="space-y-1 text-sm">
-                                                  <div><span className="font-medium">Date:</span> {formatDate(request.appointment_date)}</div>
-                                                  <div><span className="font-medium">Time:</span> {formatTime(request.appointment_time)}</div>
-                                                  <div><span className="font-medium">Status:</span> 
-                                                    <span className={`ml-1 px-2 py-1 text-xs rounded-full ${
-                                                      request.status === 'Confirmed' ? 'bg-green-100 text-green-800' :
-                                                      request.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
-                                                      'bg-red-100 text-red-800'
-                                                    }`}>
-                                                      {request.status}
-                                                    </span>
-                                                  </div>
-                                                </div>
-                                              </div>
-                                              <div className="md:col-span-2 border-t pt-4">
-                                                  <h5 className="font-medium text-gray-700 mb-2">Employment & Occupancy</h5>
-                                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                                                      <div>
-                                                          <span className="font-medium">Occupation:</span> {request.occupation || 'N/A'}
-                                                      </div>
-                                                      <div>
-                                                          <span className="font-medium">Monthly Income:</span> {request.monthly_income ? `RM ${request.monthly_income.toLocaleString()}` : 'N/A'}
-                                                      </div>
-                                                      <div>
-                                                          <span className="font-medium">Occupants:</span> {request.number_of_occupants || 'N/A'}
-                                                      </div>
-                                                  </div>
-                                                </div>
-                                            </div>
-                                            {request.message && (
-                                              <div className="mt-4">
-                                                <h5 className="font-medium text-gray-700 mb-2">Additional Message</h5>
-                                                <div className="bg-gray-50 rounded-md p-3 text-sm text-gray-700">
-                                                  {request.message}
-                                                </div>
-                                              </div>
-                                            )}
-                                            <div className="mt-4 pt-3 border-t border-gray-200">
-                                              <div className="text-xs text-gray-500">
-                                                Request submitted: {formatDateTime(request.created_at)}
-                                              </div>
-                                            </div>
-                                          </div>
-                                        </td>
-                                      </tr>
-                                    )}
-                                  </React.Fragment>
-                                );
-                              })
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Tenant Applications Tab */}
-            {activeTab === 'applications' && (
-              <div>
-                <div className="flex flex-col">
-                  <div className="-my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
-                    <div className="py-2 align-middle inline-block min-w-full sm:px-6 lg:px-8">
-                      <div className="shadow overflow-hidden border-b border-gray-200 sm:rounded-lg">
-                        <table className="min-w-full divide-y divide-gray-200">
-                          <thead className="bg-gray-50">
-                            <tr>
-                              <th
-                                scope="col"
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                              >
-                                Property
-                              </th>
-                              <th
-                                scope="col"
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                              >
-                                Tenant
-                              </th>
-                              <th
-                                scope="col"
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                              >
-                                Details
-                              </th>
-                              <th
-                                scope="col"
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                              >
-                                Status
-                              </th>
-                              <th
-                                scope="col"
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                              >
-                                Actions
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white divide-y divide-gray-200">
-                            {tenantApplications.map((application) => (
-                              <tr key={application.id}>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <div className="text-sm font-medium text-gray-900">
-                                    {application.property?.title || 'N/A'}
-                                  </div>
-                                  <div className="text-sm text-gray-500">
-                                    {application.property?.location || 'N/A'}
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <div className="text-sm font-medium text-gray-900">
-                                    {application.tenant?.full_name || 'N/A'}
-                                  </div>
-                                  <div className="text-sm text-gray-500">
-                                    {application.tenant?.phone_number || 'N/A'}
-                                  </div>
-                                   <div className="text-sm text-gray-500">
-                                    {application.tenant?.email || 'N/A'}
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <div className="text-sm text-gray-900">
-                                    Applied: {formatDate(application.created_at)}
-                                  </div>
-                                  <div className="text-sm text-gray-500">
-                                    Move-in: {application.moveInDate || 'N/A'}
-                                  </div>
-                                  <div className="text-sm text-gray-500">
-                                    Income: {application.monthlyIncome ? `RM ${application.monthlyIncome}` : 'N/A'}
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <span
-                                    className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                      application.status === 'approved'
-                                        ? 'bg-green-100 text-green-800'
-                                        : application.status === 'pending'
-                                        ? 'bg-yellow-100 text-yellow-800'
-                                        : 'bg-red-100 text-red-800'
-                                    }`}
-                                  >
-                                    {application.status}
-                                  </span>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                  {application.status === 'pending' && (
-                                    <div className="flex space-x-2">
-                                      <button
-                                        onClick={() =>
-                                          handleApplicationResponse(
-                                            application.id,
-                                            'approved'
-                                          )
-                                        }
-                                        id="approveButton"
-                                        className="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded-md text-xs"
-                                      >
-                                        Approve
-                                      </button>
-                                      <button
-                                        onClick={() =>
-                                          handleApplicationResponse(
-                                            application.id,
-                                            'rejected'
-                                          )
-                                        }
-                                        id="rejectButton"
-                                        className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded-md text-xs"
-                                      >
-                                        Reject
-                                      </button>
-                                    </div>
-                                  )}
-                                  <button
-                                    onClick={() =>
-                                      handleViewApplicationDetails(application)
-                                    }
-                                    className="text-blue-600 hover:text-blue-900 text-xs mt-1"
-                                  >
-                                    View Details
-                                  </button>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Earnings Tab */}
-            {activeTab === 'earnings' && (
-              <div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                  <div className="bg-white rounded-lg shadow p-4">
-                    <h3 className="text-lg font-medium text-gray-900">
-                      Total Earnings
-                    </h3>
-                    <p className="text-2xl font-bold text-green-600 mt-2">
-                      {earningsData.totalEarnings}
-                    </p>
-                  </div>
-                  <div className="bg-white rounded-lg shadow p-4">
-                    <h3 className="text-lg font-medium text-gray-900">
-                      This Month
-                    </h3>
-                    <p className="text-2xl font-bold text-blue-600 mt-2">
-                      {earningsData.thisMonth}
-                    </p>
-                  </div>
-                  <div className="bg-white rounded-lg shadow p-4">
-                    <h3 className="text-lg font-medium text-gray-900">
-                      Pending Payments
-                    </h3>
-                    <p className="text-2xl font-bold text-yellow-600 mt-2">
-                      {earningsData.pendingPayments}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-lg shadow overflow-hidden">
-                  <div className="px-4 py-5 sm:px-6">
-                    <h3 className="text-lg leading-6 font-medium text-gray-900">
-                      Transaction History
-                    </h3>
-                  </div>
-                  <div className="border-t border-gray-200">
-                    <div className="flex flex-col">
-                      <div className="-my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
-                        <div className="py-2 align-middle inline-block min-w-full sm:px-6 lg:px-8">
-                          <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                              <tr>
-                                <th
-                                  scope="col"
-                                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                                >
-                                  Property
-                                </th>
-                                <th
-                                  scope="col"
-                                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                                >
-                                  Tenant
-                                </th>
-                                <th
-                                  scope="col"
-                                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                                >
-                                  Date
-                                </th>
-                                <th
-                                  scope="col"
-                                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                                >
-                                  Amount
-                                </th>
-                                <th
-                                  scope="col"
-                                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                                >
-                                  Status
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                              {earningsData.transactions.map((transaction) => (
-                                <tr key={transaction.id}>
-                                  <td className="px-6 py-4 whitespace-nowrap">
-                                    <div className="text-sm font-medium text-gray-900">
-                                      {transaction.propertyTitle}
-                                    </div>
-                                  </td>
-                                  <td className="px-6 py-4 whitespace-nowrap">
-                                    <div className="text-sm text-gray-900">
-                                      {transaction.tenantName}
-                                    </div>
-                                  </td>
-                                  <td className="px-6 py-4 whitespace-nowrap">
-                                    <div className="text-sm text-gray-900">
-                                      {transaction.date}
-                                    </div>
-                                  </td>
-                                  <td className="px-6 py-4 whitespace-nowrap">
-                                    <div className="text-sm font-medium text-gray-900">
-                                      {transaction.amount}
-                                    </div>
-                                  </td>
-                                  <td className="px-6 py-4 whitespace-nowrap">
-                                    <span
-                                      className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                        transaction.status === 'Received'
-                                          ? 'bg-green-100 text-green-800'
-                                          : 'bg-yellow-100 text-yellow-800'
-                                      }`}
-                                    >
-                                      {transaction.status}
-                                    </span>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Calendar Tab */}
-            {activeTab === 'calendar' && (
-              <div>
-                <UnifiedCalendar />
-              </div>
-            )}
-
-{activeTab === 'profile' && (
-  <div>
-    <h2 className="text-xl font-bold text-gray-800 mb-4">Edit Your Profile</h2>
-    <form onSubmit={handleProfileSave} className="space-y-6 max-w-lg">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-700">First Name</label>
-          <input
-            type="text"
-            name="first_name"
-            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
-            value={profileData.first_name || ''}
-            onChange={handleProfileChange}
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Last Name</label>
-          <input
-            type="text"
-            name="last_name"
-            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
-            value={profileData.last_name || ''}
-            onChange={handleProfileChange}
-          />
-        </div>
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Phone Number</label>
-        <input
-          type="text"
-          name="phone"
-          className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
-          value={profileData.phone || ''}
-          onChange={handleProfileChange}
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Email Address</label>
-        <input
-          type="email"
-          name="email"
-          className="mt-1 block w-full border-gray-300 rounded-md shadow-sm bg-gray-100 cursor-not-allowed"
-          value={profileData.email || ''}
-          disabled
-        />
-        <p className="mt-1 text-xs text-gray-500">Email cannot be changed.</p>
-      </div>
-      <div className="flex justify-end">
-        <button
-          type="submit"
-          className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-yellow-400 hover:bg-yellow-500"
-        >
-          Save Changes
-        </button>
-      </div>
-    </form>
-  </div>
-)}
+            {renderActiveTab()}
           </div>
         </div>
 
@@ -2278,8 +2310,8 @@ const handleApplicationResponse = async (applicationId, response) => {
                                 amenities: isChecked
                                   ? [...(prev.amenities || []), amenity]
                                   : (prev.amenities || []).filter(
-                                      (a) => a !== amenity
-                                    ),
+                                    (a) => a !== amenity
+                                  ),
                               }));
                             }}
                             className="h-4 w-4 text-yellow-600 focus:ring-yellow-500 border-gray-300 rounded"
@@ -2821,8 +2853,8 @@ const handleApplicationResponse = async (applicationId, response) => {
                                 amenities: isChecked
                                   ? [...(prev.amenities || []), amenity]
                                   : (prev.amenities || []).filter(
-                                      (a) => a !== amenity
-                                    ),
+                                    (a) => a !== amenity
+                                  ),
                               }));
                             }}
                             className="h-4 w-4 text-yellow-600 focus:ring-yellow-500 border-gray-300 rounded"
@@ -2861,139 +2893,139 @@ const handleApplicationResponse = async (applicationId, response) => {
 
         {/* Application Details Modal */}
         {/* This is the NEW modal code */}
-{showApplicationDetails && selectedApplication && (
-  <div className="fixed inset-0 bg-gray-600 bg-opacity-70 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
-    <div className="relative mx-auto border w-full max-w-2xl shadow-lg rounded-xl bg-white">
-      <div className="p-6">
-        <div className="flex items-start justify-between mb-4">
-          <div>
-            <h3 className="text-2xl font-bold text-gray-900">Tenant Application</h3>
-            <p className="text-sm text-gray-500">For property: {selectedApplication.property?.title || 'N/A'}</p>
-          </div>
-          <button onClick={handleCloseApplicationDetails} className="text-gray-400 hover:text-gray-600">
-            <span className="sr-only">Close</span>
-            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-          </button>
-        </div>
-
-        <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2">
-          {/* --- Tenant Profile Section --- */}
-          <div className="bg-gray-50 p-4 rounded-lg border">
-            <div className="flex items-center space-x-4">
-              <img 
-                src={selectedApplication.tenant?.profile_picture || `https://ui-avatars.com/api/?name=${selectedApplication.tenant?.full_name || 'T'}&background=fbbF24&color=fff`} 
-                alt="Tenant Profile"
-                className="w-20 h-20 rounded-full object-cover border-2 border-white shadow"
-              />
-              <div className="flex-1">
-                <h4 className="text-lg font-bold text-gray-800">{selectedApplication.tenant?.full_name || 'N/A'}</h4>
-                <p className="text-sm text-gray-600">{selectedApplication.tenant?.email || 'N/A'}</p>
-                <p className="text-sm text-gray-600">{selectedApplication.tenant?.phone || 'N/A'}</p>
-              </div>
-            </div>
-            {selectedApplication.tenant?.bio && (
-              <div className="mt-4 pt-4 border-t">
-                <h5 className="text-sm font-semibold text-gray-700 mb-1">About Me</h5>
-                <p className="text-sm text-gray-600 whitespace-pre-wrap">{selectedApplication.tenant.bio}</p>
-              </div>
-            )}
-          </div>
-
-          {/* --- Employment Information --- */}
-          <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-            <h4 className="text-md font-semibold text-gray-900 mb-2">Employment Information</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div><span className="font-medium text-gray-600">Occupation:</span><p className="font-semibold text-gray-800">{selectedApplication.tenant?.occupation || 'N/A'}</p></div>
-              <div><span className="font-medium text-gray-600">Company:</span><p className="font-semibold text-gray-800">{selectedApplication.tenant?.company_name || 'N/A'}</p></div>
-            </div>
-          </div>
-
-          {/* --- Application Message --- */}
-          {selectedApplication.message && (
-            <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-                <h4 className="text-md font-semibold text-gray-900 mb-2">Message from Applicant</h4>
-                <p className="text-sm text-gray-700 italic">"{selectedApplication.message}"</p>
-            </div>
-          )}
-
-          {/* --- Application Details --- */}
-          <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-            <h4 className="text-md font-semibold text-gray-900 mb-2">Application Details</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div><span className="font-medium text-gray-600">Application Date:</span><p className="font-semibold text-gray-800">{formatDate(selectedApplication.created_at)}</p></div>
-              <div><span className="font-medium text-gray-600">Status:</span>
-                <span className={`ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${selectedApplication.status === 'approved' ? 'bg-green-100 text-green-800' : selectedApplication.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}`}>
-                  {selectedApplication.status}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* --- Action Buttons --- */}
-        <div className="flex justify-end space-x-4 pt-6 border-t mt-6">
-          <button onClick={handleCloseApplicationDetails} className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">Close</button>
-          {selectedApplication.status === 'pending' && (
-            <>
-              <button onClick={() => { handleApplicationResponse(selectedApplication.id, 'rejected'); handleCloseApplicationDetails(); }} className="px-6 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700">Reject</button>
-              <button onClick={() => { handleApplicationResponse(selectedApplication.id, 'approved'); handleCloseApplicationDetails(); }} className="px-6 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700">Approve Application</button>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
-  </div>
-)}
-
-{showRescheduleModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-md w-full shadow-2xl">
-            <div id="rescheduleModal" className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">Propose New Time</h2>
-                <button id="closeButton" onClick={() => setShowRescheduleModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">×</button>
-              </div>
-              <form onSubmit={handleRescheduleSubmit} className="space-y-4">
-                <div>
-                  <label htmlFor="newDate" className="block text-sm font-medium text-gray-700 mb-1">New Proposed Date</label>
-                  <input
-                    type="date"
-                    id="newDate"
-                    value={rescheduleData.newDate}
-                    onChange={(e) => setRescheduleData(prev => ({ ...prev, newDate: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                    required
-                  />
+        {showApplicationDetails && selectedApplication && (
+          <div className="fixed inset-0 bg-gray-600 bg-opacity-70 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+            <div className="relative mx-auto border w-full max-w-2xl shadow-lg rounded-xl bg-white">
+              <div className="p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <h3 className="text-2xl font-bold text-gray-900">Tenant Application</h3>
+                    <p className="text-sm text-gray-500">For property: {selectedApplication.property?.title || 'N/A'}</p>
+                  </div>
+                  <button onClick={handleCloseApplicationDetails} className="text-gray-400 hover:text-gray-600">
+                    <span className="sr-only">Close</span>
+                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                  </button>
                 </div>
-                <div>
-                  <label htmlFor="newTime" className="block text-sm font-medium text-gray-700 mb-1">New Proposed Time</label>
-                  <input
-                    type="time"
-                    id="newTime"
-                    value={rescheduleData.newTime}
-                    onChange={(e) => setRescheduleData(prev => ({ ...prev, newTime: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                    required
-                  />
+
+                <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2">
+                  {/* --- Tenant Profile Section --- */}
+                  <div className="bg-gray-50 p-4 rounded-lg border">
+                    <div className="flex items-center space-x-4">
+                      <img
+                        src={selectedApplication.tenant?.profile_picture || `https://ui-avatars.com/api/?name=${selectedApplication.tenant?.full_name || 'T'}&background=fbbF24&color=fff`}
+                        alt="Tenant Profile"
+                        className="w-20 h-20 rounded-full object-cover border-2 border-white shadow"
+                      />
+                      <div className="flex-1">
+                        <h4 className="text-lg font-bold text-gray-800">{selectedApplication.tenant?.full_name || 'N/A'}</h4>
+                        <p className="text-sm text-gray-600">{selectedApplication.tenant?.email || 'N/A'}</p>
+                        <p className="text-sm text-gray-600">{selectedApplication.tenant?.phone || 'N/A'}</p>
+                      </div>
+                    </div>
+                    {selectedApplication.tenant?.bio && (
+                      <div className="mt-4 pt-4 border-t">
+                        <h5 className="text-sm font-semibold text-gray-700 mb-1">About Me</h5>
+                        <p className="text-sm text-gray-600 whitespace-pre-wrap">{selectedApplication.tenant.bio}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* --- Employment Information --- */}
+                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                    <h4 className="text-md font-semibold text-gray-900 mb-2">Employment Information</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                      <div><span className="font-medium text-gray-600">Occupation:</span><p className="font-semibold text-gray-800">{selectedApplication.tenant?.occupation || 'N/A'}</p></div>
+                      <div><span className="font-medium text-gray-600">Company:</span><p className="font-semibold text-gray-800">{selectedApplication.tenant?.company_name || 'N/A'}</p></div>
+                    </div>
+                  </div>
+
+                  {/* --- Application Message --- */}
+                  {selectedApplication.message && (
+                    <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                      <h4 className="text-md font-semibold text-gray-900 mb-2">Message from Applicant</h4>
+                      <p className="text-sm text-gray-700 italic">"{selectedApplication.message}"</p>
+                    </div>
+                  )}
+
+                  {/* --- Application Details --- */}
+                  <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                    <h4 className="text-md font-semibold text-gray-900 mb-2">Application Details</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                      <div><span className="font-medium text-gray-600">Application Date:</span><p className="font-semibold text-gray-800">{formatDate(selectedApplication.created_at)}</p></div>
+                      <div><span className="font-medium text-gray-600">Status:</span>
+                        <span className={`ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${selectedApplication.status === 'approved' ? 'bg-green-100 text-green-800' : selectedApplication.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}`}>
+                          {selectedApplication.status}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex gap-3 pt-4">
-                  <button id="cancelButton" type="button" onClick={() => setShowRescheduleModal(false)} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">Cancel</button>
-                  <button id="submitButton" type="submit" className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold">Send Proposal</button>
+
+                {/* --- Action Buttons --- */}
+                <div className="flex justify-end space-x-4 pt-6 border-t mt-6">
+                  <button onClick={handleCloseApplicationDetails} className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">Close</button>
+                  {selectedApplication.status === 'pending' && (
+                    <>
+                      <button onClick={() => { handleApplicationResponse(selectedApplication.id, 'rejected'); handleCloseApplicationDetails(); }} className="px-6 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700">Reject</button>
+                      <button onClick={() => { handleApplicationResponse(selectedApplication.id, 'approved'); handleCloseApplicationDetails(); }} className="px-6 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700">Approve Application</button>
+                    </>
+                  )}
                 </div>
-              </form>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Recurring Availability Manager Modal */}
-      {showAvailabilityModal && selectedPropertyForAvailability && (
-        <RecurringAvailabilityManager
-          propertyId={selectedPropertyForAvailability.id}
-          onClose={handleCloseAvailabilityModal}
-          onSuccess={handleAvailabilitySuccess}
-        />
-      )}
+        {showRescheduleModal && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl max-w-md w-full shadow-2xl">
+              <div id="rescheduleModal" className="p-6">
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-2xl font-bold text-gray-900">Propose New Time</h2>
+                  <button id="closeButton" onClick={() => setShowRescheduleModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">×</button>
+                </div>
+                <form onSubmit={handleRescheduleSubmit} className="space-y-4">
+                  <div>
+                    <label htmlFor="newDate" className="block text-sm font-medium text-gray-700 mb-1">New Proposed Date</label>
+                    <input
+                      type="date"
+                      id="newDate"
+                      value={rescheduleData.newDate}
+                      onChange={(e) => setRescheduleData(prev => ({ ...prev, newDate: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="newTime" className="block text-sm font-medium text-gray-700 mb-1">New Proposed Time</label>
+                    <input
+                      type="time"
+                      id="newTime"
+                      value={rescheduleData.newTime}
+                      onChange={(e) => setRescheduleData(prev => ({ ...prev, newTime: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                      required
+                    />
+                  </div>
+                  <div className="flex gap-3 pt-4">
+                    <button id="cancelButton" type="button" onClick={() => setShowRescheduleModal(false)} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">Cancel</button>
+                    <button id="submitButton" type="submit" className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold">Send Proposal</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Recurring Availability Manager Modal */}
+        {showAvailabilityModal && selectedPropertyForAvailability && (
+          <RecurringAvailabilityManager
+            propertyId={selectedPropertyForAvailability.id}
+            onClose={handleCloseAvailabilityModal}
+            onSuccess={handleAvailabilitySuccess}
+          />
+        )}
       </div>
     </div>
   );

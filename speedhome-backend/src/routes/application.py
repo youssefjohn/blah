@@ -64,6 +64,32 @@ def get_landlord_applications():
     apps = Application.query.filter_by(landlord_id=session['user_id']).order_by(Application.created_at.desc()).all()
     return jsonify({'success': True, 'applications': [app.to_dict() for app in apps]})
 
+
+# NEW ROUTE: Landlord marks an application as seen
+@application_bp.route('/<int:application_id>/mark-seen', methods=['POST'])
+def mark_application_as_seen(application_id):
+    # Ensure a landlord is logged in
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+    # Find the application by its ID
+    application = Application.query.get(application_id)
+
+    if not application:
+        return jsonify({'success': False, 'error': 'Application not found'}), 404
+
+    # Security check: ensure the logged-in user is the landlord for this application
+    if application.landlord_id != session['user_id']:
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+
+    # Update the field to True
+    application.is_seen_by_landlord = True
+
+    # Commit the change to the database to save it
+    db.session.commit()
+
+    return jsonify({'success': True, 'message': 'Application marked as seen successfully'}), 200
+
 # Route for a tenant to view their own applications
 @application_bp.route('/tenant', methods=['GET'])
 def get_tenant_applications():
