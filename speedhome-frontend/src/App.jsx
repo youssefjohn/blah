@@ -25,6 +25,11 @@ const PropertyDetailPage = ({ properties, isFavorite, toggleFavorite, setSelecte
   const [property, setProperty] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasApplied, setHasApplied] = useState(false);
+  
+  // Debug hasApplied state changes
+  useEffect(() => {
+    console.log('App.jsx - hasApplied state changed to:', hasApplied);
+  }, [hasApplied]);
   const [hasScheduledViewing, setHasScheduledViewing] = useState(false);
   const [mainImage, setMainImage] = useState(null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -781,8 +786,11 @@ function AppContent() {
           propertyId={selectedProperty.id}
           onClose={() => setShowApplyModal(false)}
           onSuccess={() => {
+            console.log('App.jsx - onSuccess callback triggered');
+            console.log('App.jsx - hasApplied before update:', hasApplied);
             setShowApplyModal(false);
             setHasApplied(true);
+            console.log('App.jsx - setHasApplied(true) called');
             // Show success message or redirect
             alert('Application submitted successfully!');
           }}
