@@ -198,9 +198,14 @@ const EnhancedApplicationForm = ({ propertyId, onClose, onSuccess }) => {
 
       const response = await ApplicationAPI.createApplication(applicationData);
       
+      console.log('Enhanced Application Form - API response:', response);
+      console.log('Enhanced Application Form - Response success:', response.success);
+      
       if (response.success) {
+        console.log('Enhanced Application Form - Calling onSuccess callback');
         onSuccess && onSuccess();
       } else {
+        console.log('Enhanced Application Form - API response failed:', response.error);
         setErrors({ submit: response.error || 'Failed to submit application' });
       }
     } catch (error) {
