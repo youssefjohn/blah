@@ -788,7 +788,7 @@ function AppContent() {
           onSuccess={() => {
             try {
               console.log('App.jsx - onSuccess callback triggered');
-              console.log('App.jsx - hasApplied before update:', hasApplied);
+              console.log('App.jsx - About to update hasApplied state');
               setShowApplyModal(false);
               setHasApplied(true);
               console.log('App.jsx - setHasApplied(true) called');
