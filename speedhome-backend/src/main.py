@@ -26,6 +26,10 @@ from src.routes.application import application_bp
 from src.routes.notification import notification_bp
 from src.routes.messaging import messaging_bp
 
+# Import admin components
+from src.admin.admin_config import init_admin
+from src.admin.auth import admin_auth_bp
+
 app = Flask(__name__, static_folder=os.path.join(os.path.dirname(__file__), 'static'))
 
 # --- CONFIGURATION ---
@@ -44,12 +48,18 @@ app.register_blueprint(application_bp)
 app.register_blueprint(notification_bp, url_prefix='/api')
 app.register_blueprint(messaging_bp, url_prefix='/api')
 
+# Register admin authentication blueprint
+app.register_blueprint(admin_auth_bp)
+
 # --- DATABASE CONFIGURATION ---
 app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{os.path.join(os.path.dirname(__file__), 'database', 'app.db')}"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
 
 migrate = Migrate(app, db)
+
+# Initialize Flask-Admin
+admin = init_admin(app)
 
 # ❌ The db.create_all() call has been removed to let Flask-Migrate handle the schema.
 

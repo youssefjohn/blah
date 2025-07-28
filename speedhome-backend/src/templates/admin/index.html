@@ -1,0 +1,171 @@
+{% extends 'admin/master.html' %}
+
+{% block head_css %}
+    {{ super() }}
+    <style>
+        .stats-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 15px;
+            color: white;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+        .stats-card:hover {
+            transform: translateY(-5px);
+        }
+        .stats-card .icon {
+            font-size: 2.5rem;
+            opacity: 0.8;
+        }
+        .stats-card .number {
+            font-size: 2rem;
+            font-weight: bold;
+            margin: 0.5rem 0;
+        }
+        .stats-card .label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+        .welcome-header {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+            padding: 2rem;
+            border-radius: 15px;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+        .quick-actions {
+            background: white;
+            border-radius: 15px;
+            padding: 1.5rem;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        .quick-action-btn {
+            display: block;
+            width: 100%;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            border-radius: 10px;
+            text-decoration: none;
+            color: #333;
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            transition: all 0.3s ease;
+        }
+        .quick-action-btn:hover {
+            background: #28a745;
+            color: white;
+            border-color: #28a745;
+            transform: translateX(5px);
+        }
+    </style>
+{% endblock %}
+
+{% block body %}
+<div class="container-fluid">
+    <div class="welcome-header">
+        <h1><i class="fas fa-tachometer-alt"></i> SpeedHome Admin Dashboard</h1>
+        <p class="mb-0">Welcome back! Here's what's happening with your platform.</p>
+    </div>
+    
+    <div class="row">
+        <!-- Statistics Cards -->
+        <div class="col-md-2">
+            <div class="stats-card">
+                <div class="icon"><i class="fas fa-users"></i></div>
+                <div class="number">{{ stats.total_users }}</div>
+                <div class="label">Total Users</div>
+            </div>
+        </div>
+        
+        <div class="col-md-2">
+            <div class="stats-card">
+                <div class="icon"><i class="fas fa-home"></i></div>
+                <div class="number">{{ stats.total_properties }}</div>
+                <div class="label">Properties</div>
+            </div>
+        </div>
+        
+        <div class="col-md-2">
+            <div class="stats-card">
+                <div class="icon"><i class="fas fa-calendar-check"></i></div>
+                <div class="number">{{ stats.total_bookings }}</div>
+                <div class="label">Bookings</div>
+            </div>
+        </div>
+        
+        <div class="col-md-2">
+            <div class="stats-card">
+                <div class="icon"><i class="fas fa-comments"></i></div>
+                <div class="number">{{ stats.total_messages }}</div>
+                <div class="label">Messages</div>
+            </div>
+        </div>
+        
+        <div class="col-md-2">
+            <div class="stats-card">
+                <div class="icon"><i class="fas fa-clock"></i></div>
+                <div class="number">{{ stats.pending_applications }}</div>
+                <div class="label">Pending Apps</div>
+            </div>
+        </div>
+        
+        <div class="col-md-2">
+            <div class="stats-card">
+                <div class="icon"><i class="fas fa-comment-dots"></i></div>
+                <div class="number">{{ stats.active_conversations }}</div>
+                <div class="label">Active Chats</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mt-4">
+        <div class="col-md-8">
+            <div class="quick-actions">
+                <h4><i class="fas fa-bolt"></i> Quick Actions</h4>
+                <div class="row">
+                    <div class="col-md-6">
+                        <a href="{{ url_for('admin_users.index_view') }}" class="quick-action-btn">
+                            <i class="fas fa-users"></i> Manage Users
+                        </a>
+                        <a href="{{ url_for('admin_properties.index_view') }}" class="quick-action-btn">
+                            <i class="fas fa-home"></i> Manage Properties
+                        </a>
+                        <a href="{{ url_for('admin_bookings.index_view') }}" class="quick-action-btn">
+                            <i class="fas fa-calendar-check"></i> View Bookings
+                        </a>
+                    </div>
+                    <div class="col-md-6">
+                        <a href="{{ url_for('admin_conversations.index_view') }}" class="quick-action-btn">
+                            <i class="fas fa-comments"></i> Monitor Conversations
+                        </a>
+                        <a href="{{ url_for('admin_messages.index_view') }}" class="quick-action-btn">
+                            <i class="fas fa-envelope"></i> View Messages
+                        </a>
+                        <a href="{{ url_for('admin_notifications.index_view') }}" class="quick-action-btn">
+                            <i class="fas fa-bell"></i> View Notifications
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="quick-actions">
+                <h4><i class="fas fa-info-circle"></i> System Info</h4>
+                <p><strong>Platform:</strong> SpeedHome Property Rental</p>
+                <p><strong>Version:</strong> 1.0.0</p>
+                <p><strong>Admin Panel:</strong> Flask-Admin</p>
+                <p><strong>Database:</strong> SQLite</p>
+                <hr>
+                <a href="{{ url_for('admin_auth.logout') }}" class="btn btn-outline-danger">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
