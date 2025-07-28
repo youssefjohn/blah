@@ -775,37 +775,18 @@ function AppContent() {
       </Routes>
       <Footer />
 
-      {/* TEST: Simple Modal to verify Apply button works */}
+      {/* Enhanced Application Form */}
       {showApplyModal && selectedProperty && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-md w-full shadow-2xl p-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">TEST: Apply Button Works!</h2>
-            <p className="text-gray-700 mb-4">
-              If you can see this modal, the Apply button click handler is working correctly.
-              The issue is likely with the Enhanced Application Form component.
-            </p>
-            <p className="text-sm text-gray-600 mb-6">
-              Property: {selectedProperty.title}
-            </p>
-            <div className="flex gap-3">
-              <button 
-                onClick={() => setShowApplyModal(false)} 
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Close Test Modal
-              </button>
-              <button 
-                onClick={() => {
-                  alert('Apply button integration is working! The issue is with the Enhanced Application Form component.');
-                  setShowApplyModal(false);
-                }} 
-                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold"
-              >
-                Confirm Working
-              </button>
-            </div>
-          </div>
-        </div>
+        <EnhancedApplicationForm
+          propertyId={selectedProperty.id}
+          onClose={() => setShowApplyModal(false)}
+          onSuccess={() => {
+            setShowApplyModal(false);
+            setHasApplied(true);
+            // Show success message or redirect
+            alert('Application submitted successfully!');
+          }}
+        />
       )}
 
       {/* Schedule Viewing Modal */}
