@@ -17,6 +17,7 @@ import NotificationAPI from './services/NotificationAPI';
 import Lightbox from "yet-another-react-lightbox";
 import TenantBookingCalendar from './components/TenantBookingCalendar';
 import PropertyAPI from './services/PropertyAPI';
+import EnhancedApplicationForm from './components/EnhancedApplicationForm';
 
 const PropertyDetailPage = ({ properties, isFavorite, toggleFavorite, setSelectedProperty, onApplyClick, onScheduleClick }) => {
   const { propertyId } = useParams();
@@ -406,7 +407,6 @@ function AppContent() {
   const [viewMode, setViewMode] = useState('grid');
   const [selectedProperty, setSelectedProperty] = useState(null);
   const [showApplyModal, setShowApplyModal] = useState(false);
-  const [applicationMessage, setApplicationMessage] = useState('');
   const [showImageLightbox, setShowImageLightbox] = useState(false);
   const [showChatModal, setShowChatModal] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
@@ -524,32 +524,7 @@ function AppContent() {
     amenities: []
   });
   
-  const handleApplicationSubmit = async (e) => {
-      e.preventDefault(); 
-      if (!selectedProperty) return alert('An error occurred. No property selected.');
-  
-      try {
-        const result = await ApplicationAPI.createApplication({
-          propertyId: selectedProperty.id,
-          message: applicationMessage,
-        });
-  
-        if (result.success) {
-          alert('Your application has been submitted successfully!');
-          setShowApplyModal(false);
-          setApplicationMessage('');
-          setDetailPageVersion(v => v + 1);
-        } else {
-          alert(`Error: ${result.error}`);
-        }
-      } catch (error) {
-        console.error('Failed to submit application:', error);
-        alert('An unexpected error occurred. Please try again.');
-      }
-    };
-
-  // REPLACE your old handleScheduleSubmit function with this one
-const handleScheduleSubmit = async (e) => {
+  const handleScheduleSubmit = async (e) => {
     e.preventDefault();
     if (!selectedProperty) return alert('An error occurred. No property selected.');
     if (!selectedSlot) return alert('Please select an available viewing slot.');
@@ -800,32 +775,18 @@ const handleScheduleSubmit = async (e) => {
       </Routes>
       <Footer />
 
-      {/* Apply Modal */}
+      {/* Enhanced Application Form */}
       {showApplyModal && selectedProperty && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-xl max-w-md w-full shadow-2xl">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">Apply for Property</h2>
-                <button onClick={() => setShowApplyModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">×</button>
-              </div>
-              <div className="mb-4 p-4 bg-gray-50 rounded-lg">
-                <h3 className="font-semibold text-gray-900">{selectedProperty.title}</h3>
-                <p className="text-sm text-gray-600">{selectedProperty.location}</p>
-              </div>
-              <form onSubmit={handleApplicationSubmit} className="space-y-4">
-                <div>
-                  <label htmlFor="applicationMessage" className="block text-sm font-medium text-gray-700 mb-2">Your Message to the Landlord</label>
-                  <textarea id="applicationMessage" value={applicationMessage} onChange={(e) => setApplicationMessage(e.target.value)} rows={4} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Introduce yourself, mention who will be living with you, your occupation, etc." />
-                </div>
-                <div className="flex gap-3 pt-4">
-                  <button type="button" onClick={() => setShowApplyModal(false)} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">Cancel</button>
-                  <button type="submit" className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-semibold">Submit Application</button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
+        <EnhancedApplicationForm
+          propertyId={selectedProperty.id}
+          onClose={() => setShowApplyModal(false)}
+          onSuccess={() => {
+            setShowApplyModal(false);
+            setHasApplied(true);
+            // Show success message or redirect
+            alert('Application submitted successfully!');
+          }}
+        />
       )}
 
       {/* Schedule Viewing Modal */}
