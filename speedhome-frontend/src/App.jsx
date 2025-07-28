@@ -786,13 +786,21 @@ function AppContent() {
           propertyId={selectedProperty.id}
           onClose={() => setShowApplyModal(false)}
           onSuccess={() => {
-            console.log('App.jsx - onSuccess callback triggered');
-            console.log('App.jsx - hasApplied before update:', hasApplied);
-            setShowApplyModal(false);
-            setHasApplied(true);
-            console.log('App.jsx - setHasApplied(true) called');
-            // Show success message or redirect
-            alert('Application submitted successfully!');
+            try {
+              console.log('App.jsx - onSuccess callback triggered');
+              console.log('App.jsx - hasApplied before update:', hasApplied);
+              setShowApplyModal(false);
+              setHasApplied(true);
+              console.log('App.jsx - setHasApplied(true) called');
+              // Show success message or redirect
+              alert('Application submitted successfully!');
+              console.log('App.jsx - onSuccess callback completed successfully');
+            } catch (error) {
+              console.error('App.jsx - Error in onSuccess callback:', error);
+              // Still try to update the state even if alert fails
+              setShowApplyModal(false);
+              setHasApplied(true);
+            }
           }}
         />
       )}
