@@ -14,7 +14,6 @@ def submit_application():
     
     data = request.get_json()
     property_id = data.get('propertyId')
-    message = data.get('message')
     
     if not property_id:
         return jsonify({'success': False, 'error': 'Property ID is required'}), 400
@@ -34,11 +33,53 @@ def submit_application():
     if existing_app:
         return jsonify({'success': False, 'error': 'You have already applied for this property.'}), 409
 
+    # Create new application with Enhanced Application Form data
     new_app = Application(
         property_id=property_id,
         tenant_id=session['user_id'],
         landlord_id=prop.owner_id,
-        message=message
+        message=data.get('message', ''),
+        
+        # Personal Information
+        full_name=data.get('full_name'),
+        phone_number=data.get('phone_number'),
+        email=data.get('email_address'),  # Note: frontend sends 'email_address', model expects 'email'
+        date_of_birth=data.get('date_of_birth'),
+        emergency_contact_name=data.get('emergency_contact_name'),
+        emergency_contact_phone=data.get('emergency_contact_phone'),
+        
+        # Employment Information
+        employment_status=data.get('employment_status'),
+        employer_name=data.get('employer_name'),
+        job_title=data.get('job_title'),
+        employment_duration=data.get('employment_duration'),
+        monthly_income=data.get('monthly_income'),
+        additional_income=data.get('additional_income'),
+        
+        # Financial Information
+        bank_name=data.get('bank_name'),
+        credit_score=data.get('credit_score'),
+        monthly_expenses=data.get('monthly_expenses'),
+        current_rent=data.get('current_rent'),
+        
+        # Rental History
+        previous_address=data.get('previous_address'),
+        previous_landlord_name=data.get('previous_landlord_name'),
+        previous_landlord_phone=data.get('previous_landlord_phone'),
+        rental_duration=data.get('rental_duration'),
+        reason_for_moving=data.get('reason_for_moving'),
+        
+        # Preferences
+        move_in_date=data.get('move_in_date'),
+        lease_duration_preference=data.get('lease_duration'),
+        number_of_occupants=data.get('number_of_occupants'),
+        pets=data.get('pets') == 'Yes',
+        smoking=data.get('smoking') == 'Yes',
+        additional_notes=data.get('additional_notes'),
+        
+        # Application Status
+        step_completed=data.get('step_completed', 6),
+        is_complete=data.get('is_complete', True)
     )
     db.session.add(new_app)
     
@@ -46,7 +87,7 @@ def submit_application():
     
     landlord_notification = Notification(
         recipient_id=prop.owner_id,
-        message=f"New application for '{prop.title}' from {tenant.get_full_name()}.",
+        message=f"New comprehensive application for '{prop.title}' from {new_app.full_name or tenant.get_full_name()}.",
         link="/landlord"
     )
     db.session.add(landlord_notification)

@@ -188,7 +188,7 @@ const EnhancedApplicationForm = ({ propertyId, onClose, onSuccess }) => {
     try {
       // Prepare form data for submission
       const applicationData = {
-        property_id: propertyId,
+        propertyId: propertyId,
         ...formData,
         step_completed: 6,
         is_complete: true
