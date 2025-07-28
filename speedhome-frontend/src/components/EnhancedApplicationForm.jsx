@@ -16,23 +16,22 @@ const EnhancedApplicationForm = ({ propertyId, onClose, onSuccess }) => {
     // Personal Information
     full_name: '',
     phone_number: '',
-    email: '',
+    email_address: '',
     date_of_birth: '',
     emergency_contact_name: '',
     emergency_contact_phone: '',
     
-    // Employment Information
+    // Employment Details
     employment_status: '',
     employer_name: '',
     job_title: '',
     employment_duration: '',
     monthly_income: '',
     additional_income: '',
-    additional_income_source: '',
     
     // Financial Information
     bank_name: '',
-    account_number: '',
+    account_type: '',
     credit_score: '',
     monthly_expenses: '',
     current_rent: '',
@@ -41,23 +40,27 @@ const EnhancedApplicationForm = ({ propertyId, onClose, onSuccess }) => {
     previous_address: '',
     previous_landlord_name: '',
     previous_landlord_phone: '',
-    reason_for_moving: '',
     rental_duration: '',
+    reason_for_moving: '',
     
     // Preferences
     move_in_date: '',
-    lease_duration_preference: '',
-    number_of_occupants: 1,
-    pets: false,
-    pet_details: '',
-    smoking: false,
-    additional_notes: '',
-    
-    // Documents
-    documents: {
-      id_document: null,
-      income_proof: null,
-      employment_letter: null,
+    lease_duration: '',
+    number_of_occupants: '',
+    pets: '',
+    smoking: '',
+    additional_notes: ''
+  });
+
+  const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState({});
+
+  // Debug propertyId
+  useEffect(() => {
+    console.log('Enhanced Application Form - propertyId received:', propertyId);
+    console.log('Enhanced Application Form - propertyId type:', typeof propertyId);
+  }, [propertyId]);mployment_letter: null,
       bank_statement: null,
       reference_letter: null,
       additional_documents: []
@@ -182,6 +185,14 @@ const EnhancedApplicationForm = ({ propertyId, onClose, onSuccess }) => {
   const handleSubmit = async () => {
     if (!validateStep(currentStep)) return;
 
+    // Validate propertyId
+    if (!propertyId) {
+      console.error('Enhanced Application Form - propertyId is missing:', propertyId);
+      setErrors({ submit: 'Property ID is missing. Please refresh the page and try again.' });
+      return;
+    }
+
+    console.log('Enhanced Application Form - Submitting with propertyId:', propertyId);
     setIsSubmitting(true);
     try {
       // Prepare form data for submission
@@ -191,6 +202,8 @@ const EnhancedApplicationForm = ({ propertyId, onClose, onSuccess }) => {
         step_completed: 6,
         is_complete: true
       };
+
+      console.log('Enhanced Application Form - Application data being sent:', applicationData);
 
       const response = await ApplicationAPI.createApplication(applicationData);
       
