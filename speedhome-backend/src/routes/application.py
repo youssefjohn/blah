@@ -58,67 +58,101 @@ def submit_application():
             return jsonify({'success': False, 'error': 'You have already applied for this property.'}), 409
 
         # Create new application with Enhanced Application Form data and proper error handling
-        new_app = Application(
-            property_id=property_id,
-            tenant_id=session['user_id'],
-            landlord_id=prop.owner_id,
-            message=data.get('message', ''),
-            
-            # Personal Information
-            full_name=data.get('full_name'),
-            phone_number=data.get('phone_number'),
-            email=data.get('email_address'),  # Note: frontend sends 'email_address', model expects 'email'
-            date_of_birth=safe_date_parse(data.get('date_of_birth')),
-            emergency_contact_name=data.get('emergency_contact_name'),
-            emergency_contact_phone=data.get('emergency_contact_phone'),
-            
-            # Employment Information
-            employment_status=data.get('employment_status'),
-            employer_name=data.get('employer_name'),
-            job_title=data.get('job_title'),
-            employment_duration=data.get('employment_duration'),
-            monthly_income=safe_numeric_parse(data.get('monthly_income')),
-            additional_income=safe_numeric_parse(data.get('additional_income')),
-            
-            # Financial Information
-            bank_name=data.get('bank_name'),
-            credit_score=safe_int_parse(data.get('credit_score')),
-            monthly_expenses=safe_numeric_parse(data.get('monthly_expenses')),
-            current_rent=safe_numeric_parse(data.get('current_rent')),
-            
-            # Rental History
-            previous_address=data.get('previous_address'),
-            previous_landlord_name=data.get('previous_landlord_name'),
-            previous_landlord_phone=data.get('previous_landlord_phone'),
-            rental_duration=data.get('rental_duration'),
-            reason_for_moving=data.get('reason_for_moving'),
-            
-            # Preferences
-            move_in_date=safe_date_parse(data.get('move_in_date')),
-            lease_duration_preference=data.get('lease_duration'),
-            number_of_occupants=safe_int_parse(data.get('number_of_occupants')),
-            pets=data.get('pets') == 'Yes',
-            smoking=data.get('smoking') == 'Yes',
-            additional_notes=data.get('additional_notes'),
-            
-            # Application Status
-            step_completed=data.get('step_completed', 6),
-            is_complete=data.get('is_complete', True)
-        )
-        db.session.add(new_app)
+        try:
+            new_app = Application(
+                property_id=property_id,
+                tenant_id=session['user_id'],
+                landlord_id=prop.owner_id,
+                message=data.get('message', ''),
+                
+                # Personal Information
+                full_name=data.get('full_name'),
+                phone_number=data.get('phone_number'),
+                email=data.get('email_address'),  # Note: frontend sends 'email_address', model expects 'email'
+                date_of_birth=safe_date_parse(data.get('date_of_birth')),
+                emergency_contact_name=data.get('emergency_contact_name'),
+                emergency_contact_phone=data.get('emergency_contact_phone'),
+                
+                # Employment Information
+                employment_status=data.get('employment_status'),
+                employer_name=data.get('employer_name'),
+                job_title=data.get('job_title'),
+                employment_duration=data.get('employment_duration'),
+                monthly_income=safe_numeric_parse(data.get('monthly_income')),
+                additional_income=safe_numeric_parse(data.get('additional_income')),
+                
+                # Financial Information
+                bank_name=data.get('bank_name'),
+                credit_score=safe_int_parse(data.get('credit_score')),
+                monthly_expenses=safe_numeric_parse(data.get('monthly_expenses')),
+                current_rent=safe_numeric_parse(data.get('current_rent')),
+                
+                # Rental History
+                previous_address=data.get('previous_address'),
+                previous_landlord_name=data.get('previous_landlord_name'),
+                previous_landlord_phone=data.get('previous_landlord_phone'),
+                rental_duration=data.get('rental_duration'),
+                reason_for_moving=data.get('reason_for_moving'),
+                
+                # Preferences
+                move_in_date=safe_date_parse(data.get('move_in_date')),
+                lease_duration_preference=data.get('lease_duration'),
+                number_of_occupants=safe_int_parse(data.get('number_of_occupants')),
+                pets=data.get('pets') == 'Yes',
+                smoking=data.get('smoking') == 'Yes',
+                additional_notes=data.get('additional_notes'),
+                
+                # Application Status
+                step_completed=data.get('step_completed', 6),
+                is_complete=data.get('is_complete', True)
+            )
+            print("Application object created successfully")
+        except Exception as e:
+            print(f"Error creating Application object: {str(e)}")
+            return jsonify({'success': False, 'error': f'Error creating application: {str(e)}'}), 500
         
-        tenant = User.query.get(session['user_id'])
+        try:
+            db.session.add(new_app)
+            print("Application added to session successfully")
+        except Exception as e:
+            print(f"Error adding application to session: {str(e)}")
+            return jsonify({'success': False, 'error': f'Error adding application to session: {str(e)}'}), 500
         
-        landlord_notification = Notification(
-            recipient_id=prop.owner_id,
-            message=f"New comprehensive application for '{prop.title}' from {new_app.full_name or tenant.get_full_name()}.",
-            link="/landlord"
-        )
-        db.session.add(landlord_notification)
+        try:
+            tenant = User.query.get(session['user_id'])
+            print("Tenant retrieved successfully")
+        except Exception as e:
+            print(f"Error retrieving tenant: {str(e)}")
+            return jsonify({'success': False, 'error': f'Error retrieving tenant: {str(e)}'}), 500
         
-        db.session.commit()
+        try:
+            landlord_notification = Notification(
+                recipient_id=prop.owner_id,
+                message=f"New comprehensive application for '{prop.title}' from {new_app.full_name or tenant.get_full_name()}.",
+                link="/landlord"
+            )
+            db.session.add(landlord_notification)
+            print("Notification created and added successfully")
+        except Exception as e:
+            print(f"Error creating notification: {str(e)}")
+            return jsonify({'success': False, 'error': f'Error creating notification: {str(e)}'}), 500
         
-        return jsonify({'success': True, 'application': new_app.to_dict()}), 201
+        try:
+            db.session.commit()
+            print("Database commit successful")
+        except Exception as e:
+            print(f"Error committing to database: {str(e)}")
+            db.session.rollback()
+            return jsonify({'success': False, 'error': f'Error saving to database: {str(e)}'}), 500
+        
+        try:
+            response_data = new_app.to_dict()
+            print("Application to_dict() successful")
+        except Exception as e:
+            print(f"Error converting application to dict: {str(e)}")
+            return jsonify({'success': False, 'error': f'Error preparing response: {str(e)}'}), 500
+        
+        return jsonify({'success': True, 'application': response_data}), 201
         
     except Exception as e:
         db.session.rollback()
