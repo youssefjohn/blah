@@ -712,76 +712,86 @@ const EnhancedApplicationForm = ({ propertyId, onClose, onSuccess }) => {
   const progress = ((currentStep + 1) / steps.length) * 100;
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-2xl">Enhanced Application Form</CardTitle>
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm text-gray-600">
-              <span>Step {currentStep + 1} of {steps.length}</span>
-              <span>{Math.round(progress)}% Complete</span>
-            </div>
-            <Progress value={progress} className="w-full" />
-          </div>
-          
-          <div className="flex flex-wrap gap-2 mt-4">
-            {steps.map((step, index) => (
-              <div
-                key={index}
-                className={`flex items-center space-x-2 px-3 py-1 rounded-full text-xs ${
-                  index === currentStep
-                    ? 'bg-blue-100 text-blue-800'
-                    : index < currentStep
-                    ? 'bg-green-100 text-green-800'
-                    : 'bg-gray-100 text-gray-600'
-                }`}
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+        <Card className="border-0 shadow-none">
+          <CardHeader>
+            <div className="flex justify-between items-center">
+              <CardTitle className="text-2xl">Enhanced Application Form</CardTitle>
+              <button 
+                onClick={onClose}
+                className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
               >
-                <span>{step.icon}</span>
-                <span>{step.title}</span>
+                ×
+              </button>
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm text-gray-600">
+                <span>Step {currentStep + 1} of {steps.length}</span>
+                <span>{Math.round(progress)}% Complete</span>
               </div>
-            ))}
-          </div>
-        </CardHeader>
-        
-        <CardContent>
-          <div className="min-h-[400px]">
-            {renderStepContent()}
-          </div>
-          
-          <div className="flex justify-between mt-8">
-            <Button
-              variant="outline"
-              onClick={prevStep}
-              disabled={currentStep === 0}
-            >
-              Previous
-            </Button>
+              <Progress value={progress} className="w-full" />
+            </div>
             
-            <div className="space-x-2">
-              <Button variant="outline" onClick={onClose}>
-                Cancel
+            <div className="flex flex-wrap gap-2 mt-4">
+              {steps.map((step, index) => (
+                <div
+                  key={index}
+                  className={`flex items-center space-x-2 px-3 py-1 rounded-full text-xs ${
+                    index === currentStep
+                      ? 'bg-blue-100 text-blue-800'
+                      : index < currentStep
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-gray-100 text-gray-600'
+                  }`}
+                >
+                  <span>{step.icon}</span>
+                  <span>{step.title}</span>
+                </div>
+              ))}
+            </div>
+          </CardHeader>
+          
+          <CardContent>
+            <div className="min-h-[400px]">
+              {renderStepContent()}
+            </div>
+            
+            <div className="flex justify-between mt-8">
+              <Button
+                variant="outline"
+                onClick={prevStep}
+                disabled={currentStep === 0}
+              >
+                Previous
               </Button>
               
-              {currentStep === steps.length - 1 ? (
-                <Button
-                  onClick={handleSubmit}
-                  disabled={isSubmitting}
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  {isSubmitting ? 'Submitting...' : 'Submit Application'}
+              <div className="space-x-2">
+                <Button variant="outline" onClick={onClose}>
+                  Cancel
                 </Button>
-              ) : (
-                <Button
-                  onClick={nextStep}
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  Next
-                </Button>
-              )}
+                
+                {currentStep === steps.length - 1 ? (
+                  <Button
+                    onClick={handleSubmit}
+                    disabled={isSubmitting}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    {isSubmitting ? 'Submitting...' : 'Submit Application'}
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={nextStep}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    Next
+                  </Button>
+                )}
+              </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };
