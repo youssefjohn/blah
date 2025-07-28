@@ -1,8 +1,8 @@
-"""Add conversation and message tables
+"""Initial migration with all models
 
-Revision ID: bc25760349d6
-Revises: d105b25e94b5
-Create Date: 2025-07-26 22:38:10.804896
+Revision ID: a2c2c2b1e4c7
+Revises: 
+Create Date: 2025-07-28 18:03:15.771460
 
 """
 from alembic import op
@@ -10,8 +10,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'bc25760349d6'
-down_revision = 'd105b25e94b5'
+revision = 'a2c2c2b1e4c7'
+down_revision = None
 branch_labels = None
 depends_on = None
 
@@ -116,6 +116,45 @@ def upgrade():
     sa.Column('property_id', sa.Integer(), nullable=False),
     sa.Column('tenant_id', sa.Integer(), nullable=False),
     sa.Column('landlord_id', sa.Integer(), nullable=False),
+    sa.Column('is_seen_by_landlord', sa.Boolean(), nullable=False),
+    sa.Column('full_name', sa.String(length=255), nullable=True),
+    sa.Column('phone_number', sa.String(length=20), nullable=True),
+    sa.Column('email', sa.String(length=255), nullable=True),
+    sa.Column('date_of_birth', sa.Date(), nullable=True),
+    sa.Column('emergency_contact_name', sa.String(length=255), nullable=True),
+    sa.Column('emergency_contact_phone', sa.String(length=20), nullable=True),
+    sa.Column('employment_status', sa.String(length=100), nullable=True),
+    sa.Column('employer_name', sa.String(length=255), nullable=True),
+    sa.Column('job_title', sa.String(length=255), nullable=True),
+    sa.Column('employment_duration', sa.String(length=100), nullable=True),
+    sa.Column('monthly_income', sa.Numeric(precision=10, scale=2), nullable=True),
+    sa.Column('additional_income', sa.Numeric(precision=10, scale=2), nullable=True),
+    sa.Column('additional_income_source', sa.String(length=255), nullable=True),
+    sa.Column('bank_name', sa.String(length=255), nullable=True),
+    sa.Column('account_number', sa.String(length=50), nullable=True),
+    sa.Column('credit_score', sa.Integer(), nullable=True),
+    sa.Column('monthly_expenses', sa.Numeric(precision=10, scale=2), nullable=True),
+    sa.Column('current_rent', sa.Numeric(precision=10, scale=2), nullable=True),
+    sa.Column('previous_address', sa.Text(), nullable=True),
+    sa.Column('previous_landlord_name', sa.String(length=255), nullable=True),
+    sa.Column('previous_landlord_phone', sa.String(length=20), nullable=True),
+    sa.Column('reason_for_moving', sa.Text(), nullable=True),
+    sa.Column('rental_duration', sa.String(length=100), nullable=True),
+    sa.Column('move_in_date', sa.Date(), nullable=True),
+    sa.Column('lease_duration_preference', sa.String(length=100), nullable=True),
+    sa.Column('number_of_occupants', sa.Integer(), nullable=True),
+    sa.Column('pets', sa.Boolean(), nullable=True),
+    sa.Column('pet_details', sa.Text(), nullable=True),
+    sa.Column('smoking', sa.Boolean(), nullable=True),
+    sa.Column('additional_notes', sa.Text(), nullable=True),
+    sa.Column('id_document_path', sa.String(length=500), nullable=True),
+    sa.Column('income_proof_path', sa.String(length=500), nullable=True),
+    sa.Column('employment_letter_path', sa.String(length=500), nullable=True),
+    sa.Column('bank_statement_path', sa.String(length=500), nullable=True),
+    sa.Column('reference_letter_path', sa.String(length=500), nullable=True),
+    sa.Column('additional_documents_path', sa.Text(), nullable=True),
+    sa.Column('step_completed', sa.Integer(), nullable=True),
+    sa.Column('is_complete', sa.Boolean(), nullable=True),
     sa.ForeignKeyConstraint(['landlord_id'], ['users.id'], ),
     sa.ForeignKeyConstraint(['property_id'], ['properties.id'], ),
     sa.ForeignKeyConstraint(['tenant_id'], ['users.id'], ),
@@ -161,6 +200,7 @@ def upgrade():
     sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.Column('last_message_at', sa.DateTime(), nullable=True),
     sa.Column('last_message_by', sa.Integer(), nullable=True),
+    sa.Column('last_message_body', sa.String(length=255), nullable=True),
     sa.ForeignKeyConstraint(['booking_id'], ['bookings.id'], ),
     sa.ForeignKeyConstraint(['landlord_id'], ['users.id'], ),
     sa.ForeignKeyConstraint(['last_message_by'], ['users.id'], ),
