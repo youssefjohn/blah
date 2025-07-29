@@ -225,6 +225,108 @@ def withdraw_application(application_id):
     return jsonify({'success': True, 'message': 'Application withdrawn successfully'})
 
 
+# Route for updating an application (draft to final submission)
+@application_bp.route('/<int:application_id>', methods=['PUT'])
+def update_application(application_id):
+    try:
+        if 'user_id' not in session:
+            return jsonify({'success': False, 'error': 'Authentication required'}), 401
+        
+        app = Application.query.get(application_id)
+        if not app:
+            return jsonify({'success': False, 'error': 'Application not found'}), 404
+            
+        # Security check: ensure the logged-in user is the tenant who owns this application
+        if app.tenant_id != session['user_id']:
+            return jsonify({'success': False, 'error': 'Unauthorized. You can only update your own applications.'}), 403
+        
+        data = request.get_json()
+        
+        # Update application fields with new data
+        if 'full_name' in data:
+            app.full_name = data['full_name']
+        if 'phone_number' in data:
+            app.phone_number = data['phone_number']
+        if 'email_address' in data:
+            app.email = data['email_address']
+        if 'date_of_birth' in data:
+            app.date_of_birth = safe_date_parse(data['date_of_birth'])
+        if 'emergency_contact_name' in data:
+            app.emergency_contact_name = data['emergency_contact_name']
+        if 'emergency_contact_phone' in data:
+            app.emergency_contact_phone = data['emergency_contact_phone']
+            
+        # Employment Information
+        if 'employment_status' in data:
+            app.employment_status = data['employment_status']
+        if 'employer_name' in data:
+            app.employer_name = data['employer_name']
+        if 'job_title' in data:
+            app.job_title = data['job_title']
+        if 'employment_duration' in data:
+            app.employment_duration = data['employment_duration']
+        if 'monthly_income' in data:
+            app.monthly_income = safe_numeric_parse(data['monthly_income'])
+        if 'additional_income' in data:
+            app.additional_income = safe_numeric_parse(data['additional_income'])
+            
+        # Financial Information
+        if 'bank_name' in data:
+            app.bank_name = data['bank_name']
+        if 'credit_score' in data:
+            app.credit_score = safe_int_parse(data['credit_score'])
+        if 'monthly_expenses' in data:
+            app.monthly_expenses = safe_numeric_parse(data['monthly_expenses'])
+        if 'current_rent' in data:
+            app.current_rent = safe_numeric_parse(data['current_rent'])
+            
+        # Rental History
+        if 'previous_address' in data:
+            app.previous_address = data['previous_address']
+        if 'previous_landlord_name' in data:
+            app.previous_landlord_name = data['previous_landlord_name']
+        if 'previous_landlord_phone' in data:
+            app.previous_landlord_phone = data['previous_landlord_phone']
+        if 'rental_duration' in data:
+            app.rental_duration = data['rental_duration']
+        if 'reason_for_moving' in data:
+            app.reason_for_moving = data['reason_for_moving']
+            
+        # Preferences
+        if 'move_in_date' in data:
+            app.move_in_date = safe_date_parse(data['move_in_date'])
+        if 'lease_duration' in data:
+            app.lease_duration_preference = data['lease_duration']
+        if 'number_of_occupants' in data:
+            app.number_of_occupants = safe_int_parse(data['number_of_occupants'])
+        if 'pets' in data:
+            app.pets = data['pets'] == 'Yes'
+        if 'smoking' in data:
+            app.smoking = data['smoking'] == 'Yes'
+        if 'additional_notes' in data:
+            app.additional_notes = data['additional_notes']
+            
+        # Application Status Updates
+        if 'step_completed' in data:
+            app.step_completed = data['step_completed']
+        if 'is_complete' in data:
+            app.is_complete = data['is_complete']
+        if 'status' in data:
+            app.status = data['status']
+            
+        # Update the updated_at timestamp
+        app.updated_at = datetime.utcnow()
+        
+        db.session.commit()
+        
+        return jsonify({'success': True, 'application': app.to_dict()}), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error in update_application: {str(e)}")
+        return jsonify({'success': False, 'error': 'Internal server error occurred while updating application'}), 500
+
+
 # Route for a landlord to update an application's status
 @application_bp.route('/<int:application_id>/status', methods=['PUT'])
 def update_application_status(application_id):
