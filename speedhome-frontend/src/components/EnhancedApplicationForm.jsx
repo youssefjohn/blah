@@ -199,18 +199,32 @@ const EnhancedApplicationForm = ({ propertyId, onClose, onSuccess }) => {
       console.log('Draft application data being sent:', draftData);
       const response = await ApplicationAPI.createApplication(draftData);
       console.log('Draft application response:', response);
+      console.log('Response type:', typeof response);
+      console.log('Response keys:', Object.keys(response || {}));
       
-      if (response.success && response.data && response.data.id) {
-        setApplicationId(response.data.id);
-        console.log('Draft application created with ID:', response.data.id);
+      if (response && response.success && response.application && response.application.id) {
+        const newApplicationId = response.application.id;
+        setApplicationId(newApplicationId);
+        console.log('✅ Draft application created successfully with ID:', newApplicationId);
+        console.log('✅ ApplicationId state will be updated to:', newApplicationId);
+        
+        // Force a small delay to ensure state update
+        setTimeout(() => {
+          console.log('✅ Current applicationId state after timeout:', newApplicationId);
+        }, 100);
       } else {
-        console.error('Failed to create draft application:', response.error);
+        console.error('❌ Failed to create draft application - Invalid response structure');
+        console.error('❌ Expected: {success: true, application: {id: number}}');
+        console.error('❌ Received:', response);
+        console.error('❌ Error message:', response?.error || 'Unknown error');
       }
     } catch (error) {
-      console.error('Error creating draft application:', error);
-      console.error('Failed to create draft application:', error.message);
+      console.error('❌ Exception in createDraftApplication:', error);
+      console.error('❌ Error message:', error.message);
+      console.error('❌ Error stack:', error.stack);
     } finally {
       setIsCreatingDraft(false);
+      console.log('✅ Draft creation process completed, isCreatingDraft set to false');
     }
   };
 
