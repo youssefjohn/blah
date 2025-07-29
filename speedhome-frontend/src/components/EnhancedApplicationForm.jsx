@@ -57,6 +57,7 @@ const EnhancedApplicationForm = ({ propertyId, onClose, onSuccess }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState({});
   const [applicationId, setApplicationId] = useState(null);
+  const [isCreatingDraft, setIsCreatingDraft] = useState(false);
 
   // Debug propertyId
   useEffect(() => {
@@ -165,9 +166,47 @@ const EnhancedApplicationForm = ({ propertyId, onClose, onSuccess }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const nextStep = () => {
+  const nextStep = async () => {
     if (validateStep(currentStep)) {
+      // If moving to Step 6 (Document Upload), create draft application
+      if (currentStep === 4 && !applicationId) { // Step 4 -> Step 5 (0-indexed, so Step 6)
+        await createDraftApplication();
+      }
       setCurrentStep(prev => Math.min(prev + 1, steps.length - 1));
+    }
+  };
+
+  const createDraftApplication = async () => {
+    try {
+      setIsCreatingDraft(true);
+      console.log('Creating draft application for document uploads...');
+      
+      const draftData = {
+        property_id: propertyId,
+        status: 'draft',
+        // Include current form data
+        full_name: formData.full_name,
+        phone_number: formData.phone_number,
+        email_address: formData.email_address,
+        date_of_birth: formData.date_of_birth,
+        employment_status: formData.employment_status,
+        employer_name: formData.employer_name,
+        monthly_income: formData.monthly_income,
+        // Add other essential fields as needed
+      };
+
+      const response = await ApplicationAPI.createApplication(draftData);
+      
+      if (response.success && response.data && response.data.id) {
+        setApplicationId(response.data.id);
+        console.log('Draft application created with ID:', response.data.id);
+      } else {
+        console.error('Failed to create draft application:', response.error);
+      }
+    } catch (error) {
+      console.error('Error creating draft application:', error);
+    } finally {
+      setIsCreatingDraft(false);
     }
   };
 
@@ -196,22 +235,27 @@ const EnhancedApplicationForm = ({ propertyId, onClose, onSuccess }) => {
         is_complete: true
       };
 
-      console.log('Enhanced Application Form - Application data being sent:', applicationData);
+      let response;
+      
+      // If we have a draft application, update it to final status
+      if (applicationId) {
+        console.log('Updating draft application to final status:', applicationId);
+        response = await ApplicationAPI.updateApplication(applicationId, {
+          ...applicationData,
+          status: 'pending' // Change from draft to pending
+        });
+      } else {
+        // Create new application (fallback if no draft was created)
+        console.log('Creating new application (no draft found)');
+        response = await ApplicationAPI.createApplication(applicationData);
+        
+        if (response.success && response.data && response.data.id) {
+          setApplicationId(response.data.id);
+        }
+      }
 
-      const response = await ApplicationAPI.createApplication(applicationData);
-      
-      console.log('Enhanced Application Form - API response:', response);
-      console.log('Enhanced Application Form - Response success:', response.success);
-      
       if (response.success) {
         console.log('Enhanced Application Form - Calling onSuccess callback');
-        
-        // Store application ID for document uploads
-        if (response.data && response.data.id) {
-          setApplicationId(response.data.id);
-          console.log('Enhanced Application Form - Application ID set:', response.data.id);
-        }
-        
         onSuccess && onSuccess();
       } else {
         console.log('Enhanced Application Form - API response failed:', response.error);
@@ -594,6 +638,15 @@ const EnhancedApplicationForm = ({ propertyId, onClose, onSuccess }) => {
             <div className="text-sm text-gray-600 mb-4">
               Please upload the required documents. Accepted formats: PDF, JPG, PNG (max 5MB each)
             </div>
+
+            {isCreatingDraft && (
+              <div className="bg-blue-50 border border-blue-200 rounded-md p-4 text-center">
+                <div className="flex items-center justify-center space-x-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                  <p className="text-sm text-blue-800">Preparing document upload...</p>
+                </div>
+              </div>
+            )}
             
             {[
               { key: 'id_document', label: 'ID Document', required: true },
@@ -633,14 +686,22 @@ const EnhancedApplicationForm = ({ propertyId, onClose, onSuccess }) => {
                     return newFiles;
                   });
                 }}
-                disabled={!applicationId}
+                disabled={isCreatingDraft || !applicationId} // Disable while creating draft or if no applicationId
               />
             ))}
             
-            {!applicationId && (
+            {!applicationId && !isCreatingDraft && (
               <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
                 <p className="text-sm text-yellow-800">
-                  Please complete and submit your application first to enable document uploads.
+                  Document uploads will be enabled once you reach this step from the previous steps.
+                </p>
+              </div>
+            )}
+
+            {applicationId && (
+              <div className="bg-green-50 border border-green-200 rounded-md p-3">
+                <p className="text-sm text-green-800">
+                  ✓ Document uploads are now enabled. You can upload your documents and they will be saved with your application.
                 </p>
               </div>
             )}
