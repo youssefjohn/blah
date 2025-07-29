@@ -180,9 +180,10 @@ const EnhancedApplicationForm = ({ propertyId, onClose, onSuccess }) => {
     try {
       setIsCreatingDraft(true);
       console.log('Creating draft application for document uploads...');
+      console.log('propertyId value:', propertyId, 'type:', typeof propertyId);
       
       const draftData = {
-        property_id: propertyId,
+        propertyId: propertyId, // Fixed: backend expects 'propertyId', not 'property_id'
         status: 'draft',
         // Include current form data
         full_name: formData.full_name,
@@ -195,7 +196,9 @@ const EnhancedApplicationForm = ({ propertyId, onClose, onSuccess }) => {
         // Add other essential fields as needed
       };
 
+      console.log('Draft application data being sent:', draftData);
       const response = await ApplicationAPI.createApplication(draftData);
+      console.log('Draft application response:', response);
       
       if (response.success && response.data && response.data.id) {
         setApplicationId(response.data.id);
@@ -205,6 +208,7 @@ const EnhancedApplicationForm = ({ propertyId, onClose, onSuccess }) => {
       }
     } catch (error) {
       console.error('Error creating draft application:', error);
+      console.error('Failed to create draft application:', error.message);
     } finally {
       setIsCreatingDraft(false);
     }
