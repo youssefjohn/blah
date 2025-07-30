@@ -17,6 +17,8 @@ import NotificationAPI from './services/NotificationAPI';
 import Lightbox from "yet-another-react-lightbox";
 import TenantBookingCalendar from './components/TenantBookingCalendar';
 import PropertyAPI from './services/PropertyAPI';
+import EnhancedApplicationForm from './components/EnhancedApplicationForm';
+import DocumentUploadTest from './pages/DocumentUploadTest';
 
 const PropertyDetailPage = ({ properties, isFavorite, toggleFavorite, setSelectedProperty, onApplyClick, onScheduleClick }) => {
   const { propertyId } = useParams();
@@ -24,6 +26,11 @@ const PropertyDetailPage = ({ properties, isFavorite, toggleFavorite, setSelecte
   const [property, setProperty] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasApplied, setHasApplied] = useState(false);
+  
+  // Debug hasApplied state changes
+  useEffect(() => {
+    console.log('App.jsx - hasApplied state changed to:', hasApplied);
+  }, [hasApplied]);
   const [hasScheduledViewing, setHasScheduledViewing] = useState(false);
   const [mainImage, setMainImage] = useState(null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -236,7 +243,7 @@ const PropertyDetailPage = ({ properties, isFavorite, toggleFavorite, setSelecte
                     <button onClick={() => alert('Chat modal coming soon!')} className="w-full bg-yellow-500 text-white px-6 py-3 rounded-lg hover:bg-yellow-600 transition-colors font-semibold flex items-center justify-center gap-2"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>Contact Landlord</button>
                     <button onClick={onScheduleClick} disabled={isScheduleButtonDisabled} className={`w-full text-white px-6 py-3 rounded-lg transition-colors font-semibold flex items-center justify-center gap-2 ${ isScheduleButtonDisabled ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-600' }`}><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>{scheduleButtonText}</button>
                     <button onClick={() => alert('Video modal coming soon!')} className="w-full bg-green-500 text-white px-6 py-3 rounded-lg hover:bg-green-600 transition-colors font-semibold flex items-center justify-center gap-2"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>Virtual Tour</button>
-                    {isTenant() && property.status === 'Active' && !hasApplied && (<button onClick={onApplyClick} className="w-full bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition-colors font-semibold flex items-center justify-center gap-2">Apply Now</button>)}
+                    {isTenant() && property.status === 'Active' && !hasApplied && (<button onClick={() => onApplyClick(setHasApplied)} className="w-full bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition-colors font-semibold flex items-center justify-center gap-2">Apply Now</button>)}
                     {isTenant() && hasApplied && (<div className="text-center p-3 bg-green-100 text-green-800 rounded-lg font-semibold">✓ You have applied</div>)}
                   </div>
                   <div className="mt-6 pt-4 border-t border-gray-200">
@@ -406,7 +413,6 @@ function AppContent() {
   const [viewMode, setViewMode] = useState('grid');
   const [selectedProperty, setSelectedProperty] = useState(null);
   const [showApplyModal, setShowApplyModal] = useState(false);
-  const [applicationMessage, setApplicationMessage] = useState('');
   const [showImageLightbox, setShowImageLightbox] = useState(false);
   const [showChatModal, setShowChatModal] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
@@ -417,6 +423,7 @@ function AppContent() {
   const [availableSlots, setAvailableSlots] = useState([]);
   const [isLoadingSlots, setIsLoadingSlots] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState(null);
+  const [hasAppliedCallback, setHasAppliedCallback] = useState(null);
 
   const { user, isAuthenticated } = useAuth();
   const [notifications, setNotifications] = useState([]);
@@ -524,32 +531,7 @@ function AppContent() {
     amenities: []
   });
   
-  const handleApplicationSubmit = async (e) => {
-      e.preventDefault(); 
-      if (!selectedProperty) return alert('An error occurred. No property selected.');
-  
-      try {
-        const result = await ApplicationAPI.createApplication({
-          propertyId: selectedProperty.id,
-          message: applicationMessage,
-        });
-  
-        if (result.success) {
-          alert('Your application has been submitted successfully!');
-          setShowApplyModal(false);
-          setApplicationMessage('');
-          setDetailPageVersion(v => v + 1);
-        } else {
-          alert(`Error: ${result.error}`);
-        }
-      } catch (error) {
-        console.error('Failed to submit application:', error);
-        alert('An unexpected error occurred. Please try again.');
-      }
-    };
-
-  // REPLACE your old handleScheduleSubmit function with this one
-const handleScheduleSubmit = async (e) => {
+  const handleScheduleSubmit = async (e) => {
     e.preventDefault();
     if (!selectedProperty) return alert('An error occurred. No property selected.');
     if (!selectedSlot) return alert('Please select an available viewing slot.');
@@ -788,7 +770,12 @@ const handleScheduleSubmit = async (e) => {
                 toggleFavorite={toggleFavorite}
             />
         } />
-        <Route path="/property/:propertyId" element={<PropertyDetailPage key={detailPageVersion} properties={properties} isFavorite={isFavorite} toggleFavorite={toggleFavorite} setSelectedProperty={setSelectedProperty} onApplyClick={() => setShowApplyModal(true)} onScheduleClick={() => setShowScheduleModal(true)} />} />
+        <Route path="/property/:propertyId" element={<PropertyDetailPage key={detailPageVersion} properties={properties} isFavorite={isFavorite} toggleFavorite={toggleFavorite} setSelectedProperty={setSelectedProperty} onApplyClick={(hasAppliedSetter) => {
+          console.log('App.jsx - onApplyClick triggered, hasAppliedSetter:', typeof hasAppliedSetter);
+          setShowApplyModal(true);
+          setHasAppliedCallback(() => hasAppliedSetter);
+          console.log('App.jsx - hasAppliedCallback set successfully');
+        }} onScheduleClick={() => setShowScheduleModal(true)} />} />
         <Route path="/landlord" element={<LandlordDashboard onAddProperty={() => setShowAddPropertyModal(true)} />} />
         <Route path="/tenant" element={<TenantPage />} />
         <Route path="/about-us" element={<AboutUs />} />
@@ -797,35 +784,37 @@ const handleScheduleSubmit = async (e) => {
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         <Route path="/contact-us" element={<ContactUs />} />
         <Route path="/dashboard" element={<UserDashboard favorites={favorites} properties={properties} toggleFavorite={toggleFavorite} />} />
+        <Route path="/document-upload-test" element={<DocumentUploadTest />} />
       </Routes>
       <Footer />
 
-      {/* Apply Modal */}
+      {/* Enhanced Application Form */}
       {showApplyModal && selectedProperty && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-xl max-w-md w-full shadow-2xl">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">Apply for Property</h2>
-                <button onClick={() => setShowApplyModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">×</button>
-              </div>
-              <div className="mb-4 p-4 bg-gray-50 rounded-lg">
-                <h3 className="font-semibold text-gray-900">{selectedProperty.title}</h3>
-                <p className="text-sm text-gray-600">{selectedProperty.location}</p>
-              </div>
-              <form onSubmit={handleApplicationSubmit} className="space-y-4">
-                <div>
-                  <label htmlFor="applicationMessage" className="block text-sm font-medium text-gray-700 mb-2">Your Message to the Landlord</label>
-                  <textarea id="applicationMessage" value={applicationMessage} onChange={(e) => setApplicationMessage(e.target.value)} rows={4} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Introduce yourself, mention who will be living with you, your occupation, etc." />
-                </div>
-                <div className="flex gap-3 pt-4">
-                  <button type="button" onClick={() => setShowApplyModal(false)} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">Cancel</button>
-                  <button type="submit" className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-semibold">Submit Application</button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
+        <EnhancedApplicationForm
+          propertyId={selectedProperty.id}
+          onClose={() => setShowApplyModal(false)}
+          onSuccess={() => {
+            try {
+              console.log('App.jsx - onSuccess callback triggered');
+              console.log('App.jsx - hasAppliedCallback:', hasAppliedCallback);
+              console.log('App.jsx - hasAppliedCallback type:', typeof hasAppliedCallback);
+              setShowApplyModal(false);
+              if (hasAppliedCallback && typeof hasAppliedCallback === 'function') {
+                console.log('App.jsx - Calling hasAppliedCallback(true)');
+                hasAppliedCallback(true);
+                console.log('App.jsx - hasAppliedCallback(true) completed');
+              } else {
+                console.log('App.jsx - hasAppliedCallback is not available or not a function');
+              }
+              alert('Application submitted successfully!');
+              console.log('App.jsx - onSuccess callback completed successfully');
+            } catch (error) {
+              console.log('App.jsx - Error in onSuccess callback:', error);
+              setShowApplyModal(false);
+              alert('Application submitted successfully!');
+            }
+          }}
+        />
       )}
 
       {/* Schedule Viewing Modal */}

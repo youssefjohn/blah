@@ -25,6 +25,7 @@ from src.routes.booking import booking_bp
 from src.routes.application import application_bp
 from src.routes.notification import notification_bp
 from src.routes.messaging import messaging_bp
+from src.routes.documents import documents_bp
 
 # Import admin components
 from src.admin.admin_config import init_admin
@@ -47,6 +48,7 @@ app.register_blueprint(booking_bp, url_prefix='/api')
 app.register_blueprint(application_bp)
 app.register_blueprint(notification_bp, url_prefix='/api')
 app.register_blueprint(messaging_bp, url_prefix='/api')
+app.register_blueprint(documents_bp)
 
 # Register admin authentication blueprint
 app.register_blueprint(admin_auth_bp)
