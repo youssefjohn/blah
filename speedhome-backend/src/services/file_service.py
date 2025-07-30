@@ -23,7 +23,8 @@ class FileService:
         'income_proof',
         'employment_letter',
         'bank_statement',
-        'reference_letter'
+        'reference_letter',
+        'credit_check'
     ]
     
     def __init__(self):

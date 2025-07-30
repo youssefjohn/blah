@@ -351,6 +351,7 @@ const ApplicationDetailsModal = ({ application, onClose, onApprove, onReject }) 
                   {renderDocumentRow('employment_letter', 'Employment Letter', application.employment_letter_path)}
                   {renderDocumentRow('bank_statement', 'Bank Statement', application.bank_statement_path)}
                   {renderDocumentRow('reference_letter', 'Reference Letter', application.reference_letter_path)}
+                  {renderDocumentRow('credit_check', 'Credit Check', application.credit_check_path)}
                 </div>
               </div>
 

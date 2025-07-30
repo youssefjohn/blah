@@ -671,7 +671,8 @@ const EnhancedApplicationForm = ({ propertyId, onClose, onSuccess }) => {
               { key: 'income_proof', label: 'Income Proof', required: true },
               { key: 'employment_letter', label: 'Employment Letter', required: false },
               { key: 'bank_statement', label: 'Bank Statement', required: false },
-              { key: 'reference_letter', label: 'Reference Letter', required: false }
+              { key: 'reference_letter', label: 'Reference Letter', required: false },
+              { key: 'credit_check', label: 'Credit Check', required: false }
             ].map(({ key, label, required }) => (
               <DocumentUpload
                 key={key}

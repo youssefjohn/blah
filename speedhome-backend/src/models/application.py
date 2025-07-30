@@ -67,6 +67,7 @@ class Application(db.Model):
     employment_letter_path = db.Column(db.String(500), nullable=True)
     bank_statement_path = db.Column(db.String(500), nullable=True)
     reference_letter_path = db.Column(db.String(500), nullable=True)
+    credit_check_path = db.Column(db.String(500), nullable=True)
     additional_documents_path = db.Column(db.Text, nullable=True)  # JSON array of file paths
 
     # Application Completion Status
