@@ -132,6 +132,7 @@ class Application(db.Model):
             'employment_letter_path': self.employment_letter_path,
             'bank_statement_path': self.bank_statement_path,
             'reference_letter_path': self.reference_letter_path,
+            'credit_check_path': self.credit_check_path,
             'additional_documents_path': self.additional_documents_path,
             
             'step_completed': self.step_completed,
