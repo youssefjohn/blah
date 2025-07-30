@@ -10,6 +10,9 @@ import PrivacyPolicy from './pages/PrivacyPolicy';
 import ContactUs from './pages/ContactUs';
 import UserDashboard from './pages/UserDashboard';
 import LandlordDashboard from './pages/LandlordDashboard';
+import AgreementView from './pages/AgreementView';
+import PaymentPage from './pages/PaymentPage';
+import PaymentSuccessPage from './pages/PaymentSuccessPage';
 import BookingAPI from './services/BookingAPI';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import ApplicationAPI from './services/ApplicationAPI';
@@ -785,6 +788,9 @@ function AppContent() {
         <Route path="/contact-us" element={<ContactUs />} />
         <Route path="/dashboard" element={<UserDashboard favorites={favorites} properties={properties} toggleFavorite={toggleFavorite} />} />
         <Route path="/document-upload-test" element={<DocumentUploadTest />} />
+        <Route path="/agreement/:agreementId" element={<AgreementView />} />
+        <Route path="/agreement/:id/payment" element={<PaymentPage />} />
+        <Route path="/agreement/:id/payment-success" element={<PaymentSuccessPage />} />
       </Routes>
       <Footer />
 
