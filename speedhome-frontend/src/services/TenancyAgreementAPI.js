@@ -329,7 +329,7 @@ class TenancyAgreementAPI {
     }
   }
 
-  /**
+   /**
    * Get service status
    */
   static async getServiceStatus() {
@@ -341,11 +341,31 @@ class TenancyAgreementAPI {
           'Content-Type': 'application/json',
         },
       });
-
       const data = await response.json();
       return data;
     } catch (error) {
       console.error('Error getting service status:', error);
+      return { success: false, error: 'Network error occurred' };
+    }
+  }
+
+  /**
+   * Get tenant agreements (for tenant dashboard)
+   */
+  static async getTenantAgreements() {
+    try {
+      const response = await fetch(`${API_BASE_URL}/tenant`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching tenant agreements:', error);
       return { success: false, error: 'Network error occurred' };
     }
   }

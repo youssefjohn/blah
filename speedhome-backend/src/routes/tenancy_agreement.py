@@ -64,6 +64,25 @@ def get_agreement(agreement_id):
     })
 
 
+@tenancy_agreement_bp.route('/tenant', methods=['GET'])
+def get_tenant_agreements():
+    """Get tenancy agreements for the current tenant"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+    
+    user_id = session['user_id']
+    
+    # Get agreements where user is the tenant
+    agreements = TenancyAgreement.query.filter(
+        TenancyAgreement.tenant_id == user_id
+    ).order_by(TenancyAgreement.created_at.desc()).all()
+    
+    return jsonify({
+        'success': True,
+        'agreements': [agreement.to_dict() for agreement in agreements]
+    })
+
+
 @tenancy_agreement_bp.route('/create-from-application', methods=['POST'])
 def create_agreement_from_application():
     """Create a tenancy agreement from an approved application"""
