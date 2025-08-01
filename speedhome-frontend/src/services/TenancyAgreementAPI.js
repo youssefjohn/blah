@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:5001/api/tenancy-agreements';
+const API_BASE_URL = 'http://localhost:5001/api/tenancy-agreements/';
 
 class TenancyAgreementAPI {
   /**
@@ -27,7 +27,7 @@ class TenancyAgreementAPI {
    */
   static async getById(agreementId) {
     try {
-      const response = await fetch(`${API_BASE_URL}/${agreementId}`, {
+      const response = await fetch(`${API_BASE_URL}${agreementId}`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -70,12 +70,13 @@ class TenancyAgreementAPI {
    */
   static async signAgreement(agreementId) {
     try {
-      const response = await fetch(`${API_BASE_URL}/${agreementId}/sign`, {
+      const response = await fetch(`${API_BASE_URL}${agreementId}/sign`, {
         method: 'POST',
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({}),
       });
 
       const data = await response.json();

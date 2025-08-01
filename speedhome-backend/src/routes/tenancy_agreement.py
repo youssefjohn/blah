@@ -1,13 +1,14 @@
-from flask import Blueprint, request, jsonify, send_file
+from flask import Blueprint, request, jsonify, send_file, session
 from flask_login import login_required, current_user
 from ..models.tenancy_agreement import TenancyAgreement
+from src.services.pdf_service import pdf_service
 from ..models.application import Application
 from ..models.property import Property
 from ..models.user import User
 from ..models import db
 from ..services.pdf_service import pdf_service
 from ..services.workflow_coordinator import workflow_coordinator
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 import logging
 
@@ -123,7 +124,7 @@ def create_agreement_from_application():
             
             # Property snapshot
             property_address=f"{property_obj.title}, {property_obj.location}",
-            property_type=property_obj.propertyType,
+            property_type=property_obj.property_type,
             property_bedrooms=property_obj.bedrooms,
             property_bathrooms=property_obj.bathrooms,
             property_sqft=property_obj.sqft,
@@ -417,12 +418,17 @@ def preview_agreement(agreement_id):
         # Check if user has access to this agreement
         if agreement.tenant_id != user_id and agreement.landlord_id != user_id:
             return jsonify({'success': False, 'error': 'Unauthorized access'}), 403
+
+        agreement_property = Property.query.get(agreement.property_id)
+        if not property:
+            return jsonify({'success': False, 'error': 'Associated property not found'}), 404
         
         # Render the HTML template for preview
         from flask import render_template
         return render_template(
             'tenancy_agreement.html',
             agreement=agreement,
+            property=agreement_property,
             is_draft=agreement.status != 'active'
         )
         

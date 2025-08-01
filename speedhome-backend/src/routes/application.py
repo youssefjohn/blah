@@ -1,9 +1,11 @@
-from flask import Blueprint, request, jsonify, session
+from flask import Blueprint, request, jsonify, session, current_app
 from src.models.user import db, User
 from src.models.property import Property
 from src.models.application import Application
 from src.models.notification import Notification
-from datetime import datetime
+from src.services.pdf_service import pdf_service
+from datetime import datetime, timedelta
+from src.models.tenancy_agreement import TenancyAgreement
 
 application_bp = Blueprint('application_bp', __name__, url_prefix='/api/applications')
 
@@ -332,24 +334,24 @@ def update_application(application_id):
 def update_application_status(application_id):
     if 'user_id' not in session:
         return jsonify({'success': False, 'error': 'Authentication required'}), 401
-        
+
     app = Application.query.get(application_id)
     if not app:
         return jsonify({'success': False, 'error': 'Application not found'}), 404
-        
+
     if app.landlord_id != session['user_id']:
         return jsonify({'success': False, 'error': 'Unauthorized'}), 403
-        
+
     data = request.get_json()
     new_status = data.get('status')
-    
+
     if new_status not in ['approved', 'rejected']:
         return jsonify({'success': False, 'error': 'Invalid status'}), 400
-        
+
     app.status = new_status
-    
+
     prop = Property.query.get(app.property_id)
-    
+
     # Create a notification for the tenant whose application status changed
     tenant_notification = Notification(
         recipient_id=app.tenant_id,
@@ -358,35 +360,86 @@ def update_application_status(application_id):
     )
     db.session.add(tenant_notification)
 
-    # ✅ --- START: NEW AUTOMATION LOGIC ---
     if new_status == 'approved':
         # 1. Update the property status to 'Rented'
         if prop:
             prop.status = 'Rented'
             db.session.add(prop)
 
-        # 2. Find all other pending applications for this same property
+        # 2. Reject all other pending applications for this same property
         other_pending_apps = Application.query.filter(
             Application.property_id == app.property_id,
-            Application.id != application_id, # Exclude the application we just approved
+            Application.id != application_id,
             Application.status == 'pending'
         ).all()
 
-        # 3. Reject other applications and notify the applicants
         for other_app in other_pending_apps:
             other_app.status = 'rejected'
             db.session.add(other_app)
-            
+
             rejection_notification = Notification(
                 recipient_id=other_app.tenant_id,
                 message=f"A property you applied for, '{prop.title}', is no longer available.",
                 link="/dashboard"
             )
             db.session.add(rejection_notification)
-    # ✅ --- END: NEW AUTOMATION LOGIC ---
+
+        # --- ✅ START: NEW AGREEMENT & PDF LOGIC ---
+        # Check if an agreement already exists to avoid duplicates
+        existing_agreement = TenancyAgreement.query.filter_by(application_id=app.id).first()
+        if not existing_agreement:
+            tenant = User.query.get(app.tenant_id)
+            landlord = User.query.get(app.landlord_id)
+
+            # Calculate lease end date and months, with defaults
+            lease_end = None
+            months = 12  # Default to 12 months if not specified
+            if app.lease_duration_preference:
+                try:
+                    # Handle cases like "12 months" or just "12"
+                    months = int(app.lease_duration_preference.split()[0])
+                except (ValueError, IndexError):
+                    # If parsing fails, fall back to the default
+                    months = 12
+
+            if app.move_in_date:
+                lease_end = app.move_in_date + timedelta(days=months * 30)  # Approximation
+
+            # 3. Create the TenancyAgreement record
+            new_agreement = TenancyAgreement(
+                application_id=app.id,
+                property_id=app.property_id,
+                landlord_id=app.landlord_id,
+                tenant_id=app.tenant_id,
+                monthly_rent=prop.price,
+                security_deposit=prop.price * 2,  # Example: 2 months rent
+                lease_start_date=app.move_in_date,
+                lease_end_date=lease_end,
+                lease_duration_months=months,
+                property_address=prop.location,
+                property_type=prop.property_type,
+                tenant_full_name=app.full_name or tenant.get_full_name(),
+                tenant_phone=app.phone_number or tenant.phone,
+                tenant_email=app.email or tenant.email,
+                landlord_full_name=landlord.get_full_name(),
+                landlord_phone=landlord.phone,
+                landlord_email=landlord.email,
+            )
+            db.session.add(new_agreement)
+            db.session.commit()  # Commit here to get the new_agreement.id
+
+            # 4. Generate and save the DRAFT PDF using your service
+            try:
+                pdf_path = pdf_service.generate_draft_pdf(new_agreement, prop)
+                # 5. Save the file path to the database
+                new_agreement.draft_pdf_path = pdf_path
+                db.session.add(new_agreement)
+            except Exception as e:
+                current_app.logger.error(f"Failed to generate PDF for new agreement {new_agreement.id}: {e}")
+        # --- ✅ END: NEW AGREEMENT & PDF LOGIC ---
 
     db.session.commit()
-    
+
     return jsonify({'success': True, 'application': app.to_dict()})
 
 @application_bp.route('/status', methods=['GET'])

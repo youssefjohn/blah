@@ -22,7 +22,7 @@ const AgreementView = () => {
   const loadAgreement = async () => {
     try {
       setLoading(true);
-      const response = await TenancyAgreementAPI.getAgreement(agreementId);
+      const response = await TenancyAgreementAPI.getById(agreementId);
       if (response.success) {
         setAgreement(response.agreement);
       } else {
@@ -355,7 +355,7 @@ const AgreementView = () => {
                   {!landlordSigned && tenantSigned && (
                     <p>Waiting for landlord to sign the agreement.</p>
                   )}
-                  <p className="mt-2">Once both parties sign, you'll proceed to payment.</p>
+                  <p className="mt-2">Once both parties sign, the tenant will be prompted for payment to activate the tenancy.</p>
                 </div>
               </div>
             )}

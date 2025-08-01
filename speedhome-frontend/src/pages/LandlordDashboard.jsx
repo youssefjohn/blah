@@ -11,6 +11,8 @@ import RecurringAvailabilityManager from '../components/RecurringAvailabilityMan
 import UnifiedCalendar from '../components/UnifiedCalendar';
 import MessagingCenter from '../components/MessagingCenter';
 import ApplicationDetailsModal from '../components/ApplicationDetailsModal';
+import { useNavigate } from 'react-router-dom';
+import { formatDate } from '../utils/dateUtils';
 
 
 const LandlordDashboard = ({ onAddProperty }) => {
@@ -172,7 +174,7 @@ const LandlordDashboard = ({ onAddProperty }) => {
 
     try {
       setAgreementsLoading(true);
-      const result = await TenancyAgreementAPI.getAgreements();
+      const result = await TenancyAgreementAPI.getAll();
 
       if (result.success) {
         setTenancyAgreements(result.agreements);
@@ -556,44 +558,32 @@ const LandlordDashboard = ({ onAddProperty }) => {
 
   // Handle tenant application response
   const handleApplicationResponse = async (applicationId, response) => {
-    const application = tenantApplications.find(app => app.id === applicationId);
-    if (application && !application.is_seen_by_landlord) {
-      handleMarkApplicationAsSeen(applicationId);
-    }
+  const application = tenantApplications.find(app => app.id === applicationId);
+  if (application && !application.is_seen_by_landlord) {
+    handleMarkApplicationAsSeen(applicationId);
+  }
 
-    const newStatus = response === 'approved' ? 'approved' : 'rejected';
+  const newStatus = response === 'approved' ? 'approved' : 'rejected';
 
-    try {
-      // First, update the application status
-      const result = await ApplicationAPI.updateApplicationStatus(applicationId, newStatus);
-      if (result.success) {
-        // If approved, create a tenancy agreement
-        if (newStatus === 'approved') {
-          try {
-            const agreementResult = await TenancyAgreementAPI.createFromApplication(applicationId);
-            if (agreementResult.success) {
-              alert(`Tenant application has been approved successfully! A tenancy agreement has been created and both parties will be notified to sign the agreement.`);
-            } else {
-              alert(`Application approved, but failed to create tenancy agreement: ${agreementResult.error}`);
-            }
-          } catch (agreementError) {
-            console.error('Error creating tenancy agreement:', agreementError);
-            alert('Application approved, but there was an error creating the tenancy agreement. Please contact support.');
-          }
-        } else {
-          alert(`Tenant application has been ${newStatus} successfully!`);
-        }
-        
-        // Refresh the list from the server to show the change
-        await loadApplications();
-      } else {
-        alert(`Failed to update application: ${result.error}`);
-      }
-    } catch (error) {
-      console.error('Error updating application status:', error);
-      alert('An error occurred while updating the application.');
+  try {
+    // This single call tells the backend to approve the application.
+    // The backend will now automatically create the tenancy agreement.
+    const result = await ApplicationAPI.updateApplicationStatus(applicationId, newStatus);
+
+    if (result.success) {
+      alert(`Tenant application has been ${newStatus} successfully!`);
+
+      // Refresh both lists to show the updated state
+      await loadApplications();
+      await loadAgreements();
+    } else {
+      alert(`Failed to update application: ${result.error}`);
     }
-  };
+  } catch (error) {
+    console.error('Error updating application status:', error);
+    alert('An error occurred while updating the application.');
+  }
+};
 
 
 

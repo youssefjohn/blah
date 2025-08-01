@@ -19,7 +19,7 @@ class PDFService:
     def __init__(self):
         self.font_config = FontConfiguration()
         
-    def generate_agreement_pdf(self, agreement, is_draft=True, output_path=None):
+    def generate_agreement_pdf(self, agreement, property, is_draft=True, output_path=None):
         """
         Generate a PDF for a tenancy agreement
         
@@ -36,6 +36,7 @@ class PDFService:
             html_content = render_template(
                 'tenancy_agreement.html',
                 agreement=agreement,
+                property=property,
                 is_draft=is_draft
             )
             
@@ -69,9 +70,9 @@ class PDFService:
             logger.error(f"Error generating PDF for agreement {agreement.id}: {str(e)}")
             raise
     
-    def generate_draft_pdf(self, agreement, output_path=None):
+    def generate_draft_pdf(self, agreement, property, output_path=None):
         """Generate a draft PDF with watermark"""
-        return self.generate_agreement_pdf(agreement, is_draft=True, output_path=output_path)
+        return self.generate_agreement_pdf(agreement, property, is_draft=True, output_path=output_path)
     
     def generate_final_pdf(self, agreement, output_path=None):
         """Generate a final PDF without watermark"""

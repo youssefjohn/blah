@@ -22,6 +22,7 @@ from src.models.application import Application
 # --- ADD THIS IMPORT ---
 from src.models.viewing_slot import ViewingSlot
 from config.test_config import TestConfig
+from src.models.tenancy_agreement import TenancyAgreement
 
 
 def seed_data():
@@ -33,6 +34,7 @@ def seed_data():
 
         # 1. Clear existing data to ensure a clean slate
         print("Clearing old data...")
+        db.session.query(TenancyAgreement).delete()
         db.session.query(Application).delete()
         db.session.query(Booking).delete()
         db.session.query(ViewingSlot).delete()  # Also clear viewing slots
@@ -48,6 +50,7 @@ def seed_data():
             first_name='Test',
             last_name='Landlord',
             role='landlord',
+            phone='0123456789',
             is_verified=True
         )
         landlord.set_password(TestConfig.LANDLORD_PASSWORD)

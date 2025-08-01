@@ -267,7 +267,7 @@
             </div>
             <div class="detail-item">
                 <span class="detail-label">Agreement Fee:</span>
-                <span class="detail-value">RM {{ "%.2f"|format(agreement.agreement_fee) }}</span>
+                <span class="detail-value">RM {{ "%.2f"|format(agreement.payment_required) }}</span>
             </div>
         </div>
     </div>
@@ -335,7 +335,7 @@
             </div>
             <div class="detail-item">
                 <span class="detail-label">Furnished:</span>
-                <span class="detail-value">{{ agreement.furnished_status.title() }}</span>
+                <span class="detail-value">{{ agreement.furnished_status.title() if agreement.furnished_status else 'Not specified' }}</span>
             </div>
         </div>
     </div>
@@ -353,7 +353,7 @@
             </div>
             <div class="financial-item">
                 <div class="label">Agreement Fee</div>
-                <div class="amount">RM {{ "%.2f"|format(agreement.agreement_fee) }}</div>
+                <div class="amount">RM {{ "%.2f"|format(agreement.payment_required) }}</div>
             </div>
         </div>
     </div>

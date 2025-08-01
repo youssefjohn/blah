@@ -155,6 +155,12 @@ const EnhancedApplicationForm = ({ propertyId, onClose, onSuccess }) => {
       case 2: // Financial Information
         if (!formData.bank_name) newErrors.bank_name = 'Bank name is required';
         break;
+
+      case 4: // Tenant Preferences
+      if (!formData.move_in_date) {
+        newErrors.move_in_date = 'Move-in date is required';
+      }
+      break;
       
       case 5: // Document Upload
         if (!uploadedFiles.id_document) newErrors.id_document = 'ID document is required';
@@ -570,13 +576,15 @@ const EnhancedApplicationForm = ({ propertyId, onClose, onSuccess }) => {
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="move_in_date">Preferred Move-in Date</Label>
-                <Input
-                  id="move_in_date"
-                  type="date"
-                  value={formData.move_in_date}
-                  onChange={(e) => handleInputChange('move_in_date', e.target.value)}
-                />
+                  <Label htmlFor="move_in_date">Preferred Move-in Date *</Label>
+                  <Input
+                    id="move_in_date"
+                    type="date"
+                    value={formData.move_in_date}
+                    onChange={(e) => handleInputChange('move_in_date', e.target.value)}
+                    className={errors.move_in_date ? 'border-red-500' : ''}
+                  />
+                  {errors.move_in_date && <p className="text-red-500 text-sm mt-1">{errors.move_in_date}</p>}
               </div>
               
               <div>
