@@ -384,7 +384,7 @@ class TenancyAgreementAPI {
    */
   static async withdrawLandlordOffer(agreementId, reason = 'Landlord changed mind') {
     try {
-      const response = await fetch(`${API_BASE_URL}${agreementId}/withdraw-offer`, {
+      const response = await fetch(`${API_BASE_URL}/${agreementId}/withdraw-offer`, {
         method: 'POST',
         credentials: 'include',
         headers: {
@@ -406,7 +406,7 @@ class TenancyAgreementAPI {
    */
   static async withdrawTenantSignature(agreementId, reason = 'Tenant changed mind') {
     try {
-      const response = await fetch(`${API_BASE_URL}${agreementId}/withdraw-signature`, {
+      const response = await fetch(`${API_BASE_URL}/${agreementId}/withdraw-signature`, {
         method: 'POST',
         credentials: 'include',
         headers: {
@@ -428,7 +428,7 @@ class TenancyAgreementAPI {
    */
   static async checkExpiry(agreementId) {
     try {
-      const response = await fetch(`${API_BASE_URL}${agreementId}/check-expiry`, {
+      const response = await fetch(`${API_BASE_URL}/${agreementId}/check-expiry`, {
         method: 'GET',
         credentials: 'include',
         headers: {
