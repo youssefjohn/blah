@@ -36,13 +36,38 @@ const PaymentPage = () => {
     }
   };
 
-  const handlePaymentSuccess = (paymentIntent) => {
+  const handlePaymentSuccess = async (paymentIntent) => {
     setPaymentStatus('success');
     
-    // Redirect to success page after a short delay
-    setTimeout(() => {
-      navigate(`/agreement/${id}/payment-success`);
-    }, 2000);
+    try {
+      // Record the payment completion in our backend
+      const paymentData = {
+        payment_intent_id: paymentIntent.id,
+        payment_method: paymentIntent.payment_method,
+        amount: paymentIntent.amount,
+        currency: paymentIntent.currency,
+        status: paymentIntent.status
+      };
+      
+      console.log('Recording payment completion:', paymentData);
+      const result = await TenancyAgreementAPI.recordPayment(id, paymentData);
+      
+      if (result.success) {
+        console.log('Payment recorded successfully, agreement status updated');
+        // Redirect to success page after recording payment
+        setTimeout(() => {
+          navigate(`/agreement/${id}/payment-success`);
+        }, 2000);
+      } else {
+        console.error('Failed to record payment:', result.error);
+        setPaymentStatus('error');
+        setError('Payment succeeded but failed to update agreement. Please contact support.');
+      }
+    } catch (error) {
+      console.error('Error recording payment:', error);
+      setPaymentStatus('error');
+      setError('Payment succeeded but failed to update agreement. Please contact support.');
+    }
   };
 
   const handlePaymentError = (errorMessage) => {
