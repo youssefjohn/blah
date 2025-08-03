@@ -11,6 +11,7 @@ import ContactUs from './pages/ContactUs';
 import UserDashboard from './pages/UserDashboard';
 import LandlordDashboard from './pages/LandlordDashboard';
 import AgreementView from './pages/AgreementView';
+import AgreementDemo from './pages/AgreementDemo';
 import PaymentPage from './pages/PaymentPage';
 import PaymentSuccessPage from './pages/PaymentSuccessPage';
 import BookingAPI from './services/BookingAPI';
@@ -789,6 +790,7 @@ function AppContent() {
         <Route path="/dashboard" element={<UserDashboard favorites={favorites} properties={properties} toggleFavorite={toggleFavorite} />} />
         <Route path="/document-upload-test" element={<DocumentUploadTest />} />
         <Route path="/agreement/:agreementId" element={<AgreementView />} />
+        <Route path="/agreement-demo" element={<AgreementDemo />} />
         <Route path="/agreement/:id/payment" element={<PaymentPage />} />
         <Route path="/agreement/:id/payment-success" element={<PaymentSuccessPage />} />
       </Routes>
