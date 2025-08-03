@@ -7,6 +7,13 @@ const AgreementView = () => {
   const { agreementId } = useParams();
   const navigate = useNavigate();
   const { user, isAuthenticated, isLandlord, isTenant } = useAuth();
+  
+  // Debug auth context
+  console.log('=== AUTH DEBUG ===');
+  console.log('User object:', user);
+  console.log('Is authenticated:', isAuthenticated);
+  console.log('User role (from user object):', user?.role);
+  console.log('==================');
   const [agreement, setAgreement] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -194,6 +201,21 @@ const AgreementView = () => {
   const tenantSigned = agreement.tenant_signed_at;
   const canSign = (userIsLandlord && !landlordSigned) || (userIsTenant && !tenantSigned);
   const allSigned = landlordSigned && tenantSigned;
+
+  // Debug logging for withdrawal button issues
+  console.log('=== WITHDRAWAL DEBUG ===');
+  console.log('User is landlord:', userIsLandlord);
+  console.log('User is tenant:', userIsTenant);
+  console.log('Agreement can_landlord_withdraw:', agreement.can_landlord_withdraw);
+  console.log('Agreement can_tenant_withdraw:', agreement.can_tenant_withdraw);
+  console.log('Landlord signed at:', agreement.landlord_signed_at);
+  console.log('Tenant signed at:', agreement.tenant_signed_at);
+  
+  const userRole = userIsLandlord ? 'landlord' : 'tenant';
+  const canWithdrawResult = TenancyAgreementAPI.canWithdraw(agreement, userRole);
+  console.log('User role for withdrawal:', userRole);
+  console.log('Can withdraw result:', canWithdrawResult);
+  console.log('========================');
 
   return (
     <div className="min-h-screen bg-gray-50">
