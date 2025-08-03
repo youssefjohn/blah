@@ -75,6 +75,12 @@ class TenancyAgreement(db.Model):
     cancelled_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     cancellation_reason = db.Column(db.Text, nullable=True)
     expires_at = db.Column(db.DateTime, nullable=True)            # Auto-expire if not completed
+    
+    # Withdrawal Tracking
+    landlord_withdrawn_at = db.Column(db.DateTime, nullable=True)  # When landlord withdrew offer
+    tenant_withdrawn_at = db.Column(db.DateTime, nullable=True)    # When tenant withdrew signature
+    withdrawal_reason = db.Column(db.Text, nullable=True)          # Reason for withdrawal
+    withdrawn_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)  # Who withdrew
 
     def __repr__(self):
         return f'<TenancyAgreement {self.id}: {self.tenant_full_name} - {self.property_address}>'
@@ -101,6 +107,50 @@ class TenancyAgreement(db.Model):
             delta = self.expires_at - datetime.utcnow()
             return max(0, delta.days)
         return None
+
+    @property
+    def hours_until_expiry(self):
+        """Calculate hours until agreement expires (if expires_at is set)"""
+        if self.expires_at:
+            delta = self.expires_at - datetime.utcnow()
+            return max(0, delta.total_seconds() / 3600)
+        return None
+
+    @property
+    def is_expired(self):
+        """Check if agreement has expired"""
+        if self.expires_at:
+            return datetime.utcnow() > self.expires_at
+        return False
+
+    @property
+    def is_withdrawn(self):
+        """Check if agreement has been withdrawn by either party"""
+        return self.landlord_withdrawn_at is not None or self.tenant_withdrawn_at is not None
+
+    @property
+    def can_landlord_withdraw(self):
+        """Check if landlord can withdraw the offer"""
+        # Landlord can withdraw if tenant hasn't signed yet and agreement isn't expired/cancelled
+        return (self.tenant_signed_at is None and 
+                not self.is_expired and 
+                not self.is_withdrawn and 
+                self.cancelled_at is None)
+
+    @property
+    def can_tenant_withdraw(self):
+        """Check if tenant can withdraw their signature"""
+        # Tenant can withdraw if they've signed but landlord hasn't counter-signed yet
+        return (self.tenant_signed_at is not None and 
+                self.landlord_signed_at is None and 
+                not self.is_expired and 
+                not self.is_withdrawn and 
+                self.cancelled_at is None)
+
+    @property
+    def withdrawal_window_closed(self):
+        """Check if withdrawal window is closed (both parties signed)"""
+        return self.is_fully_signed
 
     def to_dict(self):
         """Serialize the agreement to a dictionary"""
@@ -165,6 +215,18 @@ class TenancyAgreement(db.Model):
             # Status checks
             'can_be_activated': self.can_be_activated,
             'days_until_expiry': self.days_until_expiry,
+            'hours_until_expiry': self.hours_until_expiry,
+            'is_expired': self.is_expired,
+            'expires_at': self.expires_at.isoformat() if self.expires_at else None,
+            
+            # Withdrawal info
+            'is_withdrawn': self.is_withdrawn,
+            'can_landlord_withdraw': self.can_landlord_withdraw,
+            'can_tenant_withdraw': self.can_tenant_withdraw,
+            'withdrawal_window_closed': self.withdrawal_window_closed,
+            'landlord_withdrawn_at': self.landlord_withdrawn_at.isoformat() if self.landlord_withdrawn_at else None,
+            'tenant_withdrawn_at': self.tenant_withdrawn_at.isoformat() if self.tenant_withdrawn_at else None,
+            'withdrawal_reason': self.withdrawal_reason,
             
             # Cancellation info
             'cancelled_at': self.cancelled_at.isoformat() if self.cancelled_at else None,

@@ -12,10 +12,79 @@ const AgreementView = () => {
   const [error, setError] = useState(null);
   const [showSignatureModal, setShowSignatureModal] = useState(false);
   const [signing, setSigning] = useState(false);
+  
+  // New state for countdown timer and withdrawal
+  const [timeRemaining, setTimeRemaining] = useState(null);
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
+  const [withdrawalReason, setWithdrawalReason] = useState('');
 
   useEffect(() => {
     loadAgreement();
   }, [agreementId]);
+
+  // Countdown timer effect
+  useEffect(() => {
+    if (agreement && agreement.expires_at && !agreement.is_expired) {
+      const timer = setInterval(() => {
+        const now = new Date().getTime();
+        const expiry = new Date(agreement.expires_at).getTime();
+        const difference = expiry - now;
+        
+        if (difference > 0) {
+          const hours = Math.floor(difference / (1000 * 60 * 60));
+          const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
+          const seconds = Math.floor((difference % (1000 * 60)) / 1000);
+          setTimeRemaining({ hours, minutes, seconds });
+        } else {
+          setTimeRemaining(null);
+          // Check expiry status
+          checkAgreementExpiry();
+        }
+      }, 1000);
+
+      return () => clearInterval(timer);
+    }
+  }, [agreement]);
+
+  const checkAgreementExpiry = async () => {
+    try {
+      const response = await TenancyAgreementAPI.checkExpiry(agreementId);
+      if (response.success) {
+        setAgreement(response.agreement);
+      }
+    } catch (error) {
+      console.error('Error checking expiry:', error);
+    }
+  };
+
+  const handleWithdraw = async () => {
+    try {
+      setWithdrawing(true);
+      const userIsLandlord = isLandlord();
+      let response;
+      
+      if (userIsLandlord) {
+        response = await TenancyAgreementAPI.withdrawLandlordOffer(agreementId, withdrawalReason);
+      } else {
+        response = await TenancyAgreementAPI.withdrawTenantSignature(agreementId, withdrawalReason);
+      }
+      
+      if (response.success) {
+        setShowWithdrawModal(false);
+        setWithdrawalReason('');
+        await loadAgreement(); // Reload to show updated status
+        alert(response.message || 'Withdrawal successful!');
+      } else {
+        alert(response.error || 'Failed to withdraw');
+      }
+    } catch (err) {
+      console.error('Error withdrawing:', err);
+      alert('Failed to withdraw');
+    } finally {
+      setWithdrawing(false);
+    }
+  };
 
   const loadAgreement = async () => {
     try {
@@ -147,6 +216,37 @@ const AgreementView = () => {
               }`}>
                 {TenancyAgreementAPI.formatStatus(agreement.status)}
               </span>
+              
+              {/* Countdown Timer */}
+              {timeRemaining && !agreement.is_expired && agreement.status !== 'active' && (
+                <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-1">
+                  <div className="flex items-center text-red-700">
+                    <svg className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="text-sm font-medium">
+                      {timeRemaining.hours}h {timeRemaining.minutes}m {timeRemaining.seconds}s remaining
+                    </span>
+                  </div>
+                </div>
+              )}
+              
+              {/* Expired Notice */}
+              {agreement.is_expired && (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-1">
+                  <span className="text-sm font-medium text-gray-600">⏰ Expired</span>
+                </div>
+              )}
+              
+              {/* Withdrawal Button */}
+              {TenancyAgreementAPI.canWithdraw(agreement, userIsLandlord ? 'landlord' : 'tenant') && (
+                <button
+                  onClick={() => setShowWithdrawModal(true)}
+                  className="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded-md text-sm font-medium"
+                >
+                  {userIsLandlord ? 'Withdraw Offer' : 'Withdraw Signature'}
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -411,9 +511,97 @@ const AgreementView = () => {
                 </p>
               </div>
             )}
+
+            {/* Withdrawn Agreement */}
+            {agreement.status === 'withdrawn' && (
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                <h4 className="font-medium text-orange-800 mb-2">🚫 Agreement Withdrawn</h4>
+                <p className="text-sm text-orange-700 mb-2">
+                  This agreement has been withdrawn and is no longer valid.
+                </p>
+                {agreement.withdrawal_reason && (
+                  <div className="mt-2 p-2 bg-orange-100 rounded text-xs text-orange-800">
+                    <strong>Reason:</strong> {agreement.withdrawal_reason}
+                  </div>
+                )}
+                {agreement.landlord_withdrawn_at && (
+                  <p className="text-xs text-orange-600 mt-1">
+                    Withdrawn by landlord on {new Date(agreement.landlord_withdrawn_at).toLocaleDateString()}
+                  </p>
+                )}
+                {agreement.tenant_withdrawn_at && (
+                  <p className="text-xs text-orange-600 mt-1">
+                    Withdrawn by tenant on {new Date(agreement.tenant_withdrawn_at).toLocaleDateString()}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Expired Agreement */}
+            {agreement.status === 'expired' && (
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <h4 className="font-medium text-gray-800 mb-2">⏰ Agreement Expired</h4>
+                <p className="text-sm text-gray-700">
+                  This agreement has expired and is no longer valid. The signing period has ended.
+                </p>
+                <p className="text-xs text-gray-600 mt-2">
+                  Expired on {agreement.expires_at ? new Date(agreement.expires_at).toLocaleDateString() : 'N/A'}
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Withdrawal Modal */}
+      {showWithdrawModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">
+              {userIsLandlord ? 'Withdraw Offer' : 'Withdraw Signature'}
+            </h3>
+            <p className="text-gray-600 mb-4">
+              {userIsLandlord 
+                ? 'Are you sure you want to withdraw your offer? This action cannot be undone and the tenant will be notified.'
+                : 'Are you sure you want to withdraw your signature? This will remove your commitment to this agreement.'
+              }
+            </p>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Reason (optional)
+              </label>
+              <textarea
+                value={withdrawalReason}
+                onChange={(e) => setWithdrawalReason(e.target.value)}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                rows="3"
+                placeholder="Please provide a reason for withdrawal..."
+              />
+            </div>
+            
+            <div className="flex space-x-3">
+              <button
+                onClick={() => {
+                  setShowWithdrawModal(false);
+                  setWithdrawalReason('');
+                }}
+                className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 py-2 px-4 rounded-md"
+                disabled={withdrawing}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleWithdraw}
+                disabled={withdrawing}
+                className="flex-1 bg-orange-500 hover:bg-orange-600 text-white py-2 px-4 rounded-md disabled:opacity-50"
+              >
+                {withdrawing ? 'Processing...' : 'Confirm Withdrawal'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Signature Modal */}
       {showSignatureModal && (

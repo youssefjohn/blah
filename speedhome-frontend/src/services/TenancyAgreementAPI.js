@@ -378,6 +378,149 @@ class TenancyAgreementAPI {
       return { success: false, error: 'Network error occurred' };
     }
   }
+
+  /**
+   * Withdraw landlord offer (before tenant signs)
+   */
+  static async withdrawLandlordOffer(agreementId, reason = 'Landlord changed mind') {
+    try {
+      const response = await fetch(`${API_BASE_URL}${agreementId}/withdraw-offer`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ reason }),
+      });
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error withdrawing landlord offer:', error);
+      return { success: false, error: 'Network error occurred' };
+    }
+  }
+
+  /**
+   * Withdraw tenant signature (before landlord counter-signs)
+   */
+  static async withdrawTenantSignature(agreementId, reason = 'Tenant changed mind') {
+    try {
+      const response = await fetch(`${API_BASE_URL}${agreementId}/withdraw-signature`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ reason }),
+      });
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error withdrawing tenant signature:', error);
+      return { success: false, error: 'Network error occurred' };
+    }
+  }
+
+  /**
+   * Check agreement expiry status and update if needed
+   */
+  static async checkExpiry(agreementId) {
+    try {
+      const response = await fetch(`${API_BASE_URL}${agreementId}/check-expiry`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error checking agreement expiry:', error);
+      return { success: false, error: 'Network error occurred' };
+    }
+  }
+
+  /**
+   * Helper method to get status color (updated with new statuses)
+   */
+  static getStatusColor(status) {
+    switch (status) {
+      case 'pending_signatures':
+        return 'text-yellow-600 bg-yellow-100';
+      case 'pending_payment':
+        return 'text-blue-600 bg-blue-100';
+      case 'active':
+        return 'text-green-600 bg-green-100';
+      case 'cancelled':
+        return 'text-red-600 bg-red-100';
+      case 'withdrawn':
+        return 'text-orange-600 bg-orange-100';
+      case 'expired':
+        return 'text-gray-600 bg-gray-100';
+      default:
+        return 'text-gray-600 bg-gray-100';
+    }
+  }
+
+  /**
+   * Helper method to format status text (updated with new statuses)
+   */
+  static formatStatus(status) {
+    switch (status) {
+      case 'pending_signatures':
+        return 'Pending Signatures';
+      case 'pending_payment':
+        return 'Pending Payment';
+      case 'active':
+        return 'Active';
+      case 'cancelled':
+        return 'Cancelled';
+      case 'withdrawn':
+        return 'Withdrawn';
+      case 'expired':
+        return 'Expired';
+      default:
+        return status;
+    }
+  }
+
+  /**
+   * Helper method to format time remaining until expiry
+   */
+  static formatTimeUntilExpiry(hoursUntilExpiry) {
+    if (!hoursUntilExpiry || hoursUntilExpiry <= 0) {
+      return 'Expired';
+    }
+    
+    if (hoursUntilExpiry < 1) {
+      const minutes = Math.floor(hoursUntilExpiry * 60);
+      return `${minutes}m remaining`;
+    } else if (hoursUntilExpiry < 24) {
+      const hours = Math.floor(hoursUntilExpiry);
+      const minutes = Math.floor((hoursUntilExpiry - hours) * 60);
+      return `${hours}h ${minutes}m remaining`;
+    } else {
+      const days = Math.floor(hoursUntilExpiry / 24);
+      const hours = Math.floor(hoursUntilExpiry % 24);
+      return `${days}d ${hours}h remaining`;
+    }
+  }
+
+  /**
+   * Helper method to check if withdrawal is allowed
+   */
+  static canWithdraw(agreement, userRole) {
+    if (userRole === 'landlord') {
+      return agreement.can_landlord_withdraw;
+    } else if (userRole === 'tenant') {
+      return agreement.can_tenant_withdraw;
+    }
+    return false;
+  }
 }
 
 export default TenancyAgreementAPI;

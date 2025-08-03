@@ -165,8 +165,8 @@ def create_agreement_from_application():
             utilities_included=False,  # Default
             parking_included=getattr(property_obj, 'parking', 0) > 0,
             
-            # Set expiry to 7 days from creation if not completed
-            expires_at=datetime.utcnow() + timedelta(days=7)
+            # Set expiry to 48 hours from creation if not completed
+            expires_at=datetime.utcnow() + timedelta(hours=48)
         )
         
         db.session.add(agreement)
@@ -595,5 +595,137 @@ def get_service_status():
         
     except Exception as e:
         logger.error(f"Error getting service status: {str(e)}")
+        return jsonify({'success': False, 'error': 'Internal server error'}), 500
+
+
+@tenancy_agreement_bp.route('/<int:agreement_id>/withdraw-offer', methods=['POST'])
+def withdraw_landlord_offer(agreement_id):
+    """Allow landlord to withdraw their offer before tenant signs"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+    
+    user_id = session['user_id']
+    
+    try:
+        agreement = TenancyAgreement.query.get(agreement_id)
+        if not agreement:
+            return jsonify({'success': False, 'error': 'Agreement not found'}), 404
+        
+        # Check if user is the landlord
+        if agreement.landlord_id != user_id:
+            return jsonify({'success': False, 'error': 'Only the landlord can withdraw the offer'}), 403
+        
+        # Check if landlord can withdraw
+        if not agreement.can_landlord_withdraw:
+            return jsonify({'success': False, 'error': 'Cannot withdraw offer at this stage'}), 400
+        
+        data = request.get_json()
+        reason = data.get('reason', 'Landlord changed mind')
+        
+        # Update agreement with withdrawal info
+        agreement.landlord_withdrawn_at = datetime.utcnow()
+        agreement.withdrawn_by = user_id
+        agreement.withdrawal_reason = reason
+        agreement.status = 'withdrawn'
+        
+        db.session.commit()
+        
+        logger.info(f"Landlord {user_id} withdrew offer for agreement {agreement_id}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Offer withdrawn successfully',
+            'agreement': agreement.to_dict()
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error withdrawing landlord offer: {str(e)}")
+        return jsonify({'success': False, 'error': 'Internal server error'}), 500
+
+
+@tenancy_agreement_bp.route('/<int:agreement_id>/withdraw-signature', methods=['POST'])
+def withdraw_tenant_signature(agreement_id):
+    """Allow tenant to withdraw their signature before landlord counter-signs"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+    
+    user_id = session['user_id']
+    
+    try:
+        agreement = TenancyAgreement.query.get(agreement_id)
+        if not agreement:
+            return jsonify({'success': False, 'error': 'Agreement not found'}), 404
+        
+        # Check if user is the tenant
+        if agreement.tenant_id != user_id:
+            return jsonify({'success': False, 'error': 'Only the tenant can withdraw their signature'}), 403
+        
+        # Check if tenant can withdraw
+        if not agreement.can_tenant_withdraw:
+            return jsonify({'success': False, 'error': 'Cannot withdraw signature at this stage'}), 400
+        
+        data = request.get_json()
+        reason = data.get('reason', 'Tenant changed mind')
+        
+        # Update agreement with withdrawal info
+        agreement.tenant_withdrawn_at = datetime.utcnow()
+        agreement.tenant_signed_at = None  # Remove the signature
+        agreement.tenant_signature_id = None
+        agreement.withdrawn_by = user_id
+        agreement.withdrawal_reason = reason
+        agreement.status = 'pending_signatures'  # Back to pending signatures
+        
+        db.session.commit()
+        
+        logger.info(f"Tenant {user_id} withdrew signature for agreement {agreement_id}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Signature withdrawn successfully',
+            'agreement': agreement.to_dict()
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error withdrawing tenant signature: {str(e)}")
+        return jsonify({'success': False, 'error': 'Internal server error'}), 500
+
+
+@tenancy_agreement_bp.route('/<int:agreement_id>/check-expiry', methods=['GET'])
+def check_agreement_expiry(agreement_id):
+    """Check if agreement has expired and update status if needed"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+    
+    user_id = session['user_id']
+    
+    try:
+        agreement = TenancyAgreement.query.get(agreement_id)
+        if not agreement:
+            return jsonify({'success': False, 'error': 'Agreement not found'}), 404
+        
+        # Check if user has access to this agreement
+        if agreement.tenant_id != user_id and agreement.landlord_id != user_id:
+            return jsonify({'success': False, 'error': 'Unauthorized access'}), 403
+        
+        # Check if agreement has expired
+        if agreement.is_expired and agreement.status not in ['active', 'cancelled', 'withdrawn', 'expired']:
+            agreement.status = 'expired'
+            agreement.cancelled_at = datetime.utcnow()
+            agreement.cancellation_reason = 'Agreement expired - not completed within time limit'
+            db.session.commit()
+            
+            logger.info(f"Agreement {agreement_id} marked as expired")
+        
+        return jsonify({
+            'success': True,
+            'agreement': agreement.to_dict(),
+            'is_expired': agreement.is_expired,
+            'hours_until_expiry': agreement.hours_until_expiry
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error checking agreement expiry: {str(e)}")
         return jsonify({'success': False, 'error': 'Internal server error'}), 500
 
