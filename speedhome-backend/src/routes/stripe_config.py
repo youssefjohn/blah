@@ -4,7 +4,6 @@ Provides Stripe configuration for frontend integration
 """
 
 from flask import Blueprint, jsonify
-from flask_login import login_required
 from ..services.stripe_service import stripe_service
 import logging
 
@@ -13,7 +12,6 @@ logger = logging.getLogger(__name__)
 stripe_config_bp = Blueprint('stripe_config', __name__)
 
 @stripe_config_bp.route('/config', methods=['GET'])
-@login_required
 def get_stripe_config():
     """Get Stripe publishable key for frontend"""
     try:

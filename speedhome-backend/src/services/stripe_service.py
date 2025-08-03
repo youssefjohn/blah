@@ -36,7 +36,7 @@ class StripeService:
         """
         try:
             # Convert RM to cents (Stripe uses smallest currency unit)
-            amount_cents = int(float(agreement.agreement_fee) * 100)
+            amount_cents = int(float(agreement.payment_required) * 100)
             
             payment_intent = stripe.PaymentIntent.create(
                 amount=amount_cents,
@@ -60,7 +60,7 @@ class StripeService:
                 'success': True,
                 'payment_intent_id': payment_intent.id,
                 'client_secret': payment_intent.client_secret,
-                'amount': agreement.agreement_fee,
+                'amount': agreement.payment_required,
                 'currency': 'MYR'
             }
             

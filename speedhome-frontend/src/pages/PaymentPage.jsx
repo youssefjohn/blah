@@ -18,10 +18,10 @@ const PaymentPage = () => {
   const loadAgreement = async () => {
     try {
       const result = await TenancyAgreementAPI.getById(id);
-      
+
       if (result.success) {
         setAgreement(result.agreement);
-        
+
         // Check if agreement is in correct status for payment
         if (result.agreement.status !== 'pending_payment') {
           setError('This agreement is not ready for payment');

@@ -412,12 +412,17 @@ def update_application_status(application_id):
                 landlord_id=app.landlord_id,
                 tenant_id=app.tenant_id,
                 monthly_rent=prop.price,
+                # TODO: At some point review this so we can possibly have a dynamic calculation based on property size/rent or whatever
+                payment_required=399.00,
                 security_deposit=prop.price * 2,  # Example: 2 months rent
                 lease_start_date=app.move_in_date,
                 lease_end_date=lease_end,
                 lease_duration_months=months,
                 property_address=prop.location,
                 property_type=prop.property_type,
+                property_bedrooms=prop.bedrooms,
+                property_bathrooms=prop.bathrooms,
+                property_sqft=prop.sqft,
                 tenant_full_name=app.full_name or tenant.get_full_name(),
                 tenant_phone=app.phone_number or tenant.phone,
                 tenant_email=app.email or tenant.email,

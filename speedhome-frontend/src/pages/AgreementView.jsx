@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import TenancyAgreementAPI from '../services/TenancyAgreementAPI';
 
 const AgreementView = () => {
@@ -172,7 +172,7 @@ const AgreementView = () => {
                 </div>
                 <div>
                   <span className="text-sm font-medium text-gray-500">Agreement Fee</span>
-                  <p className="text-gray-900">RM {agreement.agreement_fee}</p>
+                  <p className="text-gray-900">RM {agreement.payment_required}</p>
                 </div>
               </div>
             </div>
@@ -218,7 +218,7 @@ const AgreementView = () => {
                 </div>
                 <div className="bg-yellow-50 p-4 rounded-lg text-center">
                   <span className="text-sm font-medium text-yellow-600">Agreement Fee</span>
-                  <p className="text-2xl font-bold text-yellow-900">RM {agreement.agreement_fee}</p>
+                  <p className="text-2xl font-bold text-yellow-900">RM {agreement.payment_required}</p>
                 </div>
               </div>
             </div>
@@ -374,7 +374,7 @@ const AgreementView = () => {
                   <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                   </svg>
-                  Complete Payment (RM {agreement.agreement_fee})
+                  Complete Payment (RM {agreement.payment_required})
                 </Link>
               </div>
             )}

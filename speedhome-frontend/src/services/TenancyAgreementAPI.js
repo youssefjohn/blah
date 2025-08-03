@@ -354,7 +354,7 @@ class TenancyAgreementAPI {
    */
   static async getTenantAgreements() {
     try {
-      const response = await fetch(`${API_BASE_URL}/tenant`, {
+      const response = await fetch(`${API_BASE_URL}tenant`, {
         method: 'GET',
         credentials: 'include',
         headers: {

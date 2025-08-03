@@ -23,7 +23,7 @@ const PaymentForm = ({ agreement, onPaymentSuccess, onPaymentError }) => {
           credentials: 'include'
         });
         const data = await response.json();
-        
+
         if (data.success) {
           setStripeKey(data.publishable_key);
           stripePromise = loadStripe(data.publishable_key);
@@ -59,7 +59,7 @@ const PaymentForm = ({ agreement, onPaymentSuccess, onPaymentError }) => {
 
   return (
     <Elements stripe={stripePromise}>
-      <PaymentFormContent 
+      <PaymentFormContent
         agreement={agreement}
         onPaymentSuccess={onPaymentSuccess}
         onPaymentError={onPaymentError}
@@ -80,7 +80,7 @@ const PaymentFormContent = ({ agreement, onPaymentSuccess, onPaymentError }) => 
     const createPaymentIntent = async () => {
       try {
         const result = await TenancyAgreementAPI.initiatePayment(agreement.id);
-        
+
         if (result.success) {
           setPaymentIntent(result);
         } else {
@@ -135,6 +135,7 @@ const PaymentFormContent = ({ agreement, onPaymentSuccess, onPaymentError }) => 
   };
 
   const cardElementOptions = {
+    disableLink: true,
     style: {
       base: {
         fontSize: '16px',

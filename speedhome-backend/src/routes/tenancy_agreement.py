@@ -1,5 +1,7 @@
 from flask import Blueprint, request, jsonify, send_file, session
 from flask_login import login_required, current_user
+
+from ..services.stripe_service import stripe_service
 from ..models.tenancy_agreement import TenancyAgreement
 from src.services.pdf_service import pdf_service
 from ..models.application import Application
@@ -494,41 +496,49 @@ def initiate_signing(agreement_id):
         logger.error(f"Error initiating signing process: {str(e)}")
         return jsonify({'success': False, 'error': 'Internal server error'}), 500
 
+
 @tenancy_agreement_bp.route('/<int:agreement_id>/initiate-payment', methods=['POST'])
-@login_required
+# @login_required  <-- This line is removed
 def initiate_payment(agreement_id):
     """Initiate the Stripe payment process for an agreement"""
+    # This function requires a valid session to get the current_user,
+    # so we'll check for it manually instead of using the decorator.
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+    current_user_id = session['user_id']
+
     try:
         agreement = TenancyAgreement.query.get(agreement_id)
         if not agreement:
             return jsonify({'success': False, 'error': 'Agreement not found'}), 404
-        
-        # Check if user has access to this agreement (typically tenant pays)
-        if agreement.tenant_id != current_user.id:
-            return jsonify({'success': False, 'error': 'Only tenant can initiate payment'}), 403
-        
+
+        # Security check: ensure the current user is the tenant
+        if agreement.tenant_id != current_user_id:
+            return jsonify({'success': False, 'error': 'Only the tenant can initiate payment'}), 403
+
         # Check if agreement is ready for payment
         if agreement.status != 'pending_payment':
             return jsonify({'success': False, 'error': 'Agreement is not ready for payment'}), 400
-        
-        # Initiate payment process through workflow coordinator
-        result = workflow_coordinator.initiate_payment_process(agreement_id)
-        
+
+        # Use the stripe_service to create the payment intent
+        result = stripe_service.create_payment_intent(agreement)
+
         if result['success']:
+            # Save the payment intent ID to the agreement
+            agreement.payment_intent_id = result['payment_intent_id']
+            db.session.commit()
+
             return jsonify({
                 'success': True,
-                'payment_intent_id': result['payment_intent_id'],
                 'client_secret': result['client_secret'],
-                'amount': result['amount'],
-                'currency': result['currency'],
-                'message': 'Payment process initiated successfully'
             }), 200
         else:
             return jsonify({
                 'success': False,
-                'error': result['error']
-            }), 400
-            
+                'error': result.get('error', 'Failed to create payment intent')
+            }), 500
+
     except Exception as e:
         logger.error(f"Error initiating payment process: {str(e)}")
         return jsonify({'success': False, 'error': 'Internal server error'}), 500
