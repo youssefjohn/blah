@@ -368,18 +368,39 @@ const AgreementView = () => {
             {agreement.status === 'pending_payment' && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <h4 className="font-medium text-blue-800 mb-2">🎉 Agreement Signed!</h4>
-                <p className="text-sm text-blue-700 mb-4">
-                  Both parties have signed the agreement. Complete the payment to finalize your tenancy.
-                </p>
-                <Link
-                  to={`/agreement/${agreement.id}/payment`}
-                  className="inline-flex items-center bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 text-sm font-medium"
-                >
-                  <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                  </svg>
-                  Complete Payment (RM {agreement.payment_required})
-                </Link>
+                
+                {/* Tenant View - Show Payment Button */}
+                {userRole === 'tenant' && (
+                  <>
+                    <p className="text-sm text-blue-700 mb-4">
+                      Both parties have signed the agreement. Complete the payment to finalize your tenancy.
+                    </p>
+                    <Link
+                      to={`/agreement/${agreement.id}/payment`}
+                      className="inline-flex items-center bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 text-sm font-medium"
+                    >
+                      <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                      </svg>
+                      Complete Payment (RM {agreement.payment_required})
+                    </Link>
+                  </>
+                )}
+                
+                {/* Landlord View - Show Waiting Message */}
+                {userRole === 'landlord' && (
+                  <div className="flex items-center">
+                    <svg className="h-5 w-5 text-blue-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div>
+                      <p className="text-sm text-blue-700 font-medium">Waiting for tenant payment</p>
+                      <p className="text-xs text-blue-600 mt-1">
+                        The tenant needs to complete the RM {agreement.payment_required} agreement fee to activate the tenancy.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
