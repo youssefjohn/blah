@@ -1,22 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import TenancyAgreementAPI from '../services/TenancyAgreementAPI';
 
 const AgreementView = () => {
   const { agreementId } = useParams();
   const navigate = useNavigate();
+  const { user, isAuthenticated, isLandlord, isTenant } = useAuth();
   const [agreement, setAgreement] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [userRole, setUserRole] = useState(null);
   const [showSignatureModal, setShowSignatureModal] = useState(false);
   const [signing, setSigning] = useState(false);
 
   useEffect(() => {
     loadAgreement();
-    // Get user role from session storage or API
-    const role = sessionStorage.getItem('userRole') || 'tenant';
-    setUserRole(role);
   }, [agreementId]);
 
   const loadAgreement = async () => {
@@ -121,11 +119,11 @@ const AgreementView = () => {
     );
   }
 
-  const isLandlord = userRole === 'landlord';
-  const isTenant = userRole === 'tenant';
+  const userIsLandlord = isLandlord();
+  const userIsTenant = isTenant();
   const landlordSigned = agreement.landlord_signed_at;
   const tenantSigned = agreement.tenant_signed_at;
-  const canSign = (isLandlord && !landlordSigned) || (isTenant && !tenantSigned);
+  const canSign = (userIsLandlord && !landlordSigned) || (userIsTenant && !tenantSigned);
   const allSigned = landlordSigned && tenantSigned;
 
   return (
@@ -370,7 +368,7 @@ const AgreementView = () => {
                 <h4 className="font-medium text-blue-800 mb-2">🎉 Agreement Signed!</h4>
                 
                 {/* Tenant View - Show Payment Button */}
-                {userRole === 'tenant' && (
+                {userIsTenant && (
                   <>
                     <p className="text-sm text-blue-700 mb-4">
                       Both parties have signed the agreement. Complete the payment to finalize your tenancy.
@@ -388,7 +386,7 @@ const AgreementView = () => {
                 )}
                 
                 {/* Landlord View - Show Waiting Message */}
-                {userRole === 'landlord' && (
+                {userIsLandlord && (
                   <div className="flex items-center">
                     <svg className="h-5 w-5 text-blue-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
