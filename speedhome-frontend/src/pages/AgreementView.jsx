@@ -22,9 +22,13 @@ const AgreementView = () => {
   const loadAgreement = async () => {
     try {
       setLoading(true);
-      const response = await TenancyAgreementAPI.getById(agreementId);
+      // Add cache-busting parameter to ensure fresh data
+      const response = await TenancyAgreementAPI.getById(agreementId, { 
+        _t: Date.now() // Cache-busting timestamp
+      });
       if (response.success) {
         setAgreement(response.agreement);
+        console.log('Agreement loaded:', response.agreement.status, 'Payment completed:', response.agreement.payment_completed_at);
       } else {
         setError(response.error || 'Failed to load agreement');
       }

@@ -25,13 +25,22 @@ class TenancyAgreementAPI {
   /**
    * Get a specific tenancy agreement by ID
    */
-  static async getById(agreementId) {
+  static async getById(agreementId, options = {}) {
     try {
-      const response = await fetch(`${API_BASE_URL}${agreementId}`, {
+      // Add cache-busting parameter if provided
+      const url = new URL(`${API_BASE_URL}${agreementId}`);
+      if (options._t) {
+        url.searchParams.append('_t', options._t);
+      }
+      
+      const response = await fetch(url.toString(), {
         method: 'GET',
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
         },
       });
 
