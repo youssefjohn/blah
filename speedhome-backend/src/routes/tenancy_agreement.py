@@ -729,3 +729,58 @@ def check_agreement_expiry(agreement_id):
         logger.error(f"Error checking agreement expiry: {str(e)}")
         return jsonify({'success': False, 'error': 'Internal server error'}), 500
 
+
+@tenancy_agreement_bp.route('/admin/expire-check', methods=['POST'])
+def admin_expire_check():
+    """Admin endpoint to manually trigger expiry check for all agreements"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+    
+    try:
+        from ..services.expiry_service import expiry_service
+        
+        # Run the expiry check
+        expired_count = expiry_service.check_and_expire_agreements()
+        
+        # Get statistics
+        stats = expiry_service.get_expiry_statistics()
+        
+        return jsonify({
+            'success': True,
+            'expired_count': expired_count,
+            'statistics': stats,
+            'message': f'Expiry check completed. {expired_count} agreements expired.'
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error in admin expiry check: {str(e)}")
+        return jsonify({'success': False, 'error': 'Internal server error'}), 500
+
+
+@tenancy_agreement_bp.route('/admin/expiry-stats', methods=['GET'])
+def admin_expiry_stats():
+    """Admin endpoint to get expiry statistics"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+    
+    try:
+        from ..services.expiry_service import expiry_service
+        
+        # Get statistics
+        stats = expiry_service.get_expiry_statistics()
+        
+        # Get agreements expiring soon
+        expiring_soon = expiry_service.get_expiring_soon_agreements(hours_ahead=24)
+        expiring_soon_data = [agreement.to_dict() for agreement in expiring_soon]
+        
+        return jsonify({
+            'success': True,
+            'statistics': stats,
+            'expiring_soon': expiring_soon_data,
+            'expiring_soon_count': len(expiring_soon_data)
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error getting expiry statistics: {str(e)}")
+        return jsonify({'success': False, 'error': 'Internal server error'}), 500
+

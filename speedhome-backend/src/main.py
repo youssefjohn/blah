@@ -91,4 +91,16 @@ def serve(path):
 
 # --- RUN THE APP ---
 if __name__ == '__main__':
+    # Run expiry check on startup
+    try:
+        with app.app_context():
+            from src.services.expiry_service import expiry_service
+            expired_count = expiry_service.check_and_expire_agreements()
+            if expired_count > 0:
+                print(f"Startup: Expired {expired_count} agreements")
+            else:
+                print("Startup: No agreements to expire")
+    except Exception as e:
+        print(f"Startup expiry check failed: {str(e)}")
+    
     app.run(host='0.0.0.0', port=5001, debug=True)
