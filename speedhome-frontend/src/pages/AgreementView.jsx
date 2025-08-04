@@ -240,6 +240,14 @@ const AgreementView = () => {
               </span>
               
               {/* Countdown Timer */}
+              {/* Debug countdown timer conditions */}
+              {console.log('=== COUNTDOWN DEBUG ===') || 
+               console.log('timeRemaining:', timeRemaining) || 
+               console.log('agreement.is_expired:', agreement.is_expired) || 
+               console.log('agreement.status:', agreement.status) || 
+               console.log('agreement.expires_at:', agreement.expires_at) || 
+               console.log('Show countdown?', timeRemaining && !agreement.is_expired && agreement.status !== 'active') || 
+               console.log('=======================') || false}
               {timeRemaining && !agreement.is_expired && agreement.status !== 'active' && (
                 <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-1">
                   <div className="flex items-center text-red-700">
