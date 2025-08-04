@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tenancy Agreement</title>
+    <style>
+        body {
+            font-family: 'Times New Roman', serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 40px;
+            color: #333;
+            background-color: white;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            border-bottom: 3px solid #2563eb;
+            padding-bottom: 20px;
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            font-weight: bold;
+            color: #1e40af;
+            margin: 0;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        
+        .header .subtitle {
+            font-size: 16px;
+            color: #6b7280;
+            margin-top: 10px;
+        }
+        
+        .agreement-details {
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .agreement-details h2 {
+            color: #1e40af;
+            font-size: 18px;
+            margin-top: 0;
+            border-bottom: 2px solid #3b82f6;
+            padding-bottom: 5px;
+        }
+        
+        .details-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 15px;
+        }
+        
+        .detail-item {
+            margin-bottom: 10px;
+        }
+        
+        .detail-label {
+            font-weight: bold;
+            color: #374151;
+            display: inline-block;
+            min-width: 120px;
+        }
+        
+        .detail-value {
+            color: #1f2937;
+        }
+        
+        .parties-section {
+            margin-bottom: 30px;
+        }
+        
+        .party {
+            background-color: #f1f5f9;
+            border-left: 4px solid #3b82f6;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .party h3 {
+            color: #1e40af;
+            margin-top: 0;
+            font-size: 16px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .terms-section {
+            margin-bottom: 30px;
+        }
+        
+        .terms-section h2 {
+            color: #1e40af;
+            font-size: 20px;
+            border-bottom: 2px solid #3b82f6;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .clause {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #fefefe;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+        }
+        
+        .clause h4 {
+            color: #374151;
+            margin-top: 0;
+            margin-bottom: 10px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        
+        .clause p {
+            margin: 8px 0;
+            text-align: justify;
+        }
+        
+        .financial-terms {
+            background-color: #fef3c7;
+            border: 2px solid #f59e0b;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .financial-terms h3 {
+            color: #92400e;
+            margin-top: 0;
+            text-align: center;
+        }
+        
+        .financial-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .financial-item {
+            text-align: center;
+            padding: 10px;
+            background-color: white;
+            border-radius: 6px;
+            border: 1px solid #d97706;
+        }
+        
+        .financial-item .label {
+            font-size: 12px;
+            color: #92400e;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        
+        .financial-item .amount {
+            font-size: 18px;
+            color: #1f2937;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+        
+        .signatures {
+            margin-top: 50px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+        }
+        
+        .signature-block {
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            background-color: #f9fafb;
+        }
+        
+        .signature-block h4 {
+            color: #374151;
+            margin-top: 0;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .signature-line {
+            border-bottom: 2px solid #6b7280;
+            height: 40px;
+            margin: 20px 0;
+            position: relative;
+        }
+        
+        .signature-info {
+            margin-top: 15px;
+            font-size: 12px;
+            color: #6b7280;
+        }
+        
+        .footer {
+            margin-top: 40px;
+            text-align: center;
+            font-size: 12px;
+            color: #6b7280;
+            border-top: 1px solid #e5e7eb;
+            padding-top: 20px;
+        }
+        
+        .watermark {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-45deg);
+            font-size: 72px;
+            color: rgba(239, 68, 68, 0.1);
+            font-weight: bold;
+            z-index: -1;
+            pointer-events: none;
+            text-transform: uppercase;
+            letter-spacing: 10px;
+        }
+        
+        @media print {
+            body {
+                padding: 20px;
+            }
+            
+            .watermark {
+                color: rgba(239, 68, 68, 0.08);
+            }
+        }
+    </style>
+</head>
+<body>
+    {% if is_draft %}
+    <div class="watermark">DRAFT</div>
+    {% endif %}
+    
+    <div class="header">
+        <h1>Tenancy Agreement</h1>
+        <div class="subtitle">Residential Property Rental Agreement</div>
+    </div>
+    
+    <div class="agreement-details">
+        <h2>Agreement Details</h2>
+        <div class="details-grid">
+            <div class="detail-item">
+                <span class="detail-label">Agreement ID:</span>
+                <span class="detail-value">{{ agreement.id }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Date Created:</span>
+                <span class="detail-value">{{ agreement.created_at.strftime('%d %B %Y') }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Lease Period:</span>
+                <span class="detail-value">{{ agreement.lease_duration_months }} months</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Agreement Fee:</span>
+                <span class="detail-value">RM {{ "%.2f"|format(agreement.payment_required) }}</span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="parties-section">
+        <div class="party">
+            <h3>Landlord (Lessor)</h3>
+            <div class="details-grid">
+                <div class="detail-item">
+                    <span class="detail-label">Full Name:</span>
+                    <span class="detail-value">{{ agreement.landlord_full_name }}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Email:</span>
+                    <span class="detail-value">{{ agreement.landlord_email }}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Phone:</span>
+                    <span class="detail-value">{{ agreement.landlord_phone or 'Not provided' }}</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="party">
+            <h3>Tenant (Lessee)</h3>
+            <div class="details-grid">
+                <div class="detail-item">
+                    <span class="detail-label">Full Name:</span>
+                    <span class="detail-value">{{ agreement.tenant_full_name }}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Email:</span>
+                    <span class="detail-value">{{ agreement.tenant_email }}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Phone:</span>
+                    <span class="detail-value">{{ agreement.tenant_phone or 'Not provided' }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="agreement-details">
+        <h2>Property Details</h2>
+        <div class="details-grid">
+            <div class="detail-item">
+                <span class="detail-label">Address:</span>
+                <span class="detail-value">{{ agreement.property_address }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Property Type:</span>
+                <span class="detail-value">{{ agreement.property_type }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Bedrooms:</span>
+                <span class="detail-value">{{ agreement.property_bedrooms }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Bathrooms:</span>
+                <span class="detail-value">{{ agreement.property_bathrooms }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Floor Area:</span>
+                <span class="detail-value">{{ agreement.property_sqft }} sq ft</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Furnished:</span>
+                <span class="detail-value">{{ agreement.furnished_status.title() if agreement.furnished_status else 'Not specified' }}</span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="financial-terms">
+        <h3>Financial Terms</h3>
+        <div class="financial-grid">
+            <div class="financial-item">
+                <div class="label">Monthly Rent</div>
+                <div class="amount">RM {{ "%.2f"|format(agreement.monthly_rent) }}</div>
+            </div>
+            <div class="financial-item">
+                <div class="label">Security Deposit</div>
+                <div class="amount">RM {{ "%.2f"|format(agreement.security_deposit) }}</div>
+            </div>
+            <div class="financial-item">
+                <div class="label">Agreement Fee</div>
+                <div class="amount">RM {{ "%.2f"|format(agreement.payment_required) }}</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="agreement-details">
+        <h2>Lease Terms</h2>
+        <div class="details-grid">
+            <div class="detail-item">
+                <span class="detail-label">Lease Start:</span>
+                <span class="detail-value">{{ agreement.lease_start_date.strftime('%d %B %Y') }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Lease End:</span>
+                <span class="detail-value">{{ agreement.lease_end_date.strftime('%d %B %Y') }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Utilities Included:</span>
+                <span class="detail-value">{{ 'Yes' if agreement.utilities_included else 'No' }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Parking Included:</span>
+                <span class="detail-value">{{ 'Yes' if agreement.parking_included else 'No' }}</span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="terms-section">
+        <h2>Terms and Conditions</h2>
+        
+        <div class="clause">
+            <h4>1. RENT PAYMENT</h4>
+            <p>The Tenant agrees to pay the monthly rent of RM {{ "%.2f"|format(agreement.monthly_rent) }} on or before the 1st day of each month. Late payment may incur additional charges as per applicable law.</p>
+        </div>
+        
+        <div class="clause">
+            <h4>2. SECURITY DEPOSIT</h4>
+            <p>The Tenant has paid a security deposit of RM {{ "%.2f"|format(agreement.security_deposit) }} which will be held by the Landlord as security for the performance of the Tenant's obligations under this Agreement.</p>
+        </div>
+        
+        <div class="clause">
+            <h4>3. USE OF PREMISES</h4>
+            <p>The premises shall be used solely for residential purposes. The Tenant shall not use the premises for any illegal activities or purposes that may disturb other residents.</p>
+        </div>
+        
+        <div class="clause">
+            <h4>4. MAINTENANCE AND REPAIRS</h4>
+            <p>The Tenant shall maintain the premises in good condition and promptly report any damages or required repairs to the Landlord. Normal wear and tear excepted.</p>
+        </div>
+        
+        <div class="clause">
+            <h4>5. TERMINATION</h4>
+            <p>This Agreement may be terminated by either party with 30 days written notice. Early termination by the Tenant may result in forfeiture of the security deposit.</p>
+        </div>
+        
+        <div class="clause">
+            <h4>6. UTILITIES AND SERVICES</h4>
+            <p>{% if agreement.utilities_included %}Utilities are included in the monthly rent.{% else %}The Tenant is responsible for all utility bills including electricity, water, gas, internet, and other services.{% endif %}</p>
+        </div>
+        
+        <div class="clause">
+            <h4>7. PARKING</h4>
+            <p>{% if agreement.parking_included %}One parking space is included with this tenancy.{% else %}Parking is not included and must be arranged separately by the Tenant.{% endif %}</p>
+        </div>
+        
+        <div class="clause">
+            <h4>8. GOVERNING LAW</h4>
+            <p>This Agreement shall be governed by and construed in accordance with the laws of Malaysia. Any disputes arising from this Agreement shall be resolved through the appropriate legal channels in Malaysia.</p>
+        </div>
+    </div>
+    
+    <div class="signatures">
+        <div class="signature-block">
+            <h4>Landlord Signature</h4>
+            <div class="signature-line"></div>
+            <div class="signature-info">
+                <div><strong>{{ agreement.landlord_full_name }}</strong></div>
+                <div>Date: {% if agreement.landlord_signed_at %}{{ agreement.landlord_signed_at.strftime('%d %B %Y') }}{% else %}_________________{% endif %}</div>
+            </div>
+        </div>
+        
+        <div class="signature-block">
+            <h4>Tenant Signature</h4>
+            <div class="signature-line"></div>
+            <div class="signature-info">
+                <div><strong>{{ agreement.tenant_full_name }}</strong></div>
+                <div>Date: {% if agreement.tenant_signed_at %}{{ agreement.tenant_signed_at.strftime('%d %B %Y') }}{% else %}_________________{% endif %}</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="footer">
+        <p>This agreement was generated by SpeedHome on {{ agreement.created_at.strftime('%d %B %Y at %I:%M %p') }}</p>
+        <p>Agreement ID: {{ agreement.id }} | Status: {{ agreement.status.replace('_', ' ').title() }}</p>
+    </div>
+</body>
+</html>
+

@@ -1,0 +1,17 @@
+# Ignore Git directory
+.git
+
+# Ignore Python cache files
+__pycache__/
+*.pyc
+
+# Ignore environment files
+.env
+
+# Ignore IDE/editor-specific files
+.idea/
+.vscode/
+
+# Ignore the SQLite database file
+src/database/app.db
+src/database/app.db-journal

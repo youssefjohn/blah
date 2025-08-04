@@ -1,0 +1,43 @@
+# This file defines all the services for your application.
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: speedhome-db
+    restart: always
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=speedhome_db
+    ports:
+      - "5432:5432" # Exposes the database to your Mac on port 5432
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: ./speedhome-backend
+    container_name: speedhome-container
+    restart: always
+    ports:
+      - "5001:5000"
+    working_dir: /app
+    volumes:
+      # Mount the entire backend project to /app
+      - ./speedhome-backend:/app
+      # Mount the selenium tests to a separate folder
+      - ./speedhome-selenium-tests:/selenium_tests
+    environment:
+      # Tell Python to look for modules inside the src folder and the tests folder
+      - PYTHONPATH=/app/src:/selenium_tests
+      # Tell Flask where to find the main application file
+      - FLASK_APP=src/main.py
+      # Database connection details
+      - DATABASE_URL=postgresql://user:password@db:5432/speedhome_db
+    depends_on:
+      - db
+
+# This defines a persistent volume for your database data
+volumes:
+  postgres_data:

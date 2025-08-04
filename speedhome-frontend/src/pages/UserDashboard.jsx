@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import BookingAPI from '../services/BookingAPI';
 import PropertyAPI from '../services/PropertyAPI';
 import ApplicationAPI from '../services/ApplicationAPI';
+import TenancyAgreementAPI from '../services/TenancyAgreementAPI';
 import { formatDate, formatTime } from '../utils/dateUtils';
 import TenantBookingCalendar from '../components/TenantBookingCalendar';
 import MessagingCenter from '../components/MessagingCenter';
@@ -20,6 +21,7 @@ const UserDashboard = ({ favorites, toggleFavorite }) => {
   
   const [bookings, setBookings] = useState([]);
   const [applications, setApplications] = useState([]);
+  const [agreements, setAgreements] = useState([]);
   const [favoritedProperties, setFavoritedProperties] = useState([]);
 
   // State for profile editing
@@ -175,6 +177,16 @@ const UserDashboard = ({ favorites, toggleFavorite }) => {
     }
   };
 
+  const loadAgreements = async () => {
+    if (!isAuthenticated || !user) return;
+    try {
+      const result = await TenancyAgreementAPI.getTenantAgreements();
+      if (result.success) setAgreements(result.agreements);
+    } catch (error) {
+      console.error('Error loading agreements:', error);
+    }
+  };
+
   const loadFavoritedProperties = async () => {
     if (!favorites || favorites.length === 0) {
       setFavoritedProperties([]);
@@ -195,6 +207,7 @@ const UserDashboard = ({ favorites, toggleFavorite }) => {
     if (isAuthenticated && user) {
         loadBookings();
         loadApplications();
+        loadAgreements();
     }
   }, [isAuthenticated, user]);
 
@@ -221,6 +234,25 @@ const UserDashboard = ({ favorites, toggleFavorite }) => {
   const handleBookingRowClick = (booking) => {
     const propertyId = booking.property_id || booking.propertyId;
     if (propertyId) navigate(`/property/${propertyId}`);
+  };
+
+  const handleTenantSign = async (agreementId) => {
+    if (!window.confirm('Are you sure you want to sign this tenancy agreement? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const result = await TenancyAgreementAPI.signAgreement(agreementId);
+      if (result.success) {
+        alert('Agreement signed successfully! The landlord will be notified.');
+        await loadAgreements(); // Refresh the agreements list
+      } else {
+        alert(`Failed to sign agreement: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error signing agreement:', error);
+      alert('An error occurred while signing the agreement. Please try again.');
+    }
   };
 
   const cancelRescheduleRequest = async (bookingId) => {
@@ -414,6 +446,16 @@ const hasNewMessages = conversations.some(convo => convo.unread_count > 0);
                   {hasNewMessages && (
                     <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-500 text-white">New</span>
                   )}
+               </button>
+               <button
+                  onClick={() => setActiveTab('agreements')}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'agreements'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  📄 Agreements
                </button>
             </nav>
           </div>
@@ -709,6 +751,106 @@ const hasNewMessages = conversations.some(convo => convo.unread_count > 0);
               selectedConversationId={selectedConversationId}
               onConversationSelect={setSelectedConversationId}
             />
+          </div>
+        )}
+
+        {/* Agreements Tab Content */}
+        {activeTab === 'agreements' && (
+          <div className="space-y-6">
+            <div className="bg-white shadow-lg rounded-xl p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">My Tenancy Agreements</h2>
+                <button 
+                  onClick={loadAgreements}
+                  className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors"
+                >
+                  Refresh
+                </button>
+              </div>
+
+              {agreements.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="text-6xl mb-4">📄</div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">No Tenancy Agreements</h3>
+                  <p className="text-gray-600 mb-6">You don't have any tenancy agreements yet. Once a landlord approves your application, an agreement will appear here.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {agreements.map((agreement) => (
+                    <div key={agreement.id} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+                      <div className="flex justify-between items-start mb-4">
+                        <div>
+                          <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                            {agreement.property_address}
+                          </h3>
+                          <p className="text-gray-600">Monthly Rent: <span className="font-semibold text-green-600">RM {agreement.monthly_rent}</span></p>
+                          <p className="text-gray-600">Lease Start: <span className="font-semibold">{formatDate(agreement.lease_start_date)}</span></p>
+                        </div>
+                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                          agreement.status === 'pending_signatures' ? 'bg-yellow-100 text-yellow-800' :
+                          agreement.status === 'pending_payment' ? 'bg-blue-100 text-blue-800' :
+                          agreement.status === 'active' ? 'bg-green-100 text-green-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {agreement.status === 'pending_signatures' ? 'Pending Signatures' :
+                           agreement.status === 'pending_payment' ? 'Pending Payment' :
+                           agreement.status === 'active' ? 'Active' :
+                           agreement.status}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-4 mb-4 text-sm">
+                        <div className="text-center">
+                          <div className="font-medium text-gray-700">Landlord Signed</div>
+                          <div className={`mt-1 ${agreement.landlord_signed_at ? 'text-green-600' : 'text-yellow-600'}`}>
+                            {agreement.landlord_signed_at ? '✓ Signed' : '⏳ Pending'}
+                          </div>
+                        </div>
+                        <div className="text-center">
+                          <div className="font-medium text-gray-700">Tenant Signed</div>
+                          <div className={`mt-1 ${agreement.tenant_signed_at ? 'text-green-600' : 'text-yellow-600'}`}>
+                            {agreement.tenant_signed_at ? '✓ Signed' : '⏳ Pending'}
+                          </div>
+                        </div>
+                        <div className="text-center">
+                          <div className="font-medium text-gray-700">Payment</div>
+                          <div className={`mt-1 ${agreement.payment_completed_at ? 'text-green-600' : 'text-yellow-600'}`}>
+                            {agreement.payment_completed_at ? '✓ Paid' : '⏳ Pending'}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-3">
+                        <Link 
+                          to={`/agreement/${agreement.id}`}
+                          className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors"
+                        >
+                          View Agreement
+                        </Link>
+                        
+                        {agreement.status === 'pending_signatures' && !agreement.tenant_signed_at && (
+                          <button 
+                            onClick={() => handleTenantSign(agreement.id)}
+                            className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors"
+                          >
+                            Sign Agreement
+                          </button>
+                        )}
+                        
+                        {agreement.status === 'pending_payment' && agreement.tenant_signed_at && agreement.landlord_signed_at && (
+                          <Link 
+                            to={`/payment/${agreement.id}`}
+                            className="bg-yellow-500 text-white px-4 py-2 rounded-lg hover:bg-yellow-600 transition-colors"
+                          >
+                            Pay Agreement Fee
+                          </Link>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

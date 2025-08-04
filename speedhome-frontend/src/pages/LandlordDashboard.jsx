@@ -1,16 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import PropertyAPI from '../services/PropertyAPI';
-import BookingAPI from '../services/BookingAPI';
-import { formatDate, formatTime, formatDateTime } from '../utils/dateUtils';
 import ApplicationAPI from '../services/ApplicationAPI';
+import BookingAPI from '../services/BookingAPI';
 import ProfileAPI from '../services/ProfileAPI';
+import MessagingAPI from '../services/MessagingAPI';
+import TenancyAgreementAPI from '../services/TenancyAgreementAPI';
 import RecurringAvailabilityManager from '../components/RecurringAvailabilityManager';
 import UnifiedCalendar from '../components/UnifiedCalendar';
 import MessagingCenter from '../components/MessagingCenter';
-import MessagingAPI from '../services/MessagingAPI';
 import ApplicationDetailsModal from '../components/ApplicationDetailsModal';
+import { useNavigate } from 'react-router-dom';
+import { formatDate } from '../utils/dateUtils';
 
 
 const LandlordDashboard = ({ onAddProperty }) => {
@@ -25,6 +27,10 @@ const LandlordDashboard = ({ onAddProperty }) => {
   const [conversations, setConversations] = useState([]);
   // Add this line near your other state declarations
   const hasNewMessages = conversations.some(convo => convo.unread_count > 0);
+
+  // State for tenancy agreements
+  const [tenancyAgreements, setTenancyAgreements] = useState([]);
+  const [agreementsLoading, setAgreementsLoading] = useState(false);
 
 
   // --- NEW: State for the Reschedule Modal ---
@@ -160,6 +166,32 @@ const LandlordDashboard = ({ onAddProperty }) => {
 
   useEffect(() => {
     loadProperties();
+  }, [isAuthenticated, user]);
+
+  // Load tenancy agreements
+  const loadAgreements = async () => {
+    if (!isAuthenticated || !user) return;
+
+    try {
+      setAgreementsLoading(true);
+      const result = await TenancyAgreementAPI.getAll();
+
+      if (result.success) {
+        setTenancyAgreements(result.agreements);
+      } else {
+        console.error('Failed to load agreements:', result.error);
+        setTenancyAgreements([]);
+      }
+    } catch (error) {
+      console.error('Error loading agreements:', error);
+      setTenancyAgreements([]);
+    } finally {
+      setAgreementsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadAgreements();
   }, [isAuthenticated, user]);
 
   // State for viewing requests - load from localStorage
@@ -526,27 +558,32 @@ const LandlordDashboard = ({ onAddProperty }) => {
 
   // Handle tenant application response
   const handleApplicationResponse = async (applicationId, response) => {
-    const application = tenantApplications.find(app => app.id === applicationId);
+  const application = tenantApplications.find(app => app.id === applicationId);
   if (application && !application.is_seen_by_landlord) {
     handleMarkApplicationAsSeen(applicationId);
   }
 
-    const newStatus = response === 'approved' ? 'approved' : 'rejected';
+  const newStatus = response === 'approved' ? 'approved' : 'rejected';
 
-    try {
-      const result = await ApplicationAPI.updateApplicationStatus(applicationId, newStatus);
-      if (result.success) {
-        alert(`Tenant application has been ${newStatus} successfully!`);
-        // Refresh the list from the server to show the change
-        await loadApplications();
-      } else {
-        alert(`Failed to update application: ${result.error}`);
-      }
-    } catch (error) {
-      console.error('Error updating application status:', error);
-      alert('An error occurred while updating the application.');
+  try {
+    // This single call tells the backend to approve the application.
+    // The backend will now automatically create the tenancy agreement.
+    const result = await ApplicationAPI.updateApplicationStatus(applicationId, newStatus);
+
+    if (result.success) {
+      alert(`Tenant application has been ${newStatus} successfully!`);
+
+      // Refresh both lists to show the updated state
+      await loadApplications();
+      await loadAgreements();
+    } else {
+      alert(`Failed to update application: ${result.error}`);
     }
-  };
+  } catch (error) {
+    console.error('Error updating application status:', error);
+    alert('An error occurred while updating the application.');
+  }
+};
 
 
 
@@ -1601,6 +1638,107 @@ const LandlordDashboard = ({ onAddProperty }) => {
                 </form>
               </div>
         );
+      case 'agreements':
+        return (
+          <div>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold text-gray-800">Tenancy Agreements</h2>
+              <button
+                onClick={loadAgreements}
+                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md text-sm"
+              >
+                Refresh
+              </button>
+            </div>
+
+            {agreementsLoading ? (
+              <div className="text-center py-8">
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                <p className="mt-2 text-gray-600">Loading agreements...</p>
+              </div>
+            ) : tenancyAgreements.length === 0 ? (
+              <div className="text-center py-8">
+                <div className="text-gray-400 text-6xl mb-4">📄</div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No Tenancy Agreements</h3>
+                <p className="text-gray-600">Agreements will appear here when you approve tenant applications.</p>
+              </div>
+            ) : (
+              <div className="bg-white shadow overflow-hidden sm:rounded-md">
+                <ul className="divide-y divide-gray-200">
+                  {tenancyAgreements.map((agreement) => (
+                    <li key={agreement.id} className="px-6 py-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <h3 className="text-lg font-medium text-gray-900">
+                              {agreement.property_address}
+                            </h3>
+                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${TenancyAgreementAPI.getStatusColor(agreement.status)}`}>
+                              {TenancyAgreementAPI.formatStatus(agreement.status)}
+                            </span>
+                          </div>
+                          <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
+                            <div>
+                              <span className="font-medium">Tenant:</span> {agreement.tenant_full_name}
+                            </div>
+                            <div>
+                              <span className="font-medium">Monthly Rent:</span> RM {agreement.monthly_rent}
+                            </div>
+                            <div>
+                              <span className="font-medium">Lease Start:</span> {new Date(agreement.lease_start_date).toLocaleDateString()}
+                            </div>
+                          </div>
+                          <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
+                            <div>
+                              <span className="font-medium">Landlord Signed:</span> 
+                              {agreement.landlord_signed_at ? (
+                                <span className="text-green-600 ml-1">✓ {new Date(agreement.landlord_signed_at).toLocaleDateString()}</span>
+                              ) : (
+                                <span className="text-yellow-600 ml-1">⏳ Pending</span>
+                              )}
+                            </div>
+                            <div>
+                              <span className="font-medium">Tenant Signed:</span>
+                              {agreement.tenant_signed_at ? (
+                                <span className="text-green-600 ml-1">✓ {new Date(agreement.tenant_signed_at).toLocaleDateString()}</span>
+                              ) : (
+                                <span className="text-yellow-600 ml-1">⏳ Pending</span>
+                              )}
+                            </div>
+                            <div>
+                              <span className="font-medium">Payment:</span>
+                              {agreement.payment_completed_at ? (
+                                <span className="text-green-600 ml-1">✓ Completed</span>
+                              ) : (
+                                <span className="text-yellow-600 ml-1">⏳ Pending</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="ml-4 flex space-x-2">
+                          <Link
+                            to={`/agreement/${agreement.id}`}
+                            className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm inline-block"
+                          >
+                            View Agreement
+                          </Link>
+                          {agreement.status === 'pending_signatures' && !agreement.landlord_signed_at && (
+                            <Link
+                              to={`/agreement/${agreement.id}`}
+                              className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm inline-block"
+                            >
+                              Sign Agreement
+                            </Link>
+                          )}
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        );
       default:
         return null; // Or return the default tab content, e.g., properties
     }
@@ -1824,6 +1962,16 @@ const LandlordDashboard = ({ onAddProperty }) => {
                     <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-500 text-white">New</span>
                   )}
             </button>
+
+              <button
+                onClick={() => setActiveTab('agreements')}
+                className={`${activeTab === 'agreements'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  } whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm`}
+              >
+                📄 Agreements
+              </button>
 
               <button
                 onClick={() => setActiveTab('profile')}

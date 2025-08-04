@@ -1,6 +1,8 @@
 import os
 import sys
 
+
+
 # DON'T CHANGE THIS !!!
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
@@ -12,6 +14,7 @@ from src.models.user import db, User
 from src.models.property import Property
 from src.models.booking import Booking
 from src.models.application import Application
+from src.models.tenancy_agreement import TenancyAgreement
 from src.models.notification import Notification
 from src.models.viewing_slot import ViewingSlot
 from src.models.conversation import Conversation
@@ -23,9 +26,12 @@ from src.routes.auth import auth_bp
 from src.routes.profile import profile_bp
 from src.routes.booking import booking_bp
 from src.routes.application import application_bp
+from src.routes.tenancy_agreement import tenancy_agreement_bp
 from src.routes.notification import notification_bp
 from src.routes.messaging import messaging_bp
 from src.routes.documents import documents_bp
+from src.routes.webhooks import webhooks_bp
+from src.routes.stripe_config import stripe_config_bp
 
 # Import admin components
 from src.admin.admin_config import init_admin
@@ -46,9 +52,12 @@ app.register_blueprint(auth_bp, url_prefix='/api/auth')
 app.register_blueprint(profile_bp, url_prefix='/api')
 app.register_blueprint(booking_bp, url_prefix='/api')
 app.register_blueprint(application_bp)
+app.register_blueprint(tenancy_agreement_bp)
 app.register_blueprint(notification_bp, url_prefix='/api')
 app.register_blueprint(messaging_bp, url_prefix='/api')
 app.register_blueprint(documents_bp)
+app.register_blueprint(webhooks_bp, url_prefix='/api/webhooks')
+app.register_blueprint(stripe_config_bp, url_prefix='/api/stripe')
 
 # Register admin authentication blueprint
 app.register_blueprint(admin_auth_bp)
@@ -84,4 +93,16 @@ def serve(path):
 
 # --- RUN THE APP ---
 if __name__ == '__main__':
+    # Run expiry check on startup
+    try:
+        with app.app_context():
+            from src.services.expiry_service import expiry_service
+            expired_count = expiry_service.check_and_expire_agreements()
+            if expired_count > 0:
+                print(f"Startup: Expired {expired_count} agreements")
+            else:
+                print("Startup: No agreements to expire")
+    except Exception as e:
+        print(f"Startup expiry check failed: {str(e)}")
+    
     app.run(host='0.0.0.0', port=5001, debug=True)
