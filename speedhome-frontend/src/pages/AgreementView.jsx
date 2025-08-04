@@ -246,9 +246,9 @@ const AgreementView = () => {
                console.log('agreement.is_expired:', agreement.is_expired) || 
                console.log('agreement.status:', agreement.status) || 
                console.log('agreement.expires_at:', agreement.expires_at) || 
-               console.log('Show countdown?', timeRemaining && !agreement.is_expired && agreement.status !== 'active') || 
+               console.log('Show countdown?', timeRemaining && !agreement.is_expired && (agreement.status === 'pending_signatures' || agreement.status === 'pending_payment')) || 
                console.log('=======================') || false}
-              {timeRemaining && !agreement.is_expired && agreement.status !== 'active' && (
+              {timeRemaining && !agreement.is_expired && (agreement.status === 'pending_signatures' || agreement.status === 'pending_payment') && (
                 <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-1">
                   <div className="flex items-center text-red-700">
                     <svg className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
