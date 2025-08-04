@@ -129,6 +129,10 @@ def create_agreement_from_application():
         lease_duration_months = 12  # Default to 12 months
         lease_end_date = lease_start_date + timedelta(days=lease_duration_months * 30)  # Approximate
         
+        # Calculate expiry time (48 hours from now)
+        expires_at_time = datetime.utcnow() + timedelta(hours=48)
+        logger.info(f"Creating agreement with expires_at: {expires_at_time}")
+        
         # Create the tenancy agreement
         agreement = TenancyAgreement(
             application_id=application.id,
@@ -166,11 +170,14 @@ def create_agreement_from_application():
             parking_included=getattr(property_obj, 'parking', 0) > 0,
             
             # Set expiry to 48 hours from creation if not completed
-            expires_at=datetime.utcnow() + timedelta(hours=48)
+            expires_at=expires_at_time
         )
         
         db.session.add(agreement)
         db.session.commit()
+        
+        # Debug: Verify expires_at was set correctly
+        logger.info(f"Agreement created with ID: {agreement.id}, expires_at: {agreement.expires_at}")
         
         # Generate draft PDF
         try:

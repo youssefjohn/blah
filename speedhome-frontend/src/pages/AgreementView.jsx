@@ -34,8 +34,9 @@ const AgreementView = () => {
   useEffect(() => {
     if (agreement && agreement.expires_at && !agreement.is_expired) {
       const timer = setInterval(() => {
+        // Use UTC time for both current time and expiry to avoid timezone issues
         const now = new Date().getTime();
-        const expiry = new Date(agreement.expires_at).getTime();
+        const expiry = new Date(agreement.expires_at + 'Z').getTime(); // Add 'Z' to ensure UTC parsing
         const difference = expiry - now;
         
         if (difference > 0) {
