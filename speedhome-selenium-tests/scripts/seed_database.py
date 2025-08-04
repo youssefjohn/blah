@@ -31,6 +31,8 @@ def seed_data():
     """
     with app.app_context():
         print("--- Starting database seed ---")
+        print("Ensuring all tables are created...")
+        db.create_all()
 
         # 1. Clear existing data to ensure a clean slate
         print("Clearing old data...")

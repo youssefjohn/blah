@@ -4,7 +4,7 @@ from src.models.property import Property
 from src.models.application import Application
 from src.models.notification import Notification
 from src.services.pdf_service import pdf_service
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from src.models.tenancy_agreement import TenancyAgreement
 
 application_bp = Blueprint('application_bp', __name__, url_prefix='/api/applications')
@@ -429,6 +429,7 @@ def update_application_status(application_id):
                 landlord_full_name=landlord.get_full_name(),
                 landlord_phone=landlord.phone,
                 landlord_email=landlord.email,
+                expires_at=datetime.now(timezone.utc) + timedelta(hours=48)
             )
             db.session.add(new_agreement)
             db.session.commit()  # Commit here to get the new_agreement.id
