@@ -220,6 +220,21 @@ class WorkflowCoordinator:
             if not agreement:
                 return {'success': False, 'error': 'Agreement not found'}
             
+            # Ensure final PDF is available for download
+            if not agreement.final_pdf_path or not os.path.exists(agreement.final_pdf_path):
+                logger.info(f"Final PDF missing for agreement {agreement.id}, generating...")
+                
+                # Generate final PDF using PDF service
+                try:
+                    pdf_result = self.pdf.update_agreement_pdfs(agreement)
+                    if pdf_result.get('final_pdf_path'):
+                        agreement.final_pdf_path = pdf_result['final_pdf_path']
+                        logger.info(f"Generated final PDF for agreement {agreement.id}: {agreement.final_pdf_path}")
+                    else:
+                        logger.warning(f"Could not generate final PDF for agreement {agreement.id}")
+                except Exception as pdf_error:
+                    logger.error(f"Error generating final PDF for agreement {agreement.id}: {str(pdf_error)}")
+            
             # Update agreement status
             agreement.status = 'active'
             agreement.payment_completed_at = datetime.utcnow()

@@ -368,7 +368,31 @@ def download_agreement_pdf(agreement_id, pdf_type):
         else:
             return jsonify({'success': False, 'error': 'Invalid PDF type'}), 400
         
+        # If PDF doesn't exist, try to generate it
         if not pdf_path or not os.path.exists(pdf_path):
+            logger.info(f"PDF not found for agreement {agreement_id}, attempting to generate...")
+            
+            try:
+                # Generate PDFs using PDF service
+                pdf_paths = pdf_service.update_agreement_pdfs(agreement)
+                
+                if pdf_type == 'draft' and pdf_paths.get('draft_pdf_path'):
+                    agreement.draft_pdf_path = pdf_paths['draft_pdf_path']
+                    pdf_path = agreement.draft_pdf_path
+                elif pdf_type == 'final' and pdf_paths.get('final_pdf_path'):
+                    agreement.final_pdf_path = pdf_paths['final_pdf_path']
+                    pdf_path = agreement.final_pdf_path
+                
+                db.session.commit()
+                logger.info(f"Generated {pdf_type} PDF for agreement {agreement_id}: {pdf_path}")
+                
+            except Exception as gen_error:
+                logger.error(f"Error generating {pdf_type} PDF for agreement {agreement_id}: {str(gen_error)}")
+                return jsonify({'success': False, 'error': f'Could not generate {pdf_type} PDF'}), 500
+        
+        # Final check if PDF exists
+        if not pdf_path or not os.path.exists(pdf_path):
+            logger.error(f"{pdf_type.title()} PDF still not found for agreement {agreement_id}")
             return jsonify({'success': False, 'error': 'PDF not found'}), 404
         
         # Generate filename for download
