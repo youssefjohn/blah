@@ -454,7 +454,7 @@ const AgreementView = () => {
                   📥 Download Draft PDF
                 </button>
 
-                {allSigned && (
+                {agreement.status === 'active' && (
                   <button
                     onClick={() => downloadPDF('final')}
                     className="w-full bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-md text-sm font-medium"
