@@ -74,9 +74,9 @@ class PDFService:
         """Generate a draft PDF with watermark"""
         return self.generate_agreement_pdf(agreement, property, is_draft=True, output_path=output_path)
     
-    def generate_final_pdf(self, agreement, output_path=None):
+    def generate_final_pdf(self, agreement, property, output_path=None):
         """Generate a final PDF without watermark"""
-        return self.generate_agreement_pdf(agreement, is_draft=False, output_path=output_path)
+        return self.generate_agreement_pdf(agreement, property, is_draft=False, output_path=output_path)
     
     def update_agreement_pdfs(self, agreement):
         """
@@ -89,13 +89,21 @@ class PDFService:
             dict: Paths to generated PDFs
         """
         try:
+            # Import here to avoid circular imports
+            from ..models.property import Property
+            
+            # Get the property data
+            property = Property.query.get(agreement.property_id)
+            if not property:
+                raise ValueError(f"Property not found for agreement {agreement.id}")
+            
             # Generate draft PDF
-            draft_path = self.generate_draft_pdf(agreement)
+            draft_path = self.generate_draft_pdf(agreement, property)
             
             # Generate final PDF if agreement is completed
             final_path = None
             if agreement.status == 'active':
-                final_path = self.generate_final_pdf(agreement)
+                final_path = self.generate_final_pdf(agreement, property)
             
             return {
                 'draft_pdf_path': draft_path,
