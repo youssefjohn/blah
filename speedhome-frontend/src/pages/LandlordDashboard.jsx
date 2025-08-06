@@ -12,7 +12,7 @@ import UnifiedCalendar from '../components/UnifiedCalendar';
 import MessagingCenter from '../components/MessagingCenter';
 import ApplicationDetailsModal from '../components/ApplicationDetailsModal';
 import { useNavigate } from 'react-router-dom';
-import { formatDate } from '../utils/dateUtils';
+import { formatDate, formatTime } from '../utils/dateUtils';
 
 
 const LandlordDashboard = ({ onAddProperty }) => {
