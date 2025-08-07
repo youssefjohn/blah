@@ -98,7 +98,7 @@ def submit_application():
                 
                 # Preferences
                 move_in_date=safe_date_parse(data.get('move_in_date')),
-                lease_duration_preference=data.get('lease_duration'),
+                lease_duration_preference=data.get('lease_duration_preference'),
                 number_of_occupants=safe_int_parse(data.get('number_of_occupants')),
                 pets=data.get('pets') == 'Yes',
                 smoking=data.get('smoking') == 'Yes',
@@ -297,8 +297,8 @@ def update_application(application_id):
         # Preferences
         if 'move_in_date' in data:
             app.move_in_date = safe_date_parse(data['move_in_date'])
-        if 'lease_duration' in data:
-            app.lease_duration_preference = data['lease_duration']
+        if 'lease_duration_preference' in data:
+            app.lease_duration_preference = data['lease_duration_preference']
         if 'number_of_occupants' in data:
             app.number_of_occupants = safe_int_parse(data['number_of_occupants'])
         if 'pets' in data:
@@ -396,8 +396,17 @@ def update_application_status(application_id):
             months = 12  # Default to 12 months if not specified
             if app.lease_duration_preference:
                 try:
-                    # Handle cases like "12 months" or just "12"
-                    months = int(app.lease_duration_preference.split()[0])
+                    # Handle frontend values like "6-months", "1-year", "2-years"
+                    preference = app.lease_duration_preference.lower()
+                    if "6-months" in preference:
+                        months = 6
+                    elif "1-year" in preference:
+                        months = 12
+                    elif "2-years" in preference:
+                        months = 24
+                    else:
+                        # Fallback: try to parse as number (legacy support)
+                        months = int(app.lease_duration_preference.split()[0])
                 except (ValueError, IndexError):
                     # If parsing fails, fall back to the default
                     months = 12
