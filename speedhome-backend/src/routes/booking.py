@@ -92,6 +92,18 @@ def cancel_booking_by_tenant(booking_id):
         booking.status = 'cancelled'
         booking.updated_at = datetime.utcnow()
 
+        # ✅ FIX: Release the viewing slot back to availability when booking is cancelled
+        if booking.viewing_slot_id:
+            viewing_slot = ViewingSlot.query.get(booking.viewing_slot_id)
+            if viewing_slot:
+                viewing_slot.is_available = True
+                viewing_slot.booked_by_user_id = None
+                print(f"🔄 Released viewing slot {viewing_slot.id} back to availability after cancellation")
+            
+            # ✅ ADDITIONAL FIX: Clear viewing_slot_id from cancelled booking to avoid unique constraint violation
+            booking.viewing_slot_id = None
+            print(f"🔄 Cleared viewing_slot_id from cancelled booking {booking.id}")
+
         db.session.commit()
 
         return jsonify({
@@ -218,6 +230,18 @@ def update_booking_status(booking_id):
 
         booking.status = new_status
         booking.updated_at = datetime.utcnow()
+
+        # ✅ FIX: Release the viewing slot back to availability when booking is cancelled
+        if new_status == 'cancelled' and booking.viewing_slot_id:
+            viewing_slot = ViewingSlot.query.get(booking.viewing_slot_id)
+            if viewing_slot:
+                viewing_slot.is_available = True
+                viewing_slot.booked_by_user_id = None
+                print(f"🔄 Released viewing slot {viewing_slot.id} back to availability after landlord cancellation")
+            
+            # ✅ ADDITIONAL FIX: Clear viewing_slot_id from cancelled booking to avoid unique constraint violation
+            booking.viewing_slot_id = None
+            print(f"🔄 Cleared viewing_slot_id from cancelled booking {booking.id}")
 
         tenant_notification = Notification(
             recipient_id=booking.user_id,
