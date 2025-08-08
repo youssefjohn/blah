@@ -46,7 +46,7 @@ const EnhancedApplicationForm = ({ propertyId, onClose, onSuccess }) => {
     
     // Preferences
     move_in_date: '',
-    lease_duration: '',
+    lease_duration_preference: '',
     number_of_occupants: '',
     pets: '',
     smoking: '',
@@ -597,7 +597,6 @@ const EnhancedApplicationForm = ({ propertyId, onClose, onSuccess }) => {
                     <SelectItem value="6-months">6 Months</SelectItem>
                     <SelectItem value="1-year">1 Year</SelectItem>
                     <SelectItem value="2-years">2 Years</SelectItem>
-                    <SelectItem value="flexible">Flexible</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
