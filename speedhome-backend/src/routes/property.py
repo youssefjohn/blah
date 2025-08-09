@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify, session
-from src.models.property import db, Property
+from src.models.property import db, Property, PropertyStatus
 from src.models.viewing_slot import ViewingSlot
 from datetime import datetime, date, time, timedelta
 import json
@@ -18,8 +18,8 @@ def get_properties():
         property_type = request.args.get('property_type')
         amenities = request.args.get('amenities')  # Comma-separated list
         
-        # Start with base query - only show Active properties for public listing
-        query = Property.query.filter(Property.status == 'Active')
+        # Start with base query - only show publicly visible properties (Active status)
+        query = Property.query.filter(Property.status == PropertyStatus.ACTIVE)
         
         # Apply filters
         if location:
@@ -690,3 +690,241 @@ def get_available_slots(property_id):
             'success': False,
             'error': f'An error occurred: {str(e)}'
         }), 500
+
+
+# ============================================================================
+# PROPERTY STATUS LIFECYCLE MANAGEMENT ENDPOINTS
+# ============================================================================
+
+@property_bp.route('/properties/<int:property_id>/status', methods=['PUT'])
+def update_property_status(property_id):
+    """Update property status with validation and state machine enforcement"""
+    try:
+        data = request.get_json()
+        new_status_str = data.get('status')
+        available_from_date = data.get('available_from_date')
+        
+        if not new_status_str:
+            return jsonify({'success': False, 'error': 'Status is required'}), 400
+        
+        # Convert string to enum
+        try:
+            new_status = PropertyStatus(new_status_str)
+        except ValueError:
+            return jsonify({'success': False, 'error': f'Invalid status: {new_status_str}'}), 400
+        
+        # Get the property
+        property_obj = Property.query.get(property_id)
+        if not property_obj:
+            return jsonify({'success': False, 'error': 'Property not found'}), 404
+        
+        # Check if user owns this property (basic auth check)
+        user_id = session.get('user_id')
+        if not user_id or property_obj.owner_id != user_id:
+            return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+        
+        # Validate transition
+        if not property_obj.can_transition_to(new_status):
+            current_status = property_obj.get_status_display()
+            return jsonify({
+                'success': False, 
+                'error': f'Invalid transition from {current_status} to {new_status_str}'
+            }), 400
+        
+        # Parse available_from_date if provided
+        parsed_date = None
+        if available_from_date:
+            try:
+                parsed_date = datetime.fromisoformat(available_from_date).date()
+            except ValueError:
+                return jsonify({'success': False, 'error': 'Invalid date format'}), 400
+        
+        # Perform the transition
+        old_status = property_obj.get_status_display()
+        
+        if new_status == PropertyStatus.ACTIVE:
+            success = property_obj.transition_to_active(available_from_date=parsed_date)
+        elif new_status == PropertyStatus.PENDING:
+            success = property_obj.transition_to_pending()
+        elif new_status == PropertyStatus.RENTED:
+            success = property_obj.transition_to_rented()
+        elif new_status == PropertyStatus.INACTIVE:
+            success = property_obj.transition_to_inactive()
+        else:
+            return jsonify({'success': False, 'error': 'Unsupported status transition'}), 400
+        
+        if not success:
+            return jsonify({'success': False, 'error': 'Status transition failed'}), 500
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Property status updated from {old_status} to {new_status_str}',
+            'property': property_obj.to_dict()
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': f'An error occurred: {str(e)}'}), 500
+
+@property_bp.route('/properties/<int:property_id>/reactivate', methods=['POST'])
+def reactivate_property(property_id):
+    """Reactivate an inactive property (Inactive → Active)"""
+    try:
+        # Get the property
+        property_obj = Property.query.get(property_id)
+        if not property_obj:
+            return jsonify({'success': False, 'error': 'Property not found'}), 404
+        
+        # Check if user owns this property
+        user_id = session.get('user_id')
+        if not user_id or property_obj.owner_id != user_id:
+            return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+        
+        # Check current status
+        if property_obj.status != PropertyStatus.INACTIVE:
+            return jsonify({
+                'success': False, 
+                'error': f'Can only reactivate inactive properties. Current status: {property_obj.get_status_display()}'
+            }), 400
+        
+        # Reactivate the property
+        if property_obj.transition_to_active():
+            db.session.commit()
+            return jsonify({
+                'success': True,
+                'message': 'Property reactivated successfully',
+                'property': property_obj.to_dict()
+            }), 200
+        else:
+            return jsonify({'success': False, 'error': 'Failed to reactivate property'}), 500
+            
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': f'An error occurred: {str(e)}'}), 500
+
+@property_bp.route('/properties/<int:property_id>/deactivate', methods=['POST'])
+def deactivate_property(property_id):
+    """Deactivate a property (Any status → Inactive)"""
+    try:
+        # Get the property
+        property_obj = Property.query.get(property_id)
+        if not property_obj:
+            return jsonify({'success': False, 'error': 'Property not found'}), 404
+        
+        # Check if user owns this property
+        user_id = session.get('user_id')
+        if not user_id or property_obj.owner_id != user_id:
+            return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+        
+        # Check if already inactive
+        if property_obj.status == PropertyStatus.INACTIVE:
+            return jsonify({
+                'success': False, 
+                'error': 'Property is already inactive'
+            }), 400
+        
+        # Deactivate the property
+        old_status = property_obj.get_status_display()
+        if property_obj.transition_to_inactive():
+            db.session.commit()
+            return jsonify({
+                'success': True,
+                'message': f'Property deactivated (was {old_status})',
+                'property': property_obj.to_dict()
+            }), 200
+        else:
+            return jsonify({'success': False, 'error': 'Failed to deactivate property'}), 500
+            
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': f'An error occurred: {str(e)}'}), 500
+
+@property_bp.route('/properties/<int:property_id>/relist', methods=['POST'])
+def relist_property(property_id):
+    """Re-list a rented property for future availability (Rented → Active)"""
+    try:
+        data = request.get_json()
+        available_from_date = data.get('available_from_date')
+        
+        if not available_from_date:
+            return jsonify({'success': False, 'error': 'available_from_date is required'}), 400
+        
+        # Parse the date
+        try:
+            parsed_date = datetime.fromisoformat(available_from_date).date()
+        except ValueError:
+            return jsonify({'success': False, 'error': 'Invalid date format'}), 400
+        
+        # Validate date is in the future
+        if parsed_date <= date.today():
+            return jsonify({'success': False, 'error': 'Available date must be in the future'}), 400
+        
+        # Get the property
+        property_obj = Property.query.get(property_id)
+        if not property_obj:
+            return jsonify({'success': False, 'error': 'Property not found'}), 404
+        
+        # Check if user owns this property
+        user_id = session.get('user_id')
+        if not user_id or property_obj.owner_id != user_id:
+            return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+        
+        # Check current status
+        if property_obj.status != PropertyStatus.RENTED:
+            return jsonify({
+                'success': False, 
+                'error': f'Can only re-list rented properties. Current status: {property_obj.get_status_display()}'
+            }), 400
+        
+        # Re-list the property with future availability
+        if property_obj.transition_to_active(available_from_date=parsed_date):
+            db.session.commit()
+            return jsonify({
+                'success': True,
+                'message': f'Property re-listed for availability from {parsed_date.isoformat()}',
+                'property': property_obj.to_dict()
+            }), 200
+        else:
+            return jsonify({'success': False, 'error': 'Failed to re-list property'}), 500
+            
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': f'An error occurred: {str(e)}'}), 500
+
+@property_bp.route('/properties/<int:property_id>/status', methods=['GET'])
+def get_property_status(property_id):
+    """Get detailed property status information"""
+    try:
+        # Get the property
+        property_obj = Property.query.get(property_id)
+        if not property_obj:
+            return jsonify({'success': False, 'error': 'Property not found'}), 404
+        
+        # Check if user owns this property (for detailed status info)
+        user_id = session.get('user_id')
+        if not user_id or property_obj.owner_id != user_id:
+            return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+        
+        # Get valid transitions for current status
+        valid_transitions = []
+        for status in PropertyStatus:
+            if property_obj.can_transition_to(status):
+                valid_transitions.append(status.value)
+        
+        return jsonify({
+            'success': True,
+            'status': {
+                'current': property_obj.get_status_display(),
+                'available_from_date': property_obj.available_from_date.isoformat() if property_obj.available_from_date else None,
+                'is_available_for_applications': property_obj.is_available_for_applications(),
+                'is_publicly_visible': property_obj.is_publicly_visible(),
+                'valid_transitions': valid_transitions,
+                'last_updated': property_obj.date_updated.isoformat() if property_obj.date_updated else None
+            }
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'An error occurred: {str(e)}'}), 500
+

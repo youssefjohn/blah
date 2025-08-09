@@ -5,7 +5,7 @@ from ..services.stripe_service import stripe_service
 from ..models.tenancy_agreement import TenancyAgreement
 from src.services.pdf_service import pdf_service
 from ..models.application import Application
-from ..models.property import Property
+from ..models.property import Property, PropertyStatus
 from ..models.user import User
 from ..models import db
 from ..services.pdf_service import pdf_service
@@ -298,6 +298,14 @@ def record_payment(agreement_id):
         # Activate the agreement
         agreement.status = 'active'
         agreement.updated_at = now
+        
+        # Transition property from Pending to Rented when agreement becomes active
+        property_obj = Property.query.get(agreement.property_id)
+        if property_obj:
+            if property_obj.transition_to_rented():
+                logger.info(f"Property {property_obj.id} transitioned to Rented status after agreement activation")
+            else:
+                logger.warning(f"Failed to transition property {property_obj.id} to Rented status")
         
         db.session.commit()
         
@@ -659,6 +667,14 @@ def withdraw_landlord_offer(agreement_id):
         agreement.withdrawal_reason = reason
         agreement.status = 'withdrawn'
         
+        # Revert property from Pending back to Active when landlord withdraws offer
+        property_obj = Property.query.get(agreement.property_id)
+        if property_obj and property_obj.status == PropertyStatus.PENDING:
+            if property_obj.transition_to_active():
+                logger.info(f"Property {property_obj.id} reverted to Active status after landlord withdrawal")
+            else:
+                logger.warning(f"Failed to revert property {property_obj.id} to Active status")
+        
         db.session.commit()
         
         logger.info(f"Landlord {user_id} withdrew offer for agreement {agreement_id}")
@@ -745,6 +761,15 @@ def check_agreement_expiry(agreement_id):
             agreement.status = 'expired'
             agreement.cancelled_at = datetime.utcnow()
             agreement.cancellation_reason = 'Agreement expired - not completed within time limit'
+            
+            # Revert property from Pending back to Active when agreement expires
+            property_obj = Property.query.get(agreement.property_id)
+            if property_obj and property_obj.status == PropertyStatus.PENDING:
+                if property_obj.transition_to_active():
+                    logger.info(f"Property {property_obj.id} reverted to Active status after agreement expiration")
+                else:
+                    logger.warning(f"Failed to revert property {property_obj.id} to Active status")
+            
             db.session.commit()
             
             logger.info(f"Agreement {agreement_id} marked as expired")
