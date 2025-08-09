@@ -1,11 +1,19 @@
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+from datetime import datetime, date
 import json
+import enum
 
 # Import db from user model to ensure single instance
 from .user import db
 
 from .booking import Booking
+
+class PropertyStatus(enum.Enum):
+    """Property status enum for lifecycle management"""
+    ACTIVE = "Active"
+    PENDING = "Pending" 
+    RENTED = "Rented"
+    INACTIVE = "Inactive"
 
 class Property(db.Model):
     __tablename__ = 'properties'
@@ -29,7 +37,8 @@ class Property(db.Model):
     description = db.Column(db.Text, nullable=True)
     
     # Property status and metrics
-    status = db.Column(db.String(50), nullable=False, default='Active')
+    status = db.Column(db.Enum(PropertyStatus), nullable=False, default=PropertyStatus.ACTIVE)
+    available_from_date = db.Column(db.Date, nullable=True)  # For future availability when re-listing
     views = db.Column(db.Integer, nullable=False, default=0)
     inquiries = db.Column(db.Integer, nullable=False, default=0)
     
@@ -85,7 +94,8 @@ class Property(db.Model):
             'propertyType': self.property_type,
             'furnished': self.furnished,
             'description': self.description,
-            'status': self.status,
+            'status': self.status.value if self.status else 'Active',  # Convert enum to string value
+            'available_from_date': self.available_from_date.isoformat() if self.available_from_date else None,
             'views': self.views,
             'inquiries': self.inquiries,
             'latitude': self.latitude,
@@ -131,7 +141,25 @@ class Property(db.Model):
         property_obj.description = data.get('description', '')
         
         # Status and metrics
-        property_obj.status = data.get('status', 'Active')
+        status_value = data.get('status', 'Active')
+        if isinstance(status_value, str):
+            # Convert string to enum
+            try:
+                property_obj.status = PropertyStatus(status_value)
+            except ValueError:
+                property_obj.status = PropertyStatus.ACTIVE  # Default fallback
+        else:
+            property_obj.status = status_value or PropertyStatus.ACTIVE
+            
+        # Handle available_from_date
+        available_from = data.get('available_from_date')
+        if available_from:
+            if isinstance(available_from, str):
+                from datetime import datetime
+                property_obj.available_from_date = datetime.fromisoformat(available_from).date()
+            elif isinstance(available_from, date):
+                property_obj.available_from_date = available_from
+        
         property_obj.views = int(data.get('views', 0))
         property_obj.inquiries = int(data.get('inquiries', 0))
         
@@ -194,7 +222,27 @@ class Property(db.Model):
         
         # Status and metrics
         if 'status' in data:
-            self.status = data['status']
+            status_value = data['status']
+            if isinstance(status_value, str):
+                try:
+                    self.status = PropertyStatus(status_value)
+                except ValueError:
+                    self.status = PropertyStatus.ACTIVE  # Default fallback
+            else:
+                self.status = status_value or PropertyStatus.ACTIVE
+                
+        # Handle available_from_date
+        if 'available_from_date' in data:
+            available_from = data['available_from_date']
+            if available_from:
+                if isinstance(available_from, str):
+                    from datetime import datetime
+                    self.available_from_date = datetime.fromisoformat(available_from).date()
+                elif isinstance(available_from, date):
+                    self.available_from_date = available_from
+            else:
+                self.available_from_date = None
+                
         if 'views' in data:
             self.views = int(data['views'])
         if 'inquiries' in data:
@@ -240,6 +288,71 @@ class Property(db.Model):
         
         # Update timestamp
         self.date_updated = datetime.utcnow()
+
+    # Status management methods for property lifecycle
+    def can_transition_to(self, new_status):
+        """Check if property can transition to the given status"""
+        if not isinstance(new_status, PropertyStatus):
+            return False
+            
+        current = self.status
+        
+        # Define valid transitions according to Gemini's state machine
+        valid_transitions = {
+            PropertyStatus.ACTIVE: [PropertyStatus.PENDING, PropertyStatus.INACTIVE],
+            PropertyStatus.PENDING: [PropertyStatus.RENTED, PropertyStatus.ACTIVE, PropertyStatus.INACTIVE],
+            PropertyStatus.RENTED: [PropertyStatus.ACTIVE, PropertyStatus.INACTIVE],
+            PropertyStatus.INACTIVE: [PropertyStatus.ACTIVE]
+        }
+        
+        return new_status in valid_transitions.get(current, [])
+    
+    def transition_to_pending(self):
+        """Transition property to Pending status (when application approved)"""
+        if self.can_transition_to(PropertyStatus.PENDING):
+            self.status = PropertyStatus.PENDING
+            self.date_updated = datetime.utcnow()
+            return True
+        return False
+    
+    def transition_to_rented(self):
+        """Transition property to Rented status (when agreement becomes active)"""
+        if self.can_transition_to(PropertyStatus.RENTED):
+            self.status = PropertyStatus.RENTED
+            self.available_from_date = None  # Clear future availability
+            self.date_updated = datetime.utcnow()
+            return True
+        return False
+    
+    def transition_to_active(self, available_from_date=None):
+        """Transition property to Active status (manual re-list or auto-revert)"""
+        if self.can_transition_to(PropertyStatus.ACTIVE):
+            self.status = PropertyStatus.ACTIVE
+            self.available_from_date = available_from_date
+            self.date_updated = datetime.utcnow()
+            return True
+        return False
+    
+    def transition_to_inactive(self):
+        """Transition property to Inactive status (manual deactivation)"""
+        if self.can_transition_to(PropertyStatus.INACTIVE):
+            self.status = PropertyStatus.INACTIVE
+            self.available_from_date = None  # Clear future availability
+            self.date_updated = datetime.utcnow()
+            return True
+        return False
+    
+    def is_available_for_applications(self):
+        """Check if property is available for new applications"""
+        return self.status == PropertyStatus.ACTIVE
+    
+    def is_publicly_visible(self):
+        """Check if property should be visible in public search results"""
+        return self.status in [PropertyStatus.ACTIVE]
+    
+    def get_status_display(self):
+        """Get human-readable status display"""
+        return self.status.value if self.status else 'Active'
 
 
 
