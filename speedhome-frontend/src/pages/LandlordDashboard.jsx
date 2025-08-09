@@ -11,6 +11,8 @@ import RecurringAvailabilityManager from '../components/RecurringAvailabilityMan
 import UnifiedCalendar from '../components/UnifiedCalendar';
 import MessagingCenter from '../components/MessagingCenter';
 import ApplicationDetailsModal from '../components/ApplicationDetailsModal';
+import PropertyStatusBadge from '../components/PropertyStatusBadge';
+import PropertyStatusControls from '../components/PropertyStatusControls';
 import { useNavigate } from 'react-router-dom';
 import { formatDate, formatTime, formatDateTime } from '../utils/dateUtils';
 
@@ -298,38 +300,6 @@ const LandlordDashboard = ({ onAddProperty }) => {
     thisMonth: 'RM 0',
     lastMonth: 'RM 0',
     transactions: [],
-  };
-
-
-  // In LandlordDashboard.js
-  const handleStatusChange = async (propertyId, newStatus) => {
-    try {
-      const propertyToUpdate = properties.find(p => p.id === propertyId);
-      if (!propertyToUpdate) {
-        alert('Error: Could not find the property to update.');
-        return;
-      }
-
-      const updatedPropertyData = { ...propertyToUpdate, status: newStatus };
-
-      // Use the working updateProperty API call
-      const result = await PropertyAPI.updateProperty(propertyId, updatedPropertyData);
-
-      if (result.success) {
-        await loadProperties(); // This updates the dashboard
-
-        // ✅ THIS IS THE MISSING LINE:
-        // This sends the signal to App.jsx to update the homepage
-        window.dispatchEvent(new CustomEvent('propertyUpdated'));
-
-        alert(`Property status changed to ${newStatus}`);
-      } else {
-        alert(`Failed to update property status: ${result.error}`);
-      }
-    } catch (error) {
-      console.error('Error updating property status:', error);
-      alert('An error occurred while updating the property status.');
-    }
   };
 
 
@@ -864,6 +834,66 @@ const LandlordDashboard = ({ onAddProperty }) => {
       [name]: value,
     }));
   };
+
+  // ============================================================================
+  // PROPERTY STATUS MANAGEMENT HANDLERS
+  // ============================================================================
+
+  // Handle property status change
+  const handlePropertyStatusChange = async (propertyId, newStatus) => {
+    try {
+      let result;
+      
+      switch (newStatus) {
+        case 'Active':
+          result = await PropertyAPI.reactivateProperty(propertyId);
+          break;
+        case 'Inactive':
+          result = await PropertyAPI.deactivateProperty(propertyId);
+          break;
+        default:
+          result = await PropertyAPI.updatePropertyStatus(propertyId, newStatus);
+          break;
+      }
+
+      if (result.success) {
+        // Refresh properties to show updated status
+        await loadProperties();
+        
+        // Notify other parts of the app (like the homepage) that a property has changed
+        window.dispatchEvent(new CustomEvent('propertyUpdated'));
+        
+        alert(result.message || `Property status updated to ${newStatus}`);
+      } else {
+        alert(`Failed to update property status: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error updating property status:', error);
+      alert(`Error updating property status: ${error.message}`);
+    }
+  };
+
+  // Handle property re-listing for future availability
+  const handlePropertyRelist = async (propertyId, availableFromDate) => {
+    try {
+      const result = await PropertyAPI.relistProperty(propertyId, availableFromDate);
+      
+      if (result.success) {
+        // Refresh properties to show updated status
+        await loadProperties();
+        
+        // Notify other parts of the app (like the homepage) that a property has changed
+        window.dispatchEvent(new CustomEvent('propertyUpdated'));
+        
+        alert(result.message || 'Property re-listed successfully');
+      } else {
+        alert(`Failed to re-list property: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error re-listing property:', error);
+      alert(`Error re-listing property: ${error.message}`);
+    }
+  };
   const renderActiveTab = () => {
     switch (activeTab) {
       case 'properties':
@@ -900,20 +930,26 @@ const LandlordDashboard = ({ onAddProperty }) => {
                               </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${property.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>{property.status}</span>
+                              <PropertyStatusBadge 
+                                status={property.status} 
+                                availableFromDate={property.available_from_date}
+                                size="sm"
+                              />
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{property.views}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{property.inquiries}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">RM {property.price.toLocaleString()}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                              <div className="flex space-x-2" onClick={(e) => e.stopPropagation()}>
-                                <button onClick={() => handleEditProperty(property)} className="text-blue-600 hover:text-blue-900">Edit</button>
-                                <button onClick={() => handleDeleteProperty(property.id)} className="text-red-600 hover:text-red-900">Delete</button>
-                                <select value={property.status} onChange={(e) => handleStatusChange(property.id, e.target.value)} className="text-gray-600 text-sm border-gray-300 rounded-md">
-                                  <option value="Active">Active</option>
-                                  <option value="Inactive">Inactive</option>
-                                  <option value="Rented">Rented</option>
-                                </select>
+                              <div className="flex flex-col space-y-2" onClick={(e) => e.stopPropagation()}>
+                                <div className="flex space-x-2">
+                                  <button onClick={() => handleEditProperty(property)} className="text-blue-600 hover:text-blue-900">Edit</button>
+                                  <button onClick={() => handleDeleteProperty(property.id)} className="text-red-600 hover:text-red-900">Delete</button>
+                                </div>
+                                <PropertyStatusControls
+                                  property={property}
+                                  onStatusChange={handlePropertyStatusChange}
+                                  onRelistProperty={handlePropertyRelist}
+                                />
                               </div>
                             </td>
                           </tr>

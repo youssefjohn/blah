@@ -449,6 +449,139 @@ class PropertyAPI {
     }
   }
 
+  // ============================================================================
+  // PROPERTY STATUS LIFECYCLE MANAGEMENT METHODS
+  // ============================================================================
+
+  // Update property status
+  static async updatePropertyStatus(propertyId, status, availableFromDate = null) {
+    try {
+      const requestBody = { status };
+      if (availableFromDate) {
+        requestBody.available_from_date = availableFromDate;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/properties/${propertyId}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(requestBody)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error updating property status:', error);
+      throw error;
+    }
+  }
+
+  // Reactivate an inactive property
+  static async reactivateProperty(propertyId) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/properties/${propertyId}/reactivate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error reactivating property:', error);
+      throw error;
+    }
+  }
+
+  // Deactivate a property
+  static async deactivateProperty(propertyId) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/properties/${propertyId}/deactivate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error deactivating property:', error);
+      throw error;
+    }
+  }
+
+  // Re-list a rented property for future availability
+  static async relistProperty(propertyId, availableFromDate) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/properties/${propertyId}/relist`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          available_from_date: availableFromDate
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error re-listing property:', error);
+      throw error;
+    }
+  }
+
+  // Get detailed property status information
+  static async getPropertyStatus(propertyId) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/properties/${propertyId}/status`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching property status:', error);
+      throw error;
+    }
+  }
+
 }
 
 export default PropertyAPI;
