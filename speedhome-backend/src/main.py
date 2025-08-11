@@ -105,4 +105,15 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"Startup expiry check failed: {str(e)}")
     
+    # Initialize and start background scheduler for property lifecycle management
+    try:
+        from src.services.background_scheduler import init_scheduler, start_scheduler
+        print("Initializing property lifecycle background scheduler...")
+        init_scheduler(app)
+        start_scheduler()
+        print("✅ Background scheduler started successfully")
+    except Exception as e:
+        print(f"⚠️ Failed to start background scheduler: {str(e)}")
+        print("Application will continue without background jobs")
+    
     app.run(host='0.0.0.0', port=5001, debug=True)

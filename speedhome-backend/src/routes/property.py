@@ -789,9 +789,19 @@ def reactivate_property(property_id):
                 'error': f'Can only reactivate inactive properties. Current status: {property_obj.get_status_display()}'
             }), 400
         
+        # Store old status for notification
+        old_status = property_obj.status
+        
         # Reactivate the property
         if property_obj.transition_to_active():
             db.session.commit()
+            
+            # Create status change notification
+            from src.services.property_lifecycle_service import PropertyLifecycleService
+            PropertyLifecycleService.create_status_change_notification(
+                property_obj, old_status, PropertyStatus.ACTIVE, "Manual reactivation"
+            )
+            
             return jsonify({
                 'success': True,
                 'message': 'Property reactivated successfully',
@@ -825,13 +835,22 @@ def deactivate_property(property_id):
                 'error': 'Property is already inactive'
             }), 400
         
-        # Deactivate the property
-        old_status = property_obj.get_status_display()
+        # Store old status for notification and display
+        old_status = property_obj.status
+        old_status_display = property_obj.get_status_display()
+        
         if property_obj.transition_to_inactive():
             db.session.commit()
+            
+            # Create status change notification
+            from src.services.property_lifecycle_service import PropertyLifecycleService
+            PropertyLifecycleService.create_status_change_notification(
+                property_obj, old_status, PropertyStatus.INACTIVE, "Manual deactivation"
+            )
+            
             return jsonify({
                 'success': True,
-                'message': f'Property deactivated (was {old_status})',
+                'message': f'Property deactivated (was {old_status_display})',
                 'property': property_obj.to_dict()
             }), 200
         else:
@@ -878,9 +897,20 @@ def relist_property(property_id):
                 'error': f'Can only re-list rented properties. Current status: {property_obj.get_status_display()}'
             }), 400
         
+        # Store old status for notification
+        old_status = property_obj.status
+        
         # Re-list the property with future availability
         if property_obj.transition_to_active(available_from_date=parsed_date):
             db.session.commit()
+            
+            # Create status change notification
+            from src.services.property_lifecycle_service import PropertyLifecycleService
+            PropertyLifecycleService.create_status_change_notification(
+                property_obj, old_status, PropertyStatus.ACTIVE, 
+                f"Re-listed for availability from {parsed_date.isoformat()}"
+            )
+            
             return jsonify({
                 'success': True,
                 'message': f'Property re-listed for availability from {parsed_date.isoformat()}',
@@ -922,6 +952,157 @@ def get_property_status(property_id):
                 'is_publicly_visible': property_obj.is_publicly_visible(),
                 'valid_transitions': valid_transitions,
                 'last_updated': property_obj.date_updated.isoformat() if property_obj.date_updated else None
+            }
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'An error occurred: {str(e)}'}), 500
+
+
+# ============================================================================
+# PROPERTY LIFECYCLE MAINTENANCE ENDPOINTS
+# ============================================================================
+
+@property_bp.route('/admin/property-lifecycle/maintenance', methods=['POST'])
+def run_property_maintenance():
+    """
+    Manually trigger property lifecycle maintenance tasks
+    This endpoint is for administrative use and testing
+    """
+    try:
+        # Check if user is authenticated and has admin privileges
+        user_id = session.get('user_id')
+        if not user_id:
+            return jsonify({'success': False, 'error': 'Authentication required'}), 401
+        
+        # For now, allow any authenticated user to run maintenance
+        # In production, you might want to restrict this to admin users only
+        
+        from src.services.property_lifecycle_service import PropertyLifecycleService
+        
+        # Run the maintenance tasks
+        results = PropertyLifecycleService.run_daily_maintenance()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Property lifecycle maintenance completed',
+            'results': results
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'An error occurred: {str(e)}'}), 500
+
+@property_bp.route('/admin/property-lifecycle/expired-agreements', methods=['POST'])
+def check_expired_agreements():
+    """Check and process expired tenancy agreements"""
+    try:
+        user_id = session.get('user_id')
+        if not user_id:
+            return jsonify({'success': False, 'error': 'Authentication required'}), 401
+        
+        from src.services.property_lifecycle_service import PropertyLifecycleService
+        
+        results = PropertyLifecycleService.check_expired_agreements()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Expired agreements check completed',
+            'results': results
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'An error occurred: {str(e)}'}), 500
+
+@property_bp.route('/admin/property-lifecycle/pending-timeouts', methods=['POST'])
+def check_pending_timeouts():
+    """Check and process pending agreements that have timed out"""
+    try:
+        user_id = session.get('user_id')
+        if not user_id:
+            return jsonify({'success': False, 'error': 'Authentication required'}), 401
+        
+        from src.services.property_lifecycle_service import PropertyLifecycleService
+        
+        results = PropertyLifecycleService.check_pending_agreements_timeout()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Pending timeouts check completed',
+            'results': results
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'An error occurred: {str(e)}'}), 500
+
+@property_bp.route('/admin/property-lifecycle/future-availability', methods=['POST'])
+def check_future_availability():
+    """Check and activate properties with future availability dates that have arrived"""
+    try:
+        user_id = session.get('user_id')
+        if not user_id:
+            return jsonify({'success': False, 'error': 'Authentication required'}), 401
+        
+        from src.services.property_lifecycle_service import PropertyLifecycleService
+        
+        results = PropertyLifecycleService.check_future_availability()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Future availability check completed',
+            'results': results
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'An error occurred: {str(e)}'}), 500
+
+@property_bp.route('/admin/property-lifecycle/status', methods=['GET'])
+def get_lifecycle_status():
+    """Get overview of property lifecycle system status"""
+    try:
+        user_id = session.get('user_id')
+        if not user_id:
+            return jsonify({'success': False, 'error': 'Authentication required'}), 401
+        
+        from src.models.property import Property, PropertyStatus
+        from src.models.tenancy_agreement import TenancyAgreement
+        from datetime import date, timedelta
+        
+        # Get property status counts
+        status_counts = {}
+        for status in PropertyStatus:
+            count = Property.query.filter_by(status=status).count()
+            status_counts[status.value] = count
+        
+        # Get agreements that need attention
+        today = date.today()
+        
+        expired_agreements = TenancyAgreement.query.filter(
+            TenancyAgreement.lease_end_date < today,
+            TenancyAgreement.status.in_(['active', 'signed'])
+        ).count()
+        
+        timeout_date = datetime.utcnow() - timedelta(days=30)
+        stale_agreements = TenancyAgreement.query.filter(
+            TenancyAgreement.status == 'pending_signatures',
+            TenancyAgreement.created_at < timeout_date
+        ).count()
+        
+        future_available = Property.query.filter(
+            Property.status == PropertyStatus.ACTIVE,
+            Property.available_from_date <= today,
+            Property.available_from_date.isnot(None)
+        ).count()
+        
+        return jsonify({
+            'success': True,
+            'status': {
+                'property_counts': status_counts,
+                'maintenance_needed': {
+                    'expired_agreements': expired_agreements,
+                    'stale_pending_agreements': stale_agreements,
+                    'future_available_properties': future_available
+                },
+                'last_check': datetime.utcnow().isoformat()
             }
         }), 200
         
