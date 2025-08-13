@@ -51,9 +51,9 @@ class PropertyLifecycleService:
                     property_obj = Property.query.get(agreement.property_id)
                     
                     if property_obj and property_obj.status == PropertyStatus.RENTED:
-                        # Revert property status to Active
-                        property_obj.status = PropertyStatus.ACTIVE
-                        property_obj.available_from_date = None  # Available immediately
+                        # Set property status to Inactive (landlord must manually re-activate)
+                        property_obj.status = PropertyStatus.INACTIVE
+                        property_obj.available_from_date = None  # Clear any future availability date
                         
                         # Mark agreement as expired
                         agreement.status = 'expired'
@@ -61,14 +61,14 @@ class PropertyLifecycleService:
                         # Create notification for landlord
                         notification = Notification(
                             recipient_id=property_obj.owner_id,
-                            message=f"Your property '{property_obj.title}' lease has expired and is now available for new tenants."
+                            message=f"Your tenancy for '{property_obj.title}' has ended. Please review and re-activate your listing when you're ready to find new tenants."
                         )
                         
                         db.session.add(notification)
                         properties_reverted += 1
                         notifications_created += 1
                         
-                        logger.info(f"✅ Reverted property {property_obj.id} ({property_obj.title}) to Active status")
+                        logger.info(f"✅ Set property {property_obj.id} ({property_obj.title}) to Inactive status - landlord must manually re-activate")
                         
                 except Exception as e:
                     logger.error(f"❌ Error processing expired agreement {agreement.id}: {str(e)}")
@@ -78,12 +78,12 @@ class PropertyLifecycleService:
             db.session.commit()
             
             logger.info(f"🎉 Expired agreements check completed:")
-            logger.info(f"   - Properties reverted to Active: {properties_reverted}")
+            logger.info(f"   - Properties set to Inactive: {properties_reverted}")
             logger.info(f"   - Notifications created: {notifications_created}")
             
             return {
                 "success": True,
-                "properties_reverted": properties_reverted,
+                "properties_set_to_inactive": properties_reverted,
                 "notifications_created": notifications_created
             }
             
@@ -155,7 +155,7 @@ class PropertyLifecycleService:
             
             return {
                 "success": True,
-                "properties_reverted": properties_reverted,
+                "properties_set_to_inactive": properties_reverted,
                 "notifications_created": notifications_created
             }
             
@@ -255,7 +255,7 @@ class PropertyLifecycleService:
             results["expired_agreements"] = expired_result
             
             if expired_result["success"]:
-                results["total_properties_updated"] += expired_result["properties_reverted"]
+                results["total_properties_updated"] += expired_result.get("properties_set_to_inactive", 0)
                 results["total_notifications_created"] += expired_result["notifications_created"]
             
             # Check pending agreement timeouts
@@ -263,7 +263,7 @@ class PropertyLifecycleService:
             results["pending_timeouts"] = timeout_result
             
             if timeout_result["success"]:
-                results["total_properties_updated"] += timeout_result["properties_reverted"]
+                results["total_properties_updated"] += timeout_result.get("properties_reverted", 0)
                 results["total_notifications_created"] += timeout_result["notifications_created"]
             
             # Check future availability
@@ -271,7 +271,7 @@ class PropertyLifecycleService:
             results["future_availability"] = availability_result
             
             if availability_result["success"]:
-                results["total_properties_updated"] += availability_result["properties_activated"]
+                results["total_properties_updated"] += availability_result.get("properties_activated", 0)
                 results["total_notifications_created"] += availability_result["notifications_created"]
             
             logger.info("🎉 Daily property lifecycle maintenance completed successfully!")

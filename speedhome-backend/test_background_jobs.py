@@ -155,10 +155,10 @@ def test_background_jobs():
             
             if result['success']:
                 print(f"✅ Expired agreements check completed:")
-                print(f"   - Properties reverted: {result['properties_reverted']}")
+                print(f"   - Properties set to Inactive: {result['properties_set_to_inactive']}")
                 print(f"   - Notifications created: {result['notifications_created']}")
                 
-                # Verify property status changed
+                # Verify property status changed to Inactive
                 db.session.refresh(test_property)
                 print(f"   - Property status now: {test_property.status.value}")
                 
@@ -238,7 +238,7 @@ def test_background_jobs():
             
             if result['success']:
                 print(f"✅ Pending timeouts check completed:")
-                print(f"   - Properties reverted: {result['properties_reverted']}")
+                print(f"   - Properties reverted: {result.get('properties_reverted', 0)}")
                 print(f"   - Notifications created: {result['notifications_created']}")
                 
                 # Verify property status changed
@@ -283,7 +283,7 @@ def test_background_jobs():
             
             if result['success']:
                 print(f"✅ Future availability check completed:")
-                print(f"   - Properties activated: {result['properties_activated']}")
+                print(f"   - Properties activated: {result.get('properties_activated', 0)}")
                 print(f"   - Notifications created: {result['notifications_created']}")
                 
                 # Verify available_from_date was cleared

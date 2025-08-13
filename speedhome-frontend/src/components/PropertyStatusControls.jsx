@@ -50,10 +50,10 @@ const PropertyStatusControls = ({
         
       case 'Inactive':
         actions.push({
-          label: 'Activate',
+          label: 'Re-activate Listing',
           action: () => handleStatusChange('Active'),
           color: 'text-green-600 hover:text-green-800',
-          icon: '▶️'
+          icon: '✅'
         });
         break;
         
