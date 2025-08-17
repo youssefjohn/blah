@@ -2,7 +2,6 @@ import os
 import sys
 
 
-
 # DON'T CHANGE THIS !!!
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
@@ -32,6 +31,7 @@ from src.routes.messaging import messaging_bp
 from src.routes.documents import documents_bp
 from src.routes.webhooks import webhooks_bp
 from src.routes.stripe_config import stripe_config_bp
+from src.routes.admin_testing import admin_testing_bp
 
 # Import admin components
 from src.admin.admin_config import init_admin
@@ -58,6 +58,7 @@ app.register_blueprint(messaging_bp, url_prefix='/api')
 app.register_blueprint(documents_bp)
 app.register_blueprint(webhooks_bp, url_prefix='/api/webhooks')
 app.register_blueprint(stripe_config_bp, url_prefix='/api/stripe')
+app.register_blueprint(admin_testing_bp)
 
 # Register admin authentication blueprint
 app.register_blueprint(admin_auth_bp)
@@ -72,7 +73,7 @@ migrate = Migrate(app, db)
 # Initialize Flask-Admin
 admin = init_admin(app)
 
-# ❌ The db.create_all() call has been removed to let Flask-Migrate handle the schema.
+# ✅ The db.create_all() call has been removed to let Flask-Migrate handle the schema.
 
 # --- SERVE STATIC FILES (FOR PRODUCTION) ---
 @app.route('/', defaults={'path': ''})
@@ -113,7 +114,8 @@ if __name__ == '__main__':
         start_scheduler()
         print("✅ Background scheduler started successfully")
     except Exception as e:
-        print(f"⚠️ Failed to start background scheduler: {str(e)}")
+        print(f"❌️ Failed to start background scheduler: {str(e)}")
         print("Application will continue without background jobs")
     
     app.run(host='0.0.0.0', port=5001, debug=True)
+
