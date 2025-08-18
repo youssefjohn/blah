@@ -143,7 +143,6 @@ def create_test_expired_tenancy():
             status='approved',
             full_name=tenant.first_name + ' ' + tenant.last_name,
             email=tenant.email,
-            phone='0123456789',
             nationality='Malaysian',
             occupation='Test Occupation',
             gross_monthly_income=5000,

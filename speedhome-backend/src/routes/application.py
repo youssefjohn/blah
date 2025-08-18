@@ -48,7 +48,7 @@ def submit_application():
         if not prop:
             return jsonify({'success': False, 'error': 'Property not found'}), 404
 
-        if prop.status != 'Active':
+        if prop.status != PropertyStatus.ACTIVE:
             return jsonify({'success': False, 'error': 'This property is not currently accepting applications.'}), 400
             
         existing_app = Application.query.filter_by(

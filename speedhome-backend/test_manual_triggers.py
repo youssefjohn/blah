@@ -101,12 +101,13 @@ def create_test_expired_tenancy():
     if not response or response.status_code != 200:
         print_error("Could not fetch properties")
         return None
-    
-    properties = response.json()
-    if not properties:
+
+    properties_response = response.json()
+    if not properties_response or not properties_response.get('data'):
         print_error("No properties found. Please create some test properties first.")
         return None
-    
+
+    properties = properties_response['data']
     # Use the first property
     property_id = properties[0]['id']
     print_info(f"Using property ID: {property_id} - {properties[0].get('title', 'Unknown')}")

@@ -546,6 +546,8 @@ const LandlordDashboard = ({ onAddProperty }) => {
       // Refresh both lists to show the updated state
       await loadApplications();
       await loadAgreements();
+      await loadProperties();
+      window.dispatchEvent(new CustomEvent('propertyUpdated'));
     } else {
       alert(`Failed to update application: ${result.error}`);
     }
