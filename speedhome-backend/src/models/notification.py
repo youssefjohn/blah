@@ -44,12 +44,12 @@ class Notification(db.Model):
     notification_type = db.Column(db.Enum(NotificationType), default=NotificationType.GENERAL)
     priority = db.Column(db.Enum(NotificationPriority), default=NotificationPriority.NORMAL)
     
-    # Related entity references for deposit notifications
-    deposit_transaction_id = db.Column(db.Integer, db.ForeignKey('deposit_transactions.id'), nullable=True)
-    deposit_claim_id = db.Column(db.Integer, db.ForeignKey('deposit_claims.id'), nullable=True)
-    deposit_dispute_id = db.Column(db.Integer, db.ForeignKey('deposit_disputes.id'), nullable=True)
-    tenancy_agreement_id = db.Column(db.Integer, db.ForeignKey('tenancy_agreements.id'), nullable=True)
-    property_id = db.Column(db.Integer, db.ForeignKey('properties.id'), nullable=True)
+    # Related entity references for deposit notifications (commented out until tables are created)
+    # deposit_transaction_id = db.Column(db.Integer, db.ForeignKey('deposit_transactions.id'), nullable=True)
+    # deposit_claim_id = db.Column(db.Integer, db.ForeignKey('deposit_claims.id'), nullable=True)
+    # deposit_dispute_id = db.Column(db.Integer, db.ForeignKey('deposit_disputes.id'), nullable=True)
+    # tenancy_agreement_id = db.Column(db.Integer, db.ForeignKey('tenancy_agreements.id'), nullable=True)
+    # property_id = db.Column(db.Integer, db.ForeignKey('properties.id'), nullable=True)
     
     # Action tracking
     action_required = db.Column(db.Boolean, default=False)
@@ -65,12 +65,12 @@ class Notification(db.Model):
     # Relationship to the User model
     recipient = db.relationship('User', backref=db.backref('notifications', lazy=True))
     
-    # Relationships to deposit models
-    deposit_transaction = db.relationship('DepositTransaction', backref='notifications')
-    deposit_claim = db.relationship('DepositClaim', backref='notifications')
-    deposit_dispute = db.relationship('DepositDispute', backref='notifications')
-    tenancy_agreement = db.relationship('TenancyAgreement', backref='notifications')
-    property = db.relationship('Property', backref='notifications')
+    # Relationships to deposit models (commented out until deposit tables are created)
+    # deposit_transaction = db.relationship('DepositTransaction', backref='notifications', lazy=True)
+    # deposit_claim = db.relationship('DepositClaim', backref='notifications', lazy=True)
+    # deposit_dispute = db.relationship('DepositDispute', backref='notifications', lazy=True)
+    # tenancy_agreement = db.relationship('TenancyAgreement', backref='notifications', lazy=True)
+    # property = db.relationship('Property', backref='notifications', lazy=True)
 
     def __repr__(self):
         return f'<Notification {self.id} for User {self.recipient_id} - {self.notification_type.value}>'
@@ -86,11 +86,12 @@ class Notification(db.Model):
             'created_at': self.created_at.isoformat(),
             'notification_type': self.notification_type.value if self.notification_type else 'general',
             'priority': self.priority.value if self.priority else 'normal',
-            'deposit_transaction_id': self.deposit_transaction_id,
-            'deposit_claim_id': self.deposit_claim_id,
-            'deposit_dispute_id': self.deposit_dispute_id,
-            'tenancy_agreement_id': self.tenancy_agreement_id,
-            'property_id': self.property_id,
+            # Deposit fields commented out until tables are created
+            # 'deposit_transaction_id': self.deposit_transaction_id,
+            # 'deposit_claim_id': self.deposit_claim_id,
+            # 'deposit_dispute_id': self.deposit_dispute_id,
+            # 'tenancy_agreement_id': self.tenancy_agreement_id,
+            # 'property_id': self.property_id,
             'action_required': self.action_required,
             'action_deadline': self.action_deadline.isoformat() if self.action_deadline else None,
             'action_url': self.action_url,
