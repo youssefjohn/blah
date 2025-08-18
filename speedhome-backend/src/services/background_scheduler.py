@@ -104,20 +104,38 @@ class BackgroundScheduler:
                 logger.error(f"❌ Exception during daily maintenance: {str(e)}")
                 
     def _run_hourly_checks(self):
-        """Run hourly checks for time-sensitive tasks"""
+        """Run hourly checks for time-sensitive tasks including deposit deadlines"""
         if not self.app:
             logger.error("❌ No Flask app context available for hourly checks")
             return
             
         with self.app.app_context():
-            logger.info("⏰ Running hourly property lifecycle checks...")
+            logger.info("⏰ Running hourly property lifecycle and deposit checks...")
             
             try:
-                # Only run future availability checks hourly (more time-sensitive)
-                result = PropertyLifecycleService.check_future_availability()
+                # Check future availability (existing functionality)
+                availability_result = PropertyLifecycleService.check_future_availability()
                 
-                if result["success"] and result["properties_activated"] > 0:
-                    logger.info(f"✅ Hourly check: {result['properties_activated']} properties activated")
+                if availability_result["success"] and availability_result["properties_activated"] > 0:
+                    logger.info(f"✅ Hourly check: {availability_result['properties_activated']} properties activated")
+                
+                # Check deposit claim deadlines (new functionality)
+                claim_result = PropertyLifecycleService.check_deposit_claim_deadlines()
+                
+                if claim_result["success"]:
+                    if claim_result.get("claims_auto_approved", 0) > 0:
+                        logger.info(f"✅ Hourly check: {claim_result['claims_auto_approved']} claims auto-approved")
+                    if claim_result.get("deadline_reminders_sent", 0) > 0:
+                        logger.info(f"✅ Hourly check: {claim_result['deadline_reminders_sent']} deadline reminders sent")
+                
+                # Check deposit dispute deadlines (new functionality)
+                dispute_result = PropertyLifecycleService.check_deposit_dispute_deadlines()
+                
+                if dispute_result["success"]:
+                    if dispute_result.get("disputes_escalated", 0) > 0:
+                        logger.info(f"✅ Hourly check: {dispute_result['disputes_escalated']} disputes escalated")
+                    if dispute_result.get("mediation_reminders_sent", 0) > 0:
+                        logger.info(f"✅ Hourly check: {dispute_result['mediation_reminders_sent']} mediation reminders sent")
                     
             except Exception as e:
                 logger.error(f"❌ Exception during hourly checks: {str(e)}")

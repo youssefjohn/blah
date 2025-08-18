@@ -1,0 +1,480 @@
+"""
+Deposit Management Routes
+Handles all deposit-related API endpoints including payments, claims, disputes, and status tracking
+"""
+
+from flask import Blueprint, request, jsonify, session
+from flask_login import login_required, current_user
+from datetime import datetime, timedelta
+import logging
+
+from ..models.user import db
+from ..models.deposit_transaction import DepositTransaction, DepositTransactionStatus
+from ..models.deposit_claim import DepositClaim, DepositClaimStatus
+from ..models.deposit_dispute import DepositDispute, DepositDisputeStatus, TenantResponse
+from ..models.tenancy_agreement import TenancyAgreement
+from ..models.property import Property
+from ..models.user import User
+from ..models.conversation import Conversation
+from ..services.deposit_notification_service import DepositNotificationService
+from ..services.stripe_service import stripe_service
+from ..services.s3_service import s3_service
+
+# Create blueprint
+deposit_bp = Blueprint('deposit', __name__, url_prefix='/api/deposits')
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# ============================================================================
+# DEPOSIT TRANSACTION ROUTES
+# ============================================================================
+
+@deposit_bp.route('/', methods=['GET'])
+def get_deposits():
+    """Get all deposit transactions for the current user"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+    
+    user_id = session['user_id']
+    
+    # Get deposits where user is either tenant or landlord
+    deposits = DepositTransaction.query.filter(
+        (DepositTransaction.tenant_id == user_id) | 
+        (DepositTransaction.landlord_id == user_id)
+    ).order_by(DepositTransaction.created_at.desc()).all()
+    
+    return jsonify({
+        'success': True,
+        'deposits': [deposit.to_dict() for deposit in deposits]
+    })
+
+@deposit_bp.route('/<int:deposit_id>', methods=['GET'])
+def get_deposit(deposit_id):
+    """Get a specific deposit transaction"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+    
+    user_id = session['user_id']
+    
+    deposit = DepositTransaction.query.get(deposit_id)
+    if not deposit:
+        return jsonify({'success': False, 'error': 'Deposit not found'}), 404
+    
+    # Check if user is authorized to view this deposit
+    if deposit.tenant_id != user_id and deposit.landlord_id != user_id:
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+    
+    return jsonify({
+        'success': True,
+        'deposit': deposit.to_dict()
+    })
+
+@deposit_bp.route('/calculate', methods=['POST'])
+def calculate_deposit():
+    """Calculate deposit amount for a tenancy agreement"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+    
+    data = request.get_json()
+    tenancy_agreement_id = data.get('tenancy_agreement_id')
+    
+    if not tenancy_agreement_id:
+        return jsonify({'success': False, 'error': 'Tenancy agreement ID required'}), 400
+    
+    # Get tenancy agreement
+    agreement = TenancyAgreement.query.get(tenancy_agreement_id)
+    if not agreement:
+        return jsonify({'success': False, 'error': 'Tenancy agreement not found'}), 404
+    
+    # Check authorization
+    user_id = session['user_id']
+    if agreement.tenant_id != user_id and agreement.landlord_id != user_id:
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+    
+    try:
+        # Calculate deposit using Malaysian 2-month standard
+        monthly_rent = agreement.monthly_rent
+        base_deposit = monthly_rent * 2  # 2 months rent
+        
+        # Apply risk adjustments (simplified version)
+        adjustment_factor = 1.0
+        adjustment_reasons = []
+        
+        # Property type adjustments
+        if agreement.property.property_type == 'luxury':
+            adjustment_factor += 0.2
+            adjustment_reasons.append("Luxury property premium (+20%)")
+        elif agreement.property.property_type == 'basic':
+            adjustment_factor -= 0.1
+            adjustment_reasons.append("Basic property discount (-10%)")
+        
+        # Tenant profile adjustments (simplified)
+        tenant = User.query.get(agreement.tenant_id)
+        if tenant and hasattr(tenant, 'employment_type'):
+            if tenant.employment_type == 'corporate':
+                adjustment_factor -= 0.15
+                adjustment_reasons.append("Corporate tenant discount (-15%)")
+        
+        # Apply limits (1.5 to 2.5 months)
+        adjustment_factor = max(0.75, min(1.25, adjustment_factor))  # 1.5x to 2.5x multiplier
+        
+        final_amount = base_deposit * adjustment_factor
+        multiplier = final_amount / monthly_rent
+        
+        return jsonify({
+            'success': True,
+            'calculation': {
+                'monthly_rent': monthly_rent,
+                'base_amount': base_deposit,
+                'adjustment_factor': adjustment_factor,
+                'adjustment_reasons': adjustment_reasons,
+                'final_amount': round(final_amount, 2),
+                'multiplier': round(multiplier, 1),
+                'currency': 'MYR'
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Error calculating deposit: {str(e)}")
+        return jsonify({'success': False, 'error': 'Calculation failed'}), 500
+
+@deposit_bp.route('/create', methods=['POST'])
+def create_deposit():
+    """Create a new deposit transaction"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+    
+    data = request.get_json()
+    tenancy_agreement_id = data.get('tenancy_agreement_id')
+    
+    if not tenancy_agreement_id:
+        return jsonify({'success': False, 'error': 'Tenancy agreement ID required'}), 400
+    
+    # Get tenancy agreement
+    agreement = TenancyAgreement.query.get(tenancy_agreement_id)
+    if not agreement:
+        return jsonify({'success': False, 'error': 'Tenancy agreement not found'}), 404
+    
+    # Check if deposit already exists
+    existing_deposit = DepositTransaction.query.filter_by(
+        tenancy_agreement_id=tenancy_agreement_id
+    ).first()
+    
+    if existing_deposit:
+        return jsonify({'success': False, 'error': 'Deposit already exists for this agreement'}), 400
+    
+    try:
+        # Calculate deposit amount
+        monthly_rent = agreement.monthly_rent
+        base_deposit = monthly_rent * 2
+        adjustment_factor = 1.0  # Simplified for now
+        final_amount = base_deposit * adjustment_factor
+        
+        # Create deposit transaction
+        deposit = DepositTransaction(
+            tenancy_agreement_id=tenancy_agreement_id,
+            property_id=agreement.property_id,
+            tenant_id=agreement.tenant_id,
+            landlord_id=agreement.landlord_id,
+            amount=round(final_amount, 2),
+            calculation_base_rent=monthly_rent,
+            calculation_multiplier=round(final_amount / monthly_rent, 1),
+            calculation_details={
+                'base_amount': base_deposit,
+                'adjustment_factor': adjustment_factor,
+                'adjustment_reasons': []
+            },
+            status=DepositTransactionStatus.PENDING
+        )
+        
+        db.session.add(deposit)
+        db.session.commit()
+        
+        # Send notification to tenant
+        DepositNotificationService.notify_deposit_payment_required(deposit)
+        
+        logger.info(f"Created deposit transaction {deposit.id} for agreement {tenancy_agreement_id}")
+        
+        return jsonify({
+            'success': True,
+            'deposit': deposit.to_dict(),
+            'message': 'Deposit transaction created successfully'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error creating deposit: {str(e)}")
+        db.session.rollback()
+        return jsonify({'success': False, 'error': 'Failed to create deposit'}), 500
+
+# ============================================================================
+# DEPOSIT CLAIM ROUTES
+# ============================================================================
+
+@deposit_bp.route('/<int:deposit_id>/claims', methods=['GET'])
+def get_deposit_claims(deposit_id):
+    """Get all claims for a deposit"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+    
+    user_id = session['user_id']
+    
+    deposit = DepositTransaction.query.get(deposit_id)
+    if not deposit:
+        return jsonify({'success': False, 'error': 'Deposit not found'}), 404
+    
+    # Check authorization
+    if deposit.tenant_id != user_id and deposit.landlord_id != user_id:
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+    
+    claims = DepositClaim.query.filter_by(deposit_transaction_id=deposit_id).all()
+    
+    return jsonify({
+        'success': True,
+        'claims': [claim.to_dict() for claim in claims]
+    })
+
+@deposit_bp.route('/<int:deposit_id>/claims', methods=['POST'])
+def create_deposit_claim(deposit_id):
+    """Create a new deposit claim (landlord only)"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+    
+    user_id = session['user_id']
+    
+    deposit = DepositTransaction.query.get(deposit_id)
+    if not deposit:
+        return jsonify({'success': False, 'error': 'Deposit not found'}), 404
+    
+    # Check if user is the landlord
+    if deposit.landlord_id != user_id:
+        return jsonify({'success': False, 'error': 'Only landlord can create claims'}), 403
+    
+    try:
+        data = request.get_json()
+        
+        # Validate required fields
+        required_fields = ['title', 'description', 'claimed_amount', 'category']
+        for field in required_fields:
+            if not data.get(field):
+                return jsonify({'success': False, 'error': f'{field} is required'}), 400
+        
+        claimed_amount = float(data['claimed_amount'])
+        
+        # Validate claim amount
+        if claimed_amount <= 0:
+            return jsonify({'success': False, 'error': 'Claim amount must be positive'}), 400
+        
+        if claimed_amount > deposit.amount:
+            return jsonify({'success': False, 'error': 'Claim amount cannot exceed deposit amount'}), 400
+        
+        # Create deposit claim
+        claim = DepositClaim(
+            deposit_transaction_id=deposit_id,
+            tenancy_agreement_id=deposit.tenancy_agreement_id,
+            property_id=deposit.property_id,
+            landlord_id=deposit.landlord_id,
+            tenant_id=deposit.tenant_id,
+            title=data['title'],
+            description=data['description'],
+            claimed_amount=claimed_amount,
+            category=data['category'],
+            evidence_photos=data.get('evidence_photos', []),
+            evidence_documents=data.get('evidence_documents', []),
+            status=DepositClaimStatus.SUBMITTED,
+            tenant_response_deadline=datetime.utcnow() + timedelta(days=7),
+            auto_approve_at=datetime.utcnow() + timedelta(days=7)
+        )
+        
+        db.session.add(claim)
+        db.session.commit()
+        
+        # Create conversation for claim discussion
+        conversation = Conversation(
+            property_id=deposit.property_id,
+            tenant_id=deposit.tenant_id,
+            landlord_id=deposit.landlord_id,
+            booking_id=None,  # Not related to booking
+            status='active',
+            context_type='deposit_claim',
+            context_id=claim.id,
+            created_at=datetime.utcnow()
+        )
+        
+        db.session.add(conversation)
+        claim.conversation_id = conversation.id
+        db.session.commit()
+        
+        # Send notification to tenant
+        DepositNotificationService.notify_deposit_claim_submitted(claim)
+        
+        logger.info(f"Created deposit claim {claim.id} for deposit {deposit_id}")
+        
+        return jsonify({
+            'success': True,
+            'claim': claim.to_dict(),
+            'message': 'Deposit claim created successfully'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error creating deposit claim: {str(e)}")
+        db.session.rollback()
+        return jsonify({'success': False, 'error': 'Failed to create claim'}), 500
+
+# ============================================================================
+# DEPOSIT DISPUTE ROUTES
+# ============================================================================
+
+@deposit_bp.route('/claims/<int:claim_id>/respond', methods=['POST'])
+def respond_to_claim(claim_id):
+    """Tenant response to deposit claim"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+    
+    user_id = session['user_id']
+    
+    claim = DepositClaim.query.get(claim_id)
+    if not claim:
+        return jsonify({'success': False, 'error': 'Claim not found'}), 404
+    
+    # Check if user is the tenant
+    if claim.tenant_id != user_id:
+        return jsonify({'success': False, 'error': 'Only tenant can respond to claims'}), 403
+    
+    # Check if claim is still open for responses
+    if claim.status not in [DepositClaimStatus.SUBMITTED, DepositClaimStatus.TENANT_NOTIFIED]:
+        return jsonify({'success': False, 'error': 'Claim no longer accepting responses'}), 400
+    
+    try:
+        data = request.get_json()
+        response_type = data.get('response')
+        
+        if response_type not in ['accept', 'partial_accept', 'reject']:
+            return jsonify({'success': False, 'error': 'Invalid response type'}), 400
+        
+        if response_type == 'accept':
+            # Tenant accepts the claim fully
+            claim.status = DepositClaimStatus.TENANT_ACCEPTED
+            claim.tenant_response = TenantResponse.ACCEPT
+            claim.tenant_response_at = datetime.utcnow()
+            
+            db.session.commit()
+            
+            return jsonify({
+                'success': True,
+                'claim': claim.to_dict(),
+                'message': 'Claim accepted successfully'
+            })
+            
+        elif response_type in ['partial_accept', 'reject']:
+            # Create dispute for partial acceptance or rejection
+            dispute = DepositDispute(
+                deposit_claim_id=claim_id,
+                deposit_transaction_id=claim.deposit_transaction_id,
+                tenancy_agreement_id=claim.tenancy_agreement_id,
+                property_id=claim.property_id,
+                tenant_id=claim.tenant_id,
+                landlord_id=claim.landlord_id,
+                tenant_response=TenantResponse.PARTIAL_ACCEPT if response_type == 'partial_accept' else TenantResponse.REJECT,
+                tenant_counter_amount=float(data.get('counter_amount', 0)) if response_type == 'partial_accept' else 0,
+                tenant_explanation=data.get('explanation', ''),
+                tenant_evidence_photos=data.get('evidence_photos', []),
+                tenant_evidence_documents=data.get('evidence_documents', []),
+                status=DepositDisputeStatus.UNDER_MEDIATION,
+                mediation_deadline=datetime.utcnow() + timedelta(days=14),
+                escalation_deadline=datetime.utcnow() + timedelta(days=14)
+            )
+            
+            # Update claim status
+            claim.status = DepositClaimStatus.DISPUTED
+            claim.tenant_response = dispute.tenant_response
+            claim.tenant_response_at = datetime.utcnow()
+            
+            db.session.add(dispute)
+            db.session.commit()
+            
+            # Send notifications
+            DepositNotificationService.notify_deposit_dispute_created(dispute)
+            DepositNotificationService.notify_deposit_mediation_started(dispute)
+            
+            logger.info(f"Created dispute {dispute.id} for claim {claim_id}")
+            
+            return jsonify({
+                'success': True,
+                'dispute': dispute.to_dict(),
+                'message': 'Dispute created successfully'
+            })
+        
+    except Exception as e:
+        logger.error(f"Error responding to claim: {str(e)}")
+        db.session.rollback()
+        return jsonify({'success': False, 'error': 'Failed to process response'}), 500
+
+@deposit_bp.route('/disputes/<int:dispute_id>', methods=['GET'])
+def get_dispute(dispute_id):
+    """Get dispute details"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+    
+    user_id = session['user_id']
+    
+    dispute = DepositDispute.query.get(dispute_id)
+    if not dispute:
+        return jsonify({'success': False, 'error': 'Dispute not found'}), 404
+    
+    # Check authorization
+    if dispute.tenant_id != user_id and dispute.landlord_id != user_id:
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+    
+    return jsonify({
+        'success': True,
+        'dispute': dispute.to_dict()
+    })
+
+@deposit_bp.route('/disputes/<int:dispute_id>/resolve', methods=['POST'])
+def resolve_dispute(dispute_id):
+    """Resolve a dispute (admin or mutual agreement)"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+    
+    user_id = session['user_id']
+    
+    dispute = DepositDispute.query.get(dispute_id)
+    if not dispute:
+        return jsonify({'success': False, 'error': 'Dispute not found'}), 404
+    
+    try:
+        data = request.get_json()
+        resolution_amount = float(data.get('resolution_amount', 0))
+        resolution_method = data.get('resolution_method', 'admin_decision')
+        resolution_notes = data.get('resolution_notes', '')
+        
+        # Validate resolution amount
+        if resolution_amount < 0 or resolution_amount > dispute.deposit_claim.claimed_amount:
+            return jsonify({'success': False, 'error': 'Invalid resolution amount'}), 400
+        
+        # Resolve the dispute
+        dispute.resolve_dispute(
+            final_amount=resolution_amount,
+            resolution_method=resolution_method,
+            resolution_notes=resolution_notes,
+            resolved_by_id=user_id
+        )
+        
+        # Send resolution notifications
+        DepositNotificationService.notify_deposit_dispute_resolved(dispute)
+        
+        logger.info(f"Resolved dispute {dispute_id} with amount {resolution_amount}")
+        
+        return jsonify({
+            'success': True,
+            'dispute': dispute.to_dict(),
+            'message': 'Dispute resolved successfully'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error resolving dispute: {str(e)}")
+        db.session.rollback()
+        return jsonify({'success': False, 'error': 'Failed to resolve dispute'}), 500
+
