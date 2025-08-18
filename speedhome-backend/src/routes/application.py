@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify, session, current_app
 from src.models.user import db, User
-from src.models.property import Property
+from src.models.property import Property, PropertyStatus
 from src.models.application import Application
 from src.models.notification import Notification
 from src.services.pdf_service import pdf_service
@@ -48,7 +48,7 @@ def submit_application():
         if not prop:
             return jsonify({'success': False, 'error': 'Property not found'}), 404
 
-        if prop.status != 'Active':
+        if prop.status != PropertyStatus.ACTIVE:
             return jsonify({'success': False, 'error': 'This property is not currently accepting applications.'}), 400
             
         existing_app = Application.query.filter_by(
@@ -361,9 +361,12 @@ def update_application_status(application_id):
     db.session.add(tenant_notification)
 
     if new_status == 'approved':
-        # 1. Update the property status to 'Rented'
+        # 1. Transition property to Pending status (application approved, awaiting agreement completion)
         if prop:
-            prop.status = 'Rented'
+            if prop.transition_to_pending():
+                print(f"🔄 Property {prop.id} transitioned to Pending status after application approval")
+            else:
+                print(f"⚠️  Failed to transition property {prop.id} to Pending status")
             db.session.add(prop)
 
         # 2. Reject all other pending applications for this same property

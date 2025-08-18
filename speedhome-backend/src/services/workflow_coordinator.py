@@ -13,6 +13,7 @@ from .stripe_service import stripe_service
 from .s3_service import s3_service
 from .pdf_service import pdf_service
 from ..models.tenancy_agreement import TenancyAgreement
+from ..models.property import Property, PropertyStatus
 from ..models import db
 
 logger = logging.getLogger(__name__)
@@ -285,6 +286,14 @@ class WorkflowCoordinator:
             agreement.cancellation_reason = reason
             agreement.cancelled_at = datetime.utcnow()
             agreement.updated_at = datetime.utcnow()
+            
+            # Revert property from Pending back to Active when agreement is cancelled
+            property_obj = Property.query.get(agreement.property_id)
+            if property_obj and property_obj.status == PropertyStatus.PENDING:
+                if property_obj.transition_to_active():
+                    logger.info(f"Property {property_obj.id} reverted to Active status after agreement cancellation")
+                else:
+                    logger.warning(f"Failed to revert property {property_obj.id} to Active status")
             
             db.session.commit()
             
