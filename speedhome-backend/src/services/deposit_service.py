@@ -66,9 +66,7 @@ class DepositService:
             monthly_rent = float(agreement.monthly_rent) if agreement.monthly_rent else 0.0
             
             # Standard Malaysian deposit calculation
-            security_deposit = monthly_rent * 2.0  # 2 months security deposit
-            utility_deposit = monthly_rent * 0.5   # 0.5 month utility deposit
-            total_amount = security_deposit + utility_deposit
+            total_amount = monthly_rent * 2.5  # 2 months security + 0.5 month utility
             
             # Create the deposit transaction
             deposit = DepositTransaction(
@@ -77,35 +75,18 @@ class DepositService:
                 tenant_id=agreement.tenant_id,
                 landlord_id=agreement.landlord_id,
                 
-                # Deposit amounts (Malaysian standard)
-                security_deposit_amount=security_deposit,
-                utility_deposit_amount=utility_deposit,
-                total_amount=total_amount,
+                # Deposit amounts (using correct column names)
+                amount=total_amount,
+                calculation_base=monthly_rent,
+                calculation_multiplier=2.5,
                 
                 # Status and dates
                 status=DepositTransactionStatus.HELD_IN_ESCROW,
                 created_at=datetime.utcnow(),
                 
-                # Lease information
-                lease_start_date=agreement.lease_start_date,
-                lease_end_date=agreement.lease_end_date,
-                
-                # Property details
-                property_type=property_obj.property_type if hasattr(property_obj, 'property_type') else 'apartment',
-                monthly_rent=monthly_rent,
-                
-                # Malaysian compliance
-                currency='MYR',
-                deposit_calculation_method='malaysian_standard_2_months',
-                
                 # Escrow details
-                escrow_account_id=f"escrow_{tenancy_agreement_id}_{datetime.utcnow().strftime('%Y%m%d')}",
                 escrow_status='held',
-                
-                # Initial claim and dispute status
-                total_claimed_amount=0.0,
-                total_disputed_amount=0.0,
-                remaining_amount=total_amount
+                escrow_held_at=datetime.utcnow()
             )
             
             # Save to database
@@ -113,7 +94,7 @@ class DepositService:
             db.session.flush()  # Get the ID
             
             logger.info(f"Created deposit transaction {deposit.id} for agreement {tenancy_agreement_id}")
-            logger.info(f"Deposit amounts: Security RM{security_deposit}, Utility RM{utility_deposit}, Total RM{total_amount}")
+            logger.info(f"Deposit amount: RM{total_amount} (2.5 months of RM{monthly_rent})")
             
             return {
                 'success': True,
