@@ -113,10 +113,10 @@ class DepositDispute(db.Model):
             'tenant_name': f"{self.tenant.first_name} {self.tenant.last_name}" if self.tenant else None,
             'landlord_name': f"{self.landlord.first_name} {self.landlord.last_name}" if self.landlord else None,
             'property_address': self.property.address if self.property else None,
-            # Temporarily commented out property method references
-            # 'days_until_mediation_deadline': self.days_until_mediation_deadline,
-            # 'is_mediation_overdue': self.is_mediation_overdue,
-            # 'can_escalate': self.can_escalate,
+            # Using regular methods instead of properties to avoid SQLAlchemy conflicts
+            'days_until_mediation_deadline': self.get_days_until_mediation_deadline(),
+            'is_mediation_overdue': self.is_mediation_overdue(),
+            'can_escalate': self.can_escalate(),
             'message_count': len(self.messages) if self.messages else 0,
         }
     
@@ -139,28 +139,25 @@ class DepositDispute(db.Model):
         self.last_message_by = sender_id
         self.updated_at = datetime.utcnow()
     
-    # Temporarily commented out property methods to debug SQLAlchemy conflict
-    # @property
-    # def days_until_mediation_deadline(self):
-    #     """Calculate days until mediation deadline"""
-    #     if not self.mediation_deadline:
-    #         return None
-    #     
-    #     delta = self.mediation_deadline - datetime.utcnow()
-    #     return max(0, delta.days)
-    # 
-    # @property
-    # def is_mediation_overdue(self):
-    #     """Check if mediation deadline is overdue"""
-    #     if not self.mediation_deadline:
-    #         return False
-    #     
-    #     return datetime.utcnow() > self.mediation_deadline
-    # 
-    # @property
-    # def can_escalate(self):
-    #     """Check if dispute can be escalated"""
-    #     return (self.status == DepositDisputeStatus.UNDER_MEDIATION and
-    #             self.escalation_deadline and
-    #             datetime.utcnow() > self.escalation_deadline)
+    # Restored as regular methods to avoid SQLAlchemy conflicts
+    def get_days_until_mediation_deadline(self):
+        """Calculate days until mediation deadline"""
+        if not self.mediation_deadline:
+            return None
+        
+        delta = self.mediation_deadline - datetime.utcnow()
+        return max(0, delta.days)
+    
+    def is_mediation_overdue(self):
+        """Check if mediation deadline is overdue"""
+        if not self.mediation_deadline:
+            return False
+        
+        return datetime.utcnow() > self.mediation_deadline
+    
+    def can_escalate(self):
+        """Check if dispute can be escalated"""
+        return (self.status == DepositDisputeStatus.UNDER_MEDIATION and
+                self.escalation_deadline and
+                datetime.utcnow() > self.escalation_deadline)
 

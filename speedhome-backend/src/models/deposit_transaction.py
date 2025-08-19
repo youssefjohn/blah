@@ -193,21 +193,18 @@ class DepositTransaction(db.Model):
         self.refunded_at = datetime.utcnow()
         self.updated_at = datetime.utcnow()
     
-    # Temporarily removed property methods to debug SQLAlchemy conflict
-    # @property
-    # def get_remaining_amount(self):
-    #     """Calculate remaining deposit amount"""
-    #     return float(self.amount) - float(self.released_amount or 0) - float(self.refunded_amount or 0)
-    # 
-    # @property
-    # def is_fully_resolved(self):
-    #     """Check if deposit is fully resolved"""
-    #     return self.get_remaining_amount <= 0
-    # 
-    # @property
-    # def can_be_claimed(self):
-    #     """Check if deposit can be claimed by landlord"""
-    #     return (self.status == DepositTransactionStatus.HELD_IN_ESCROW and 
-    #             self.tenancy_agreement and 
-    #             self.tenancy_agreement.lease_end_date < datetime.utcnow().date())
+    # Restored as regular methods to avoid SQLAlchemy conflicts
+    def get_remaining_amount(self):
+        """Calculate remaining deposit amount"""
+        return float(self.amount) - float(self.released_amount or 0) - float(self.refunded_amount or 0)
+    
+    def is_fully_resolved(self):
+        """Check if deposit is fully resolved"""
+        return self.get_remaining_amount() <= 0
+    
+    def can_be_claimed(self):
+        """Check if deposit can be claimed by landlord"""
+        return (self.status == DepositTransactionStatus.HELD_IN_ESCROW and 
+                self.tenancy_agreement and 
+                self.tenancy_agreement.lease_end_date < datetime.utcnow().date())
 

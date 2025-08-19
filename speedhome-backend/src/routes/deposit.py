@@ -11,7 +11,7 @@ import logging
 from ..models.user import db
 from ..models.deposit_transaction import DepositTransaction, DepositTransactionStatus
 from ..models.deposit_claim import DepositClaim, DepositClaimStatus
-from ..models.deposit_dispute import DepositDispute, DepositDisputeStatus, TenantResponse
+from ..models.deposit_dispute import DepositDispute, DepositDisputeStatus, DepositDisputeResponse
 from ..models.tenancy_agreement import TenancyAgreement
 from ..models.property import Property
 from ..models.user import User
@@ -356,7 +356,7 @@ def respond_to_claim(claim_id):
         if response_type == 'accept':
             # Tenant accepts the claim fully
             claim.status = DepositClaimStatus.TENANT_ACCEPTED
-            claim.tenant_response = TenantResponse.ACCEPT
+            claim.tenant_response = DepositDisputeResponse.ACCEPT
             claim.tenant_response_at = datetime.utcnow()
             
             db.session.commit()
@@ -376,7 +376,7 @@ def respond_to_claim(claim_id):
                 property_id=claim.property_id,
                 tenant_id=claim.tenant_id,
                 landlord_id=claim.landlord_id,
-                tenant_response=TenantResponse.PARTIAL_ACCEPT if response_type == 'partial_accept' else TenantResponse.REJECT,
+                tenant_response=DepositDisputeResponse.PARTIAL_ACCEPT if response_type == 'partial_accept' else DepositDisputeResponse.REJECT,
                 tenant_counter_amount=float(data.get('counter_amount', 0)) if response_type == 'partial_accept' else 0,
                 tenant_explanation=data.get('explanation', ''),
                 tenant_evidence_photos=data.get('evidence_photos', []),
