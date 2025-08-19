@@ -107,9 +107,10 @@ class DepositClaim(db.Model):
             'landlord_name': f"{self.landlord.first_name} {self.landlord.last_name}" if self.landlord else None,
             'tenant_name': f"{self.tenant.first_name} {self.tenant.last_name}" if self.tenant else None,
             'property_address': self.property.address if self.property else None,
-            'days_until_deadline': self.days_until_response_deadline,
-            'is_overdue': self.is_response_overdue,
-            'can_auto_approve': self.can_auto_approve,
+            # Temporarily commented out property method references
+            # 'days_until_deadline': self.days_until_response_deadline,
+            # 'is_overdue': self.is_response_overdue,
+            # 'can_auto_approve': self.can_auto_approve,
         }
     
     def submit_claim(self):
@@ -156,27 +157,28 @@ class DepositClaim(db.Model):
             db.session.flush()  # Get the ID
             self.conversation_id = conversation.id
     
-    @property
-    def days_until_response_deadline(self):
-        """Calculate days until tenant response deadline"""
-        if not self.tenant_response_deadline:
-            return None
-        
-        delta = self.tenant_response_deadline - datetime.utcnow()
-        return max(0, delta.days)
-    
-    @property
-    def is_response_overdue(self):
-        """Check if tenant response is overdue"""
-        if not self.tenant_response_deadline:
-            return False
-        
-        return datetime.utcnow() > self.tenant_response_deadline
-    
-    @property
-    def can_auto_approve(self):
-        """Check if claim can be auto-approved"""
-        return (self.status in [DepositClaimStatus.SUBMITTED, DepositClaimStatus.TENANT_NOTIFIED] and
-                self.auto_approve_at and
-                datetime.utcnow() > self.auto_approve_at)
+    # Temporarily commented out property methods to debug SQLAlchemy conflict
+    # @property
+    # def days_until_response_deadline(self):
+    #     """Calculate days until tenant response deadline"""
+    #     if not self.tenant_response_deadline:
+    #         return None
+    #     
+    #     delta = self.tenant_response_deadline - datetime.utcnow()
+    #     return max(0, delta.days)
+    # 
+    # @property
+    # def is_response_overdue(self):
+    #     """Check if tenant response is overdue"""
+    #     if not self.tenant_response_deadline:
+    #         return False
+    #     
+    #     return datetime.utcnow() > self.tenant_response_deadline
+    # 
+    # @property
+    # def can_auto_approve(self):
+    #     """Check if claim can be auto-approved"""
+    #     return (self.status in [DepositClaimStatus.SUBMITTED, DepositClaimStatus.TENANT_NOTIFIED] and
+    #             self.auto_approve_at and
+    #             datetime.utcnow() > self.auto_approve_at)
 

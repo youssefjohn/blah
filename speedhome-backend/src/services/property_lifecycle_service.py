@@ -11,15 +11,15 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from datetime import datetime, date, timedelta
 from sqlalchemy import and_, or_
 from flask import current_app
-from src.models.user import db
-from src.models.property import Property, PropertyStatus
-from src.models.tenancy_agreement import TenancyAgreement
-from src.models.notification import Notification
-# Temporarily commented out to fix startup issue
-# from src.models.deposit_transaction import DepositTransaction
-# from src.models.deposit_claim import DepositClaim
-# from src.models.deposit_dispute import DepositDispute
-# from src.services.deposit_notification_service import DepositNotificationService
+from models.user import db
+from models.property import Property, PropertyStatus
+from models.tenancy_agreement import TenancyAgreement
+from models.notification import Notification
+# Now that deposit models are working, restore these imports
+from models.deposit_transaction import DepositTransaction
+from models.deposit_claim import DepositClaim
+from models.deposit_dispute import DepositDispute
+from services.deposit_notification_service import DepositNotificationService
 import logging
 
 # Set up logging
