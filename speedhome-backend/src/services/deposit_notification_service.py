@@ -1,14 +1,12 @@
 """
 Deposit Notification Service
 Handles all deposit-related notifications with multi-channel delivery
+Uses flexible entity references - no foreign key dependencies
 """
 
 from datetime import datetime, timedelta
 from ..models.user import db
 from ..models.notification import Notification, NotificationType, NotificationPriority
-from ..models.deposit_transaction import DepositTransaction
-from ..models.deposit_claim import DepositClaim
-from ..models.deposit_dispute import DepositDispute
 
 class DepositNotificationService:
     """Service for managing deposit-related notifications"""
@@ -22,9 +20,12 @@ class DepositNotificationService:
         action_required=False,
         action_deadline=None,
         action_url=None,
-        **entity_refs
+        entity_type=None,
+        entity_id=None,
+        tenancy_agreement_id=None,
+        property_id=None
     ):
-        """Create a new deposit notification"""
+        """Create a new deposit notification with flexible entity reference"""
         
         notification = Notification(
             recipient_id=recipient_id,
@@ -34,7 +35,10 @@ class DepositNotificationService:
             action_required=action_required,
             action_deadline=action_deadline,
             action_url=action_url,
-            **entity_refs
+            entity_type=entity_type,
+            entity_id=entity_id,
+            tenancy_agreement_id=tenancy_agreement_id,
+            property_id=property_id
         )
         
         db.session.add(notification)
@@ -44,122 +48,158 @@ class DepositNotificationService:
     
     # Deposit Payment Notifications
     @staticmethod
-    def notify_deposit_payment_required(deposit_transaction):
+    def notify_deposit_payment_required(deposit_transaction_id, tenant_id, amount, property_address, tenancy_agreement_id, property_id):
         """Notify tenant that deposit payment is required"""
         
-        message = (f"Deposit payment required: MYR {deposit_transaction.amount:,.2f} "
-                  f"({deposit_transaction.calculation_multiplier} months rent) for "
-                  f"{deposit_transaction.property.address}")
+        message = f"Deposit payment required: MYR {amount:,.2f} for {property_address}"
         
         return DepositNotificationService.create_notification(
-            recipient_id=deposit_transaction.tenant_id,
+            recipient_id=tenant_id,
             message=message,
             notification_type=NotificationType.DEPOSIT_PAYMENT_REQUIRED,
             priority=NotificationPriority.HIGH,
             action_required=True,
-            action_deadline=datetime.utcnow() + timedelta(days=7),  # 7 days to pay
-            action_url=f"/deposit/payment/{deposit_transaction.id}",
-            deposit_transaction_id=deposit_transaction.id,
-            tenancy_agreement_id=deposit_transaction.tenancy_agreement_id,
-            property_id=deposit_transaction.property_id
+            action_deadline=datetime.utcnow() + timedelta(days=7),
+            action_url=f"/deposit/payment/{deposit_transaction_id}",
+            entity_type="deposit_transaction",
+            entity_id=deposit_transaction_id,
+            tenancy_agreement_id=tenancy_agreement_id,
+            property_id=property_id
         )
     
     @staticmethod
-    def notify_deposit_payment_confirmed(deposit_transaction):
+    def notify_deposit_payment_confirmed(deposit_transaction_id, tenant_id, landlord_id, amount, property_address, tenancy_agreement_id, property_id):
         """Notify tenant and landlord that deposit payment is confirmed"""
         
         # Notify tenant
-        tenant_message = (f"Deposit payment confirmed: MYR {deposit_transaction.amount:,.2f} "
-                         f"for {deposit_transaction.property.address}. "
-                         f"Your deposit is now held securely in escrow.")
+        tenant_message = f"Deposit payment confirmed: MYR {amount:,.2f} for {property_address}. Your deposit is now held securely in escrow."
         
         tenant_notification = DepositNotificationService.create_notification(
-            recipient_id=deposit_transaction.tenant_id,
+            recipient_id=tenant_id,
             message=tenant_message,
             notification_type=NotificationType.DEPOSIT_PAYMENT_CONFIRMED,
             priority=NotificationPriority.NORMAL,
-            action_url=f"/deposit/status/{deposit_transaction.id}",
-            deposit_transaction_id=deposit_transaction.id,
-            tenancy_agreement_id=deposit_transaction.tenancy_agreement_id,
-            property_id=deposit_transaction.property_id
+            action_url=f"/deposit/status/{deposit_transaction_id}",
+            entity_type="deposit_transaction",
+            entity_id=deposit_transaction_id,
+            tenancy_agreement_id=tenancy_agreement_id,
+            property_id=property_id
         )
         
         # Notify landlord
-        landlord_message = (f"Tenant deposit received: MYR {deposit_transaction.amount:,.2f} "
-                           f"for {deposit_transaction.property.address}. "
-                           f"Deposit is held securely in escrow.")
+        landlord_message = f"Tenant deposit received: MYR {amount:,.2f} for {property_address}. Deposit is held securely in escrow."
         
         landlord_notification = DepositNotificationService.create_notification(
-            recipient_id=deposit_transaction.landlord_id,
+            recipient_id=landlord_id,
             message=landlord_message,
             notification_type=NotificationType.DEPOSIT_PAYMENT_CONFIRMED,
             priority=NotificationPriority.NORMAL,
-            action_url=f"/deposit/status/{deposit_transaction.id}",
-            deposit_transaction_id=deposit_transaction.id,
-            tenancy_agreement_id=deposit_transaction.tenancy_agreement_id,
-            property_id=deposit_transaction.property_id
+            action_url=f"/deposit/status/{deposit_transaction_id}",
+            entity_type="deposit_transaction",
+            entity_id=deposit_transaction_id,
+            tenancy_agreement_id=tenancy_agreement_id,
+            property_id=property_id
         )
         
         return [tenant_notification, landlord_notification]
     
     # Lease Expiry Notifications
     @staticmethod
-    def notify_lease_expiry_advance(tenancy_agreement):
+    def notify_lease_expiry_advance(tenancy_agreement_id, tenant_id, landlord_id, property_address, lease_end_date, property_id):
         """Notify landlord and tenant 7 days before lease expiry"""
         
         # Notify tenant
-        tenant_message = (f"Your lease for {tenancy_agreement.property.address} "
-                         f"expires in 7 days ({tenancy_agreement.lease_end_date.strftime('%d %b %Y')}). "
-                         f"Deposit resolution process will begin after lease end.")
+        tenant_message = f"Your lease for {property_address} expires in 7 days ({lease_end_date.strftime('%d %b %Y')}). Deposit resolution process will begin after lease end."
         
         tenant_notification = DepositNotificationService.create_notification(
-            recipient_id=tenancy_agreement.tenant_id,
+            recipient_id=tenant_id,
             message=tenant_message,
             notification_type=NotificationType.LEASE_EXPIRY_ADVANCE,
             priority=NotificationPriority.HIGH,
-            action_url=f"/tenancy/{tenancy_agreement.id}",
-            tenancy_agreement_id=tenancy_agreement.id,
-            property_id=tenancy_agreement.property_id
+            action_url=f"/tenancy/{tenancy_agreement_id}",
+            entity_type="tenancy_agreement",
+            entity_id=tenancy_agreement_id,
+            tenancy_agreement_id=tenancy_agreement_id,
+            property_id=property_id
         )
         
         # Notify landlord
-        landlord_message = (f"Tenant lease expires in 7 days ({tenancy_agreement.lease_end_date.strftime('%d %b %Y')}) "
-                           f"for {tenancy_agreement.property.address}. "
-                           f"You can submit deposit claims after lease end.")
+        landlord_message = f"Tenant lease expires in 7 days ({lease_end_date.strftime('%d %b %Y')}) for {property_address}. You can submit deposit claims after lease end."
         
         landlord_notification = DepositNotificationService.create_notification(
-            recipient_id=tenancy_agreement.landlord_id,
+            recipient_id=landlord_id,
             message=landlord_message,
             notification_type=NotificationType.LEASE_EXPIRY_ADVANCE,
             priority=NotificationPriority.HIGH,
-            action_url=f"/tenancy/{tenancy_agreement.id}",
-            tenancy_agreement_id=tenancy_agreement.id,
-            property_id=tenancy_agreement.property_id
+            action_url=f"/tenancy/{tenancy_agreement_id}",
+            entity_type="tenancy_agreement",
+            entity_id=tenancy_agreement_id,
+            tenancy_agreement_id=tenancy_agreement_id,
+            property_id=property_id
         )
         
         return [tenant_notification, landlord_notification]
     
     # Deposit Claim Notifications
     @staticmethod
-    def notify_deposit_claim_submitted(deposit_claim):
+    def notify_deposit_claim_submitted(deposit_claim_id, tenant_id, claim_title, claimed_amount, property_address, response_deadline, tenancy_agreement_id, property_id):
         """Notify tenant that landlord has submitted a deposit claim"""
         
-        message = (f"Deposit claim submitted: {deposit_claim.title} - "
-                  f"MYR {deposit_claim.claimed_amount:,.2f} for "
-                  f"{deposit_claim.property.address}. "
-                  f"You have 7 days to respond.")
+        message = f"Deposit claim submitted: {claim_title} - MYR {claimed_amount:,.2f} for {property_address}. You have 7 days to respond."
         
         return DepositNotificationService.create_notification(
-            recipient_id=deposit_claim.tenant_id,
+            recipient_id=tenant_id,
             message=message,
             notification_type=NotificationType.DEPOSIT_CLAIM_SUBMITTED,
             priority=NotificationPriority.URGENT,
             action_required=True,
-            action_deadline=deposit_claim.tenant_response_deadline,
-            action_url=f"/deposit/claim/{deposit_claim.id}",
-            deposit_claim_id=deposit_claim.id,
-            deposit_transaction_id=deposit_claim.deposit_transaction_id,
-            tenancy_agreement_id=deposit_claim.tenancy_agreement_id,
-            property_id=deposit_claim.property_id
+            action_deadline=response_deadline,
+            action_url=f"/deposit/claim/{deposit_claim_id}",
+            entity_type="deposit_claim",
+            entity_id=deposit_claim_id,
+            tenancy_agreement_id=tenancy_agreement_id,
+            property_id=property_id
         )
+    
+    @staticmethod
+    def notify_deposit_resolved(deposit_transaction_id, tenant_id, landlord_id, tenant_refund, landlord_payout, property_address, tenancy_agreement_id, property_id):
+        """Notify both parties of final deposit resolution"""
+        
+        # Notify tenant
+        if tenant_refund > 0:
+            tenant_message = f"Deposit resolved: MYR {tenant_refund:,.2f} refunded to you for {property_address}. Funds will be transferred within 3-5 business days."
+        else:
+            tenant_message = f"Deposit resolved: No refund due for {property_address} based on final resolution."
+        
+        tenant_notification = DepositNotificationService.create_notification(
+            recipient_id=tenant_id,
+            message=tenant_message,
+            notification_type=NotificationType.DEPOSIT_RESOLVED,
+            priority=NotificationPriority.NORMAL,
+            action_url=f"/deposit/status/{deposit_transaction_id}",
+            entity_type="deposit_transaction",
+            entity_id=deposit_transaction_id,
+            tenancy_agreement_id=tenancy_agreement_id,
+            property_id=property_id
+        )
+        
+        # Notify landlord
+        if landlord_payout > 0:
+            landlord_message = f"Deposit resolved: MYR {landlord_payout:,.2f} released to you for {property_address}. Funds will be transferred within 3-5 business days."
+        else:
+            landlord_message = f"Deposit resolved: Full refund to tenant for {property_address} based on final resolution."
+        
+        landlord_notification = DepositNotificationService.create_notification(
+            recipient_id=landlord_id,
+            message=landlord_message,
+            notification_type=NotificationType.DEPOSIT_RESOLVED,
+            priority=NotificationPriority.NORMAL,
+            action_url=f"/deposit/status/{deposit_transaction_id}",
+            entity_type="deposit_transaction",
+            entity_id=deposit_transaction_id,
+            tenancy_agreement_id=tenancy_agreement_id,
+            property_id=property_id
+        )
+        
+        return [tenant_notification, landlord_notification]
 
