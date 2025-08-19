@@ -1,10 +1,10 @@
 from flask import Blueprint, request, jsonify, current_app
+from flask_login import login_required, current_user
 from src.models import db
 from src.models.tenancy_agreement import TenancyAgreement
 from src.models.deposit_transaction import DepositTransaction, DepositTransactionStatus
 from src.models.property import Property
 from src.services.deposit_service import DepositService
-from src.utils.auth import token_required
 from datetime import datetime
 import logging
 
@@ -13,8 +13,8 @@ logger = logging.getLogger(__name__)
 deposit_payment_bp = Blueprint('deposit_payment', __name__)
 
 @deposit_payment_bp.route('/api/deposit-payment/<int:agreement_id>', methods=['POST'])
-@token_required
-def process_deposit_payment(current_user, agreement_id):
+@login_required
+def process_deposit_payment(agreement_id):
     """
     Process deposit payment and activate the tenancy agreement
     """
@@ -112,8 +112,8 @@ def process_deposit_payment(current_user, agreement_id):
         }), 500
 
 @deposit_payment_bp.route('/api/deposit-payment/<int:agreement_id>/calculate', methods=['GET'])
-@token_required
-def calculate_deposit_amount(current_user, agreement_id):
+@login_required
+def calculate_deposit_amount(agreement_id):
     """
     Calculate deposit amount for an agreement
     """
