@@ -205,13 +205,23 @@ const UserDashboard = ({ favorites, toggleFavorite }) => {
     try {
       const result = await DepositAPI.getDepositForAgreement(agreementId);
       if (result.success && result.has_deposit) {
-        alert(`Deposit Details:\n\nTotal Amount: ${DepositAPI.formatMYR(result.deposit.total_amount)}\nStatus: ${DepositAPI.getDepositStatusText(result.deposit.status)}\nCreated: ${new Date(result.deposit.created_at).toLocaleDateString()}`);
+        alert(`Deposit Details:\n\nTotal Amount: ${DepositAPI.formatMYR(result.deposit.amount)}\nStatus: ${DepositAPI.getDepositStatusText(result.deposit.status)}\nCreated: ${new Date(result.deposit.created_at).toLocaleDateString()}`);
       } else {
         alert('Deposit information is being processed. Please check back in a few minutes.');
       }
     } catch (error) {
       console.error('Error loading deposit details:', error);
       alert('Unable to load deposit details at this time.');
+    }
+  };
+
+  const handleDepositPayment = async (agreementId) => {
+    try {
+      // Navigate to deposit payment page
+      navigate(`/deposit-payment/${agreementId}`);
+    } catch (error) {
+      console.error('Error initiating deposit payment:', error);
+      alert('Unable to initiate deposit payment at this time.');
     }
   };
 
@@ -914,8 +924,23 @@ const hasNewMessages = conversations.some(convo => convo.unread_count > 0);
                             to={`/payment/${agreement.id}`}
                             className="bg-yellow-500 text-white px-4 py-2 rounded-lg hover:bg-yellow-600 transition-colors"
                           >
-                            Pay Agreement Fee
+                            Pay Website Fee
                           </Link>
+                        )}
+                        
+                        {agreement.status === 'website_fee_paid' && (
+                          <div className="flex flex-col gap-2">
+                            {/* Step 2: Pay Deposit - This activates the agreement */}
+                            <button 
+                              onClick={() => handleDepositPayment(agreement.id)}
+                              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-semibold"
+                            >
+                              💰 Pay Security Deposit ({DepositAPI.formatMYR((agreement.monthly_rent || 0) * 2.5)})
+                            </button>
+                            <p className="text-sm text-gray-600">
+                              ⚠️ Security deposit payment will activate your tenancy agreement
+                            </p>
+                          </div>
                         )}
                       </div>
                     </div>
