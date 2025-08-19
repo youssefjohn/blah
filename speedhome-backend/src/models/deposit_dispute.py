@@ -66,16 +66,16 @@ class DepositDispute(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    # Relationships with existing models
-    deposit_claim = db.relationship('DepositClaim', backref='dispute')
-    deposit_transaction = db.relationship('DepositTransaction', backref='disputes')
-    tenancy_agreement = db.relationship('TenancyAgreement', backref='deposit_disputes')
-    property = db.relationship('Property', backref='deposit_disputes')
-    tenant = db.relationship('User', foreign_keys=[tenant_id], backref='tenant_disputes')
-    landlord = db.relationship('User', foreign_keys=[landlord_id], backref='landlord_disputes')
-    conversation = db.relationship('Conversation', backref='deposit_disputes')
-    last_message_user = db.relationship('User', foreign_keys=[last_message_by], backref='last_dispute_messages')
-    resolver = db.relationship('User', foreign_keys=[resolved_by], backref='resolved_disputes')
+    # Relationships with existing models (using string references and lazy loading)
+    deposit_claim = db.relationship('DepositClaim', backref='dispute', lazy=True)
+    deposit_transaction = db.relationship('DepositTransaction', backref='disputes', lazy=True)
+    tenancy_agreement = db.relationship('TenancyAgreement', backref='deposit_disputes', lazy=True)
+    property = db.relationship('Property', backref='deposit_disputes', lazy=True)
+    tenant = db.relationship('User', foreign_keys=[tenant_id], backref='tenant_disputes', lazy=True)
+    landlord = db.relationship('User', foreign_keys=[landlord_id], backref='landlord_disputes', lazy=True)
+    conversation = db.relationship('Conversation', backref='deposit_disputes', lazy=True)
+    last_message_user = db.relationship('User', foreign_keys=[last_message_by], backref='last_dispute_messages', lazy=True)
+    resolver = db.relationship('User', foreign_keys=[resolved_by], backref='resolved_disputes', lazy=True)
     
     def __repr__(self):
         return f'<DepositDispute {self.id} - Claim {self.deposit_claim_id} - {self.tenant_response.value}>'

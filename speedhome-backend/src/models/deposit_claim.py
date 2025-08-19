@@ -65,14 +65,14 @@ class DepositClaim(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    # Relationships with existing models
-    deposit_transaction = db.relationship('DepositTransaction', backref='claims')
-    tenancy_agreement = db.relationship('TenancyAgreement', backref='deposit_claims')
-    property = db.relationship('Property', backref='deposit_claims')
-    landlord = db.relationship('User', foreign_keys=[landlord_id], backref='submitted_claims')
-    tenant = db.relationship('User', foreign_keys=[tenant_id], backref='received_claims')
-    conversation = db.relationship('Conversation', backref='deposit_claims')
-    resolver = db.relationship('User', foreign_keys=[resolved_by], backref='resolved_claims')
+    # Relationships with existing models (using string references and lazy loading)
+    deposit_transaction = db.relationship('DepositTransaction', backref='claims', lazy=True)
+    tenancy_agreement = db.relationship('TenancyAgreement', backref='deposit_claims', lazy=True)
+    property = db.relationship('Property', backref='deposit_claims', lazy=True)
+    landlord = db.relationship('User', foreign_keys=[landlord_id], backref='submitted_claims', lazy=True)
+    tenant = db.relationship('User', foreign_keys=[tenant_id], backref='received_claims', lazy=True)
+    conversation = db.relationship('Conversation', backref='deposit_claims', lazy=True)
+    resolver = db.relationship('User', foreign_keys=[resolved_by], backref='resolved_claims', lazy=True)
     
     def __repr__(self):
         return f'<DepositClaim {self.id} - {self.claim_type.value} - MYR {self.claimed_amount}>'

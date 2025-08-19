@@ -52,11 +52,11 @@ class DepositTransaction(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    # Relationships with existing models
-    tenancy_agreement = db.relationship('TenancyAgreement', backref='deposit_transaction')
-    property = db.relationship('Property', backref='deposit_transactions')
-    tenant = db.relationship('User', foreign_keys=[tenant_id], backref='tenant_deposits')
-    landlord = db.relationship('User', foreign_keys=[landlord_id], backref='landlord_deposits')
+    # Relationships with existing models (using string references to avoid import issues)
+    tenancy_agreement = db.relationship('TenancyAgreement', backref='deposit_transaction', lazy=True)
+    property = db.relationship('Property', backref='deposit_transactions', lazy=True)
+    tenant = db.relationship('User', foreign_keys=[tenant_id], backref='tenant_deposits', lazy=True)
+    landlord = db.relationship('User', foreign_keys=[landlord_id], backref='landlord_deposits', lazy=True)
     
     def __repr__(self):
         return f'<DepositTransaction {self.id} - {self.amount} for Agreement {self.tenancy_agreement_id}>'
