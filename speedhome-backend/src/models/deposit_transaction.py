@@ -194,14 +194,14 @@ class DepositTransaction(db.Model):
         self.updated_at = datetime.utcnow()
     
     @property
-    def remaining_amount(self):
+    def get_remaining_amount(self):
         """Calculate remaining deposit amount"""
         return float(self.amount) - float(self.released_amount or 0) - float(self.refunded_amount or 0)
     
     @property
     def is_fully_resolved(self):
         """Check if deposit is fully resolved"""
-        return self.remaining_amount <= 0
+        return self.get_remaining_amount <= 0
     
     @property
     def can_be_claimed(self):
