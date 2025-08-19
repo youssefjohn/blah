@@ -15,10 +15,11 @@ from src.models.user import db
 from src.models.property import Property, PropertyStatus
 from src.models.tenancy_agreement import TenancyAgreement
 from src.models.notification import Notification
-from src.models.deposit_transaction import DepositTransaction
-from src.models.deposit_claim import DepositClaim
-from src.models.deposit_dispute import DepositDispute
-from src.services.deposit_notification_service import DepositNotificationService
+# Temporarily commented out to fix startup issue
+# from src.models.deposit_transaction import DepositTransaction
+# from src.models.deposit_claim import DepositClaim
+# from src.models.deposit_dispute import DepositDispute
+# from src.services.deposit_notification_service import DepositNotificationService
 import logging
 
 # Set up logging

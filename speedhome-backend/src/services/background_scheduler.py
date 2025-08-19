@@ -12,7 +12,8 @@ import schedule
 import time
 import threading
 from datetime import datetime, timedelta
-from property_lifecycle_service import PropertyLifecycleService
+# Use minimal property lifecycle service to avoid deposit model conflicts
+from property_lifecycle_service_minimal import PropertyLifecycleService
 from models.user import db
 import logging
 
