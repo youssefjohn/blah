@@ -296,19 +296,14 @@ def record_payment(agreement_id):
         agreement.payment_intent_id = payment_intent_id
         agreement.payment_method = payment_method
         
-        # Activate the agreement
-        agreement.status = 'active'
+        # Update agreement status to website_fee_paid (not active yet - deposit payment will activate it)
+        agreement.status = 'website_fee_paid'
+        agreement.payment_completed_at = datetime.utcnow()
         agreement.updated_at = now
         
-        # Transition property from Pending to Rented when agreement becomes active
-        property_obj = Property.query.get(agreement.property_id)
-        if property_obj:
-            if property_obj.transition_to_rented():
-                logger.info(f"Property {property_obj.id} transitioned to Rented status")
-            else:
-                logger.warning(f"Failed to transition property {property_obj.id} to Rented status")
+        # Note: Property will transition to rented when deposit is paid and agreement becomes active
         
-        # 🏠 CREATE DEPOSIT TRANSACTION AUTOMATICALLY
+        # 🏠 CREATE DEPOSIT TRANSACTION AUTOMATICALLY (but don't activate agreement yet)
         try:
             deposit_service = DepositService()
             deposit_result = deposit_service.create_deposit_for_agreement(agreement.id)

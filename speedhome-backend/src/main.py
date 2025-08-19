@@ -34,6 +34,7 @@ from src.routes.stripe_config import stripe_config_bp
 from src.routes.admin_testing import admin_testing_bp
 from src.routes.deposit import deposit_bp
 from src.routes.tenant_deposit import tenant_deposit_bp
+from src.routes.deposit_payment import deposit_payment_bp
 
 # Import admin components
 from src.admin.admin_config import init_admin
@@ -63,6 +64,7 @@ app.register_blueprint(stripe_config_bp, url_prefix='/api/stripe')
 app.register_blueprint(admin_testing_bp)
 app.register_blueprint(deposit_bp)
 app.register_blueprint(tenant_deposit_bp)
+app.register_blueprint(deposit_payment_bp)
 
 # Register admin authentication blueprint
 app.register_blueprint(admin_auth_bp)
