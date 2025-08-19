@@ -5,6 +5,7 @@ import BookingAPI from '../services/BookingAPI';
 import PropertyAPI from '../services/PropertyAPI';
 import ApplicationAPI from '../services/ApplicationAPI';
 import TenancyAgreementAPI from '../services/TenancyAgreementAPI';
+import DepositAPI from '../services/DepositAPI';
 import { formatDate, formatTime } from '../utils/dateUtils';
 import TenantBookingCalendar from '../components/TenantBookingCalendar';
 import MessagingCenter from '../components/MessagingCenter';
@@ -23,6 +24,7 @@ const UserDashboard = ({ favorites, toggleFavorite }) => {
   const [applications, setApplications] = useState([]);
   const [agreements, setAgreements] = useState([]);
   const [favoritedProperties, setFavoritedProperties] = useState([]);
+  const [deposits, setDeposits] = useState([]);
 
   // State for profile editing
   const [isEditing, setIsEditing] = useState(false);
@@ -187,6 +189,32 @@ const UserDashboard = ({ favorites, toggleFavorite }) => {
     }
   };
 
+  const loadDeposits = async () => {
+    if (!isAuthenticated || !user) return;
+    try {
+      const result = await DepositAPI.getTenantDepositDashboard();
+      if (result.success) {
+        setDeposits(result.dashboard.active_agreements || []);
+      }
+    } catch (error) {
+      console.error('Error loading deposits:', error);
+    }
+  };
+
+  const loadDepositDetails = async (agreementId) => {
+    try {
+      const result = await DepositAPI.getDepositForAgreement(agreementId);
+      if (result.success && result.has_deposit) {
+        alert(`Deposit Details:\n\nTotal Amount: ${DepositAPI.formatMYR(result.deposit.total_amount)}\nStatus: ${DepositAPI.getDepositStatusText(result.deposit.status)}\nCreated: ${new Date(result.deposit.created_at).toLocaleDateString()}`);
+      } else {
+        alert('Deposit information is being processed. Please check back in a few minutes.');
+      }
+    } catch (error) {
+      console.error('Error loading deposit details:', error);
+      alert('Unable to load deposit details at this time.');
+    }
+  };
+
   const loadFavoritedProperties = async () => {
     if (!favorites || favorites.length === 0) {
       setFavoritedProperties([]);
@@ -208,6 +236,7 @@ const UserDashboard = ({ favorites, toggleFavorite }) => {
         loadBookings();
         loadApplications();
         loadAgreements();
+        loadDeposits();
     }
   }, [isAuthenticated, user]);
 
@@ -819,6 +848,49 @@ const hasNewMessages = conversations.some(convo => convo.unread_count > 0);
                           </div>
                         </div>
                       </div>
+
+                      {/* 🏠 DEPOSIT INFORMATION SECTION */}
+                      {agreement.status === 'active' && (
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="font-semibold text-blue-900">🏠 Security Deposit</h4>
+                            <span className="text-sm text-blue-600">Malaysian Standard (2 months)</span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                              <div className="text-gray-600">Security Deposit</div>
+                              <div className="font-semibold text-blue-800">
+                                {DepositAPI.formatMYR((agreement.monthly_rent || 0) * 2)}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-gray-600">Utility Deposit</div>
+                              <div className="font-semibold text-blue-800">
+                                {DepositAPI.formatMYR((agreement.monthly_rent || 0) * 0.5)}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="mt-3 pt-3 border-t border-blue-200">
+                            <div className="flex justify-between items-center">
+                              <span className="font-semibold text-blue-900">Total Deposit:</span>
+                              <span className="font-bold text-lg text-blue-900">
+                                {DepositAPI.formatMYR((agreement.monthly_rent || 0) * 2.5)}
+                              </span>
+                            </div>
+                            <div className="mt-2">
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                ✓ Held in Escrow
+                              </span>
+                              <button 
+                                onClick={() => loadDepositDetails(agreement.id)}
+                                className="ml-2 text-blue-600 hover:text-blue-800 text-xs underline"
+                              >
+                                View Details
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
 
                       <div className="flex gap-3">
                         <Link 
