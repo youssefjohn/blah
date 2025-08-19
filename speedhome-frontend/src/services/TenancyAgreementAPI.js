@@ -453,6 +453,8 @@ class TenancyAgreementAPI {
         return 'text-yellow-600 bg-yellow-100';
       case 'pending_payment':
         return 'text-blue-600 bg-blue-100';
+      case 'website_fee_paid':
+        return 'text-orange-600 bg-orange-100';
       case 'active':
         return 'text-green-600 bg-green-100';
       case 'cancelled':
@@ -475,6 +477,8 @@ class TenancyAgreementAPI {
         return 'Pending Signatures';
       case 'pending_payment':
         return 'Pending Payment';
+      case 'website_fee_paid':
+        return 'Pending Deposit Payment';
       case 'active':
         return 'Active';
       case 'cancelled':

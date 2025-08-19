@@ -32,7 +32,7 @@ const DepositPaymentPage = () => {
 
   const loadAgreement = async () => {
     try {
-      const result = await TenancyAgreementAPI.getAgreement(agreementId);
+      const result = await TenancyAgreementAPI.getById(agreementId);
       if (result.success) {
         setAgreement(result.agreement);
         setPaymentData(prev => ({
@@ -73,11 +73,10 @@ const DepositPaymentPage = () => {
 
     try {
       // Call the backend API to process deposit payment
-      const response = await fetch(`/api/deposit-payment/${agreementId}`, {
+      const response = await fetch(`/api/deposit-payment/process/${agreementId}`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Content-Type': 'application/json'
         },
         credentials: 'include',
         body: JSON.stringify({
@@ -89,9 +88,9 @@ const DepositPaymentPage = () => {
       const result = await response.json();
 
       if (result.success) {
-        alert(`Deposit payment successful!\n\nAmount: ${DepositAPI.formatMYR(calculateDepositAmount())}\nPayment Method: ${paymentMethod}\n\n✅ Your tenancy agreement is now ACTIVE!\n🏠 Your security deposit is held in escrow.\n\nNext step: Pay the website fee to complete setup.`);
+        alert(`Deposit payment successful!\n\nAmount: RM ${calculateDepositAmount().toFixed(2)}\nPayment Method: ${paymentMethod}\n\n✅ Your tenancy agreement is now ACTIVE!\n🏠 Your security deposit is held in escrow.`);
         
-        // Navigate back to dashboard where they can now pay the website fee
+        // Navigate back to dashboard
         navigate('/dashboard');
       } else {
         alert(`Payment failed: ${result.error}`);
