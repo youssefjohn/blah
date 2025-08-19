@@ -10,6 +10,7 @@ from ..models.user import User
 from ..models import db
 from ..services.pdf_service import pdf_service
 from ..services.workflow_coordinator import workflow_coordinator
+from ..services.deposit_service import DepositService
 from datetime import datetime, timedelta
 import os
 import logging
@@ -303,19 +304,45 @@ def record_payment(agreement_id):
         property_obj = Property.query.get(agreement.property_id)
         if property_obj:
             if property_obj.transition_to_rented():
-                logger.info(f"Property {property_obj.id} transitioned to Rented status after agreement activation")
+                logger.info(f"Property {property_obj.id} transitioned to Rented status")
             else:
                 logger.warning(f"Failed to transition property {property_obj.id} to Rented status")
+        
+        # 🏠 CREATE DEPOSIT TRANSACTION AUTOMATICALLY
+        try:
+            deposit_service = DepositService()
+            deposit_result = deposit_service.create_deposit_for_agreement(agreement.id)
+            
+            if deposit_result['success']:
+                logger.info(f"Deposit transaction created for agreement {agreement_id}: {deposit_result['deposit']['id']}")
+                deposit_info = {
+                    'deposit_id': deposit_result['deposit']['id'],
+                    'deposit_amount': deposit_result['deposit']['total_amount'],
+                    'deposit_status': deposit_result['deposit']['status']
+                }
+            else:
+                logger.warning(f"Failed to create deposit for agreement {agreement_id}: {deposit_result['error']}")
+                deposit_info = None
+        except Exception as e:
+            logger.error(f"Error creating deposit for agreement {agreement_id}: {str(e)}")
+            deposit_info = None
         
         db.session.commit()
         
         logger.info(f"Payment completed for agreement {agreement_id}, agreement activated")
         
-        return jsonify({
+        # Include deposit information in response
+        response_data = {
             'success': True,
             'agreement': agreement.to_dict(),
             'message': 'Payment recorded and agreement activated'
-        })
+        }
+        
+        if deposit_info:
+            response_data['deposit'] = deposit_info
+            response_data['message'] += ' - Deposit system initialized'
+        
+        return jsonify(response_data)
         
     except Exception as e:
         db.session.rollback()
