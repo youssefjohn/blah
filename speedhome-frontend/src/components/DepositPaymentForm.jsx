@@ -133,27 +133,8 @@ const DepositPaymentFormContent = ({ agreement, onPaymentSuccess, onPaymentError
         setError(error.message);
         onPaymentError(error.message);
       } else if (confirmedPaymentIntent.status === 'succeeded') {
-        // Complete the deposit payment on the backend
-        const completeResponse = await fetch(`/api/deposit-payment/complete/${agreement.id}`, {
-          method: 'POST',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            payment_intent_id: confirmedPaymentIntent.id,
-            payment_method: 'stripe'
-          }),
-        });
-
-        const completeResult = await completeResponse.json();
-        
-        if (completeResult.success) {
-          onPaymentSuccess(confirmedPaymentIntent);
-        } else {
-          setError(completeResult.error || 'Failed to complete deposit payment');
-          onPaymentError(completeResult.error || 'Failed to complete deposit payment');
-        }
+        // Payment succeeded, let the parent component handle completion
+        onPaymentSuccess(confirmedPaymentIntent);
       }
     } catch (error) {
       console.error('Deposit payment processing failed:', error);
