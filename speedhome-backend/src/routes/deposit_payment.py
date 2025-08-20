@@ -12,6 +12,176 @@ logger = logging.getLogger(__name__)
 
 deposit_payment_bp = Blueprint('deposit_payment', __name__)
 
+@deposit_payment_bp.route('/api/deposit-payment/initiate/<int:agreement_id>', methods=['POST'])
+@login_required
+def initiate_deposit_payment(agreement_id):
+    """
+    Initiate deposit payment by creating Stripe payment intent
+    """
+    try:
+        # Get the agreement
+        agreement = TenancyAgreement.query.get(agreement_id)
+        if not agreement:
+            return jsonify({
+                'success': False,
+                'error': 'Agreement not found'
+            }), 404
+        
+        # Verify user is the tenant
+        if agreement.tenant_id != current_user.id:
+            return jsonify({
+                'success': False,
+                'error': 'Unauthorized access'
+            }), 403
+        
+        # Verify agreement is in correct status (website fee paid)
+        if agreement.status != 'website_fee_paid':
+            return jsonify({
+                'success': False,
+                'error': f'Agreement must be in website_fee_paid status. Current status: {agreement.status}'
+            }), 400
+        
+        # Calculate deposit amount (2 months + 0.5 month utility)
+        monthly_rent = float(agreement.monthly_rent)
+        security_deposit = monthly_rent * 2
+        utility_deposit = monthly_rent * 0.5
+        total_deposit = security_deposit + utility_deposit
+        
+        # Create Stripe payment intent
+        import stripe
+        stripe.api_key = current_app.config.get('STRIPE_SECRET_KEY')
+        
+        payment_intent = stripe.PaymentIntent.create(
+            amount=int(total_deposit * 100),  # Convert to cents
+            currency='myr',
+            metadata={
+                'agreement_id': agreement_id,
+                'payment_type': 'deposit',
+                'tenant_id': current_user.id
+            }
+        )
+        
+        return jsonify({
+            'success': True,
+            'client_secret': payment_intent.client_secret,
+            'amount': total_deposit,
+            'payment_intent_id': payment_intent.id
+        })
+        
+    except Exception as e:
+        logger.error(f"Error initiating deposit payment: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to initiate deposit payment'
+        }), 500
+
+@deposit_payment_bp.route('/api/deposit-payment/complete/<int:agreement_id>', methods=['POST'])
+@login_required
+def complete_deposit_payment(agreement_id):
+    """
+    Complete deposit payment and activate the tenancy agreement
+    """
+    try:
+        # Get the agreement
+        agreement = TenancyAgreement.query.get(agreement_id)
+        if not agreement:
+            return jsonify({
+                'success': False,
+                'error': 'Agreement not found'
+            }), 404
+        
+        # Verify user is the tenant
+        if agreement.tenant_id != current_user.id:
+            return jsonify({
+                'success': False,
+                'error': 'Unauthorized access'
+            }), 403
+        
+        # Verify agreement is in correct status (website fee paid)
+        if agreement.status != 'website_fee_paid':
+            return jsonify({
+                'success': False,
+                'error': f'Agreement must be in website_fee_paid status. Current status: {agreement.status}'
+            }), 400
+        
+        # Get payment data from request
+        data = request.get_json()
+        payment_intent_id = data.get('payment_intent_id')
+        
+        if not payment_intent_id:
+            return jsonify({
+                'success': False,
+                'error': 'Payment intent ID is required'
+            }), 400
+        
+        # Verify payment with Stripe
+        import stripe
+        stripe.api_key = current_app.config.get('STRIPE_SECRET_KEY')
+        
+        payment_intent = stripe.PaymentIntent.retrieve(payment_intent_id)
+        
+        if payment_intent.status != 'succeeded':
+            return jsonify({
+                'success': False,
+                'error': 'Payment not completed'
+            }), 400
+        
+        # Create or update deposit transaction
+        deposit = DepositTransaction.query.filter_by(tenancy_agreement_id=agreement_id).first()
+        
+        if not deposit:
+            # Calculate amounts
+            monthly_rent = float(agreement.monthly_rent)
+            security_deposit = monthly_rent * 2
+            utility_deposit = monthly_rent * 0.5
+            total_amount = security_deposit + utility_deposit
+            
+            # Create new deposit transaction
+            deposit = DepositTransaction(
+                tenancy_agreement_id=agreement_id,
+                tenant_id=current_user.id,
+                landlord_id=agreement.landlord_id,
+                property_id=agreement.property_id,
+                amount=total_amount,
+                security_deposit_amount=security_deposit,
+                utility_deposit_amount=utility_deposit,
+                status=DepositTransactionStatus.HELD_IN_ESCROW,
+                payment_method='stripe',
+                payment_reference=payment_intent_id,
+                paid_at=datetime.utcnow()
+            )
+            db.session.add(deposit)
+        else:
+            # Update existing deposit
+            deposit.status = DepositTransactionStatus.HELD_IN_ESCROW
+            deposit.payment_method = 'stripe'
+            deposit.payment_reference = payment_intent_id
+            deposit.paid_at = datetime.utcnow()
+        
+        # Activate the tenancy agreement
+        agreement.status = 'active'
+        agreement.activated_at = datetime.utcnow()
+        
+        # Commit all changes
+        db.session.commit()
+        
+        logger.info(f"Deposit payment completed for agreement {agreement_id}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Deposit payment completed successfully',
+            'agreement_status': 'active',
+            'deposit_id': deposit.id
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error completing deposit payment: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to complete deposit payment'
+        }), 500
+
 @deposit_payment_bp.route('/api/deposit-payment/<int:agreement_id>', methods=['POST'])
 @login_required
 def process_deposit_payment(agreement_id):
