@@ -236,7 +236,7 @@ class TenancyAgreementAPI {
    */
   static async completeDepositPayment(agreementId, paymentData) {
     try {
-      const response = await fetch(`/api/deposit-payment/process/${agreementId}`, {
+      const response = await fetch(`/api/deposit-payment/complete/${agreementId}`, {
         method: 'POST',
         credentials: 'include',
         headers: {
