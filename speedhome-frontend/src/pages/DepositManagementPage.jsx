@@ -1,0 +1,389 @@
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+
+const DepositManagementPage = () => {
+  const { agreementId } = useParams();
+  const navigate = useNavigate();
+  const { user, isLandlord, isTenant } = useAuth();
+  
+  const [deposit, setDeposit] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [showReleaseModal, setShowReleaseModal] = useState(false);
+  const [showClaimModal, setShowClaimModal] = useState(false);
+
+  useEffect(() => {
+    loadDepositData();
+  }, [agreementId]);
+
+  const loadDepositData = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`/api/deposits/agreement/${agreementId}`, {
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to load deposit data');
+      }
+      
+      const data = await response.json();
+      if (data.success) {
+        setDeposit(data.deposit);
+      } else {
+        setError(data.error || 'Failed to load deposit');
+      }
+    } catch (err) {
+      setError('Failed to load deposit data');
+      console.error('Error loading deposit:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFullRelease = async () => {
+    try {
+      const response = await fetch(`/api/deposits/${deposit.id}/release`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          release_type: 'full',
+          amount: deposit.amount
+        })
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        setShowReleaseModal(false);
+        await loadDepositData();
+        alert('Deposit released successfully!');
+      } else {
+        alert(result.error || 'Failed to release deposit');
+      }
+    } catch (err) {
+      console.error('Error releasing deposit:', err);
+      alert('Failed to release deposit');
+    }
+  };
+
+  const handleMakeClaim = () => {
+    navigate(`/deposit/${deposit.id}/claim`);
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+          <p className="mt-4 text-gray-600">Loading deposit information...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-red-500 text-6xl mb-4">⚠️</div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Error Loading Deposit</h2>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button
+            onClick={() => navigate(-1)}
+            className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-md"
+          >
+            Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!deposit) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-gray-400 text-6xl mb-4">💰</div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">No Deposit Found</h2>
+          <p className="text-gray-600 mb-4">No deposit transaction found for this agreement.</p>
+          <button
+            onClick={() => navigate(-1)}
+            className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-md"
+          >
+            Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const isNearingEnd = deposit.tenancy_ending_soon;
+  const canRelease = isLandlord() && deposit.status === 'held_in_escrow' && isNearingEnd;
+  const canViewClaims = deposit.status === 'disputed' || deposit.claims?.length > 0;
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-4">
+            <div className="flex items-center">
+              <button
+                onClick={() => navigate(-1)}
+                className="mr-4 text-gray-500 hover:text-gray-700"
+              >
+                ← Back
+              </button>
+              <h1 className="text-2xl font-bold text-gray-900">Deposit Management</h1>
+            </div>
+            <div className="flex items-center space-x-3">
+              <span className={`px-3 py-1 text-sm font-semibold rounded-full ${getStatusColor(deposit.status)}`}>
+                {getStatusText(deposit.status)}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Main Content */}
+          <div className="lg:col-span-2">
+            {/* Deposit Overview */}
+            <div className="bg-white shadow rounded-lg p-6 mb-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-4">Deposit Overview</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <span className="text-sm font-medium text-gray-500">Property Address</span>
+                  <p className="text-gray-900">{deposit.property_address}</p>
+                </div>
+                <div>
+                  <span className="text-sm font-medium text-gray-500">Tenant Name</span>
+                  <p className="text-gray-900">{deposit.tenant_name}</p>
+                </div>
+                <div>
+                  <span className="text-sm font-medium text-gray-500">Total Deposit Amount</span>
+                  <p className="text-2xl font-bold text-green-600">RM {deposit.amount}</p>
+                </div>
+                <div>
+                  <span className="text-sm font-medium text-gray-500">Paid On</span>
+                  <p className="text-gray-900">{new Date(deposit.paid_at).toLocaleDateString()}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Tenancy Ending Soon Notice */}
+            {isNearingEnd && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+                <h4 className="font-medium text-yellow-800 mb-2">⏰ Tenancy Ending Soon</h4>
+                <p className="text-sm text-yellow-700 mb-4">
+                  The lease for this property is ending within 7 days. It's time to manage the deposit release process.
+                </p>
+                {isLandlord() && (
+                  <p className="text-sm text-yellow-600">
+                    As the landlord, you can now choose to release the full deposit or make deduction claims.
+                  </p>
+                )}
+                {isTenant() && (
+                  <p className="text-sm text-yellow-600">
+                    Your landlord will soon initiate the deposit release process. You'll be notified of any actions required.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Current Claims */}
+            {canViewClaims && (
+              <div className="bg-white shadow rounded-lg p-6 mb-6">
+                <h3 className="text-lg font-bold text-gray-900 mb-4">Deposit Claims</h3>
+                {deposit.claims?.length > 0 ? (
+                  <div className="space-y-4">
+                    {deposit.claims.map((claim) => (
+                      <div key={claim.id} className="border border-gray-200 rounded-lg p-4">
+                        <div className="flex justify-between items-start mb-2">
+                          <h4 className="font-medium text-gray-900">{claim.reason}</h4>
+                          <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getClaimStatusColor(claim.status)}`}>
+                            {getClaimStatusText(claim.status)}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-600 mb-2">{claim.description}</p>
+                        <div className="flex justify-between items-center">
+                          <span className="text-lg font-bold text-red-600">RM {claim.amount}</span>
+                          <button
+                            onClick={() => navigate(`/deposit/claims/${claim.id}`)}
+                            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                          >
+                            View Details →
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500">No claims have been made yet.</p>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Sidebar Actions */}
+          <div>
+            <div className="bg-white shadow rounded-lg p-6">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">Actions</h3>
+              
+              <div className="space-y-3">
+                {/* Landlord Actions */}
+                {isLandlord() && canRelease && (
+                  <>
+                    <button
+                      onClick={() => setShowReleaseModal(true)}
+                      className="w-full bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-md text-sm font-medium"
+                    >
+                      ✅ Release Full Deposit
+                    </button>
+                    
+                    <button
+                      onClick={handleMakeClaim}
+                      className="w-full bg-orange-500 hover:bg-orange-600 text-white py-2 px-4 rounded-md text-sm font-medium"
+                    >
+                      📋 Make Deduction Claim
+                    </button>
+                  </>
+                )}
+
+                {/* View Claims Button */}
+                {canViewClaims && (
+                  <button
+                    onClick={() => navigate(`/deposit/${deposit.id}/claims`)}
+                    className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-md text-sm font-medium"
+                  >
+                    📄 View All Claims
+                  </button>
+                )}
+
+                {/* Status Information */}
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h4 className="font-medium text-gray-900 mb-2">Status Information</h4>
+                  <p className="text-sm text-gray-600">
+                    {getStatusDescription(deposit.status, isLandlord())}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Release Confirmation Modal */}
+      {showReleaseModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">Release Full Deposit</h3>
+            <p className="text-gray-600 mb-4">
+              Are you sure you want to release the full deposit amount of <strong>RM {deposit.amount}</strong> to the tenant?
+            </p>
+            <p className="text-sm text-gray-500 mb-6">
+              This action cannot be undone. The tenant will receive the full deposit amount.
+            </p>
+            
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setShowReleaseModal(false)}
+                className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 py-2 px-4 rounded-md"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleFullRelease}
+                className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-md"
+              >
+                Release Deposit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Helper functions
+const getStatusColor = (status) => {
+  switch (status) {
+    case 'held_in_escrow':
+      return 'bg-blue-100 text-blue-800';
+    case 'pending_release':
+      return 'bg-yellow-100 text-yellow-800';
+    case 'disputed':
+      return 'bg-red-100 text-red-800';
+    case 'released':
+      return 'bg-green-100 text-green-800';
+    default:
+      return 'bg-gray-100 text-gray-800';
+  }
+};
+
+const getStatusText = (status) => {
+  switch (status) {
+    case 'held_in_escrow':
+      return 'Held in Escrow';
+    case 'pending_release':
+      return 'Pending Release';
+    case 'disputed':
+      return 'Under Dispute';
+    case 'released':
+      return 'Released';
+    default:
+      return status;
+  }
+};
+
+const getStatusDescription = (status, isLandlord) => {
+  switch (status) {
+    case 'held_in_escrow':
+      return isLandlord 
+        ? 'The deposit is securely held in escrow. You can release it or make claims when the tenancy ends.'
+        : 'Your deposit is securely held in escrow and will be returned at the end of your tenancy.';
+    case 'pending_release':
+      return 'The deposit release process has been initiated and is being processed.';
+    case 'disputed':
+      return 'There are disputed claims that need to be resolved before the deposit can be released.';
+    case 'released':
+      return 'The deposit has been released to the tenant.';
+    default:
+      return 'Status information not available.';
+  }
+};
+
+const getClaimStatusColor = (status) => {
+  switch (status) {
+    case 'submitted':
+      return 'bg-yellow-100 text-yellow-800';
+    case 'accepted':
+      return 'bg-green-100 text-green-800';
+    case 'disputed':
+      return 'bg-red-100 text-red-800';
+    default:
+      return 'bg-gray-100 text-gray-800';
+  }
+};
+
+const getClaimStatusText = (status) => {
+  switch (status) {
+    case 'submitted':
+      return 'Pending Response';
+    case 'accepted':
+      return 'Accepted';
+    case 'disputed':
+      return 'Disputed';
+    default:
+      return status;
+  }
+};
+
+export default DepositManagementPage;
+

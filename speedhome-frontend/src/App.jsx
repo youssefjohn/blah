@@ -16,6 +16,11 @@ import PaymentPage from './pages/PaymentPage';
 import PaymentSuccessPage from './pages/PaymentSuccessPage';
 import DepositPaymentPage from './pages/DepositPaymentPage';
 import DepositPaymentSuccessPage from './pages/DepositPaymentSuccessPage';
+import DepositManagementPage from './pages/DepositManagementPage';
+import DepositClaimPage from './pages/DepositClaimPage';
+import DepositDisputePage from './pages/DepositDisputePage';
+import DepositResolutionPage from './pages/DepositResolutionPage';
+import DepositTestingPage from './pages/DepositTestingPage';
 import BookingAPI from './services/BookingAPI';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import ApplicationAPI from './services/ApplicationAPI';
@@ -797,6 +802,11 @@ function AppContent() {
         <Route path="/agreement/:id/payment-success" element={<PaymentSuccessPage />} />
         <Route path="/deposit-payment/:agreementId" element={<DepositPaymentPage />} />
         <Route path="/deposit/payment/:agreementId/success" element={<DepositPaymentSuccessPage />} />
+        <Route path="/deposit/:agreementId/manage" element={<DepositManagementPage />} />
+        <Route path="/deposit/:depositId/claim" element={<DepositClaimPage />} />
+        <Route path="/deposit/claims/:claimId" element={<DepositDisputePage />} />
+        <Route path="/deposit/disputes/:disputeId" element={<DepositResolutionPage />} />
+        <Route path="/deposit-testing" element={<DepositTestingPage />} />
       </Routes>
       <Footer />
 
