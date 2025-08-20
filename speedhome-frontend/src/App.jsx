@@ -15,6 +15,7 @@ import AgreementDemo from './pages/AgreementDemo';
 import PaymentPage from './pages/PaymentPage';
 import PaymentSuccessPage from './pages/PaymentSuccessPage';
 import DepositPaymentPage from './pages/DepositPaymentPage';
+import DepositPaymentSuccessPage from './pages/DepositPaymentSuccessPage';
 import BookingAPI from './services/BookingAPI';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import ApplicationAPI from './services/ApplicationAPI';
@@ -795,6 +796,7 @@ function AppContent() {
         <Route path="/agreement/:id/payment" element={<PaymentPage />} />
         <Route path="/agreement/:id/payment-success" element={<PaymentSuccessPage />} />
         <Route path="/deposit-payment/:agreementId" element={<DepositPaymentPage />} />
+        <Route path="/deposit/payment/:agreementId/success" element={<DepositPaymentSuccessPage />} />
       </Routes>
       <Footer />
 

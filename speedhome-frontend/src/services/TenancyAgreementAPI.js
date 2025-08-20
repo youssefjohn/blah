@@ -232,6 +232,28 @@ class TenancyAgreementAPI {
   }
 
   /**
+   * Complete deposit payment
+   */
+  static async completeDepositPayment(agreementId, paymentData) {
+    try {
+      const response = await fetch(`/api/deposit-payment/process/${agreementId}`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(paymentData)
+      });
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error completing deposit payment:', error);
+      return { success: false, error: 'Network error occurred' };
+    }
+  }
+
+  /**
    * Helper method to get status color
    */
   static getStatusColor(status) {
@@ -240,6 +262,8 @@ class TenancyAgreementAPI {
         return 'text-yellow-600 bg-yellow-100';
       case 'pending_payment':
         return 'text-blue-600 bg-blue-100';
+      case 'website_fee_paid':
+        return 'text-orange-600 bg-orange-100';
       case 'active':
         return 'text-green-600 bg-green-100';
       case 'cancelled':
