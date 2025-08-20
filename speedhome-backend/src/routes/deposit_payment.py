@@ -158,11 +158,11 @@ def complete_deposit_payment(agreement_id):
                 landlord_id=agreement.landlord_id,
                 property_id=agreement.property_id,
                 amount=total_amount,
-                security_deposit_amount=security_deposit,
-                utility_deposit_amount=utility_deposit,
+                calculation_base=monthly_rent,
+                calculation_multiplier=2.5,  # 2 months security + 0.5 month utility
                 status=DepositTransactionStatus.HELD_IN_ESCROW,
                 payment_method='stripe',
-                payment_reference=payment_intent_id,
+                payment_intent_id=payment_intent_id,
                 paid_at=datetime.utcnow()
             )
             db.session.add(deposit)
@@ -170,7 +170,7 @@ def complete_deposit_payment(agreement_id):
             # Update existing deposit
             deposit.status = DepositTransactionStatus.HELD_IN_ESCROW
             deposit.payment_method = 'stripe'
-            deposit.payment_reference = payment_intent_id
+            deposit.payment_intent_id = payment_intent_id
             deposit.paid_at = datetime.utcnow()
         
         # Activate the tenancy agreement
