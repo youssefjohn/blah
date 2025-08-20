@@ -1,5 +1,4 @@
-from flask import Blueprint, request, jsonify, current_app
-from flask_login import login_required, current_user
+from flask import Blueprint, request, jsonify, current_app, session
 from src.models import db
 from src.models.tenancy_agreement import TenancyAgreement
 from src.models.deposit_transaction import DepositTransaction, DepositTransactionStatus
@@ -13,12 +12,20 @@ logger = logging.getLogger(__name__)
 deposit_payment_bp = Blueprint('deposit_payment', __name__)
 
 @deposit_payment_bp.route('/api/deposit-payment/initiate/<int:agreement_id>', methods=['POST'])
-@login_required
 def initiate_deposit_payment(agreement_id):
     """
     Initiate deposit payment by creating Stripe payment intent
     """
     try:
+        # Check authentication
+        if 'user_id' not in session:
+            return jsonify({
+                'success': False,
+                'error': 'Authentication required'
+            }), 401
+        
+        user_id = session['user_id']
+        
         # Get the agreement
         agreement = TenancyAgreement.query.get(agreement_id)
         if not agreement:
@@ -28,7 +35,7 @@ def initiate_deposit_payment(agreement_id):
             }), 404
         
         # Verify user is the tenant
-        if agreement.tenant_id != current_user.id:
+        if agreement.tenant_id != user_id:
             return jsonify({
                 'success': False,
                 'error': 'Unauthorized access'
@@ -57,7 +64,7 @@ def initiate_deposit_payment(agreement_id):
             metadata={
                 'agreement_id': agreement_id,
                 'payment_type': 'deposit',
-                'tenant_id': current_user.id
+                'tenant_id': user_id
             }
         )
         
@@ -76,12 +83,20 @@ def initiate_deposit_payment(agreement_id):
         }), 500
 
 @deposit_payment_bp.route('/api/deposit-payment/complete/<int:agreement_id>', methods=['POST'])
-@login_required
 def complete_deposit_payment(agreement_id):
     """
     Complete deposit payment and activate the tenancy agreement
     """
     try:
+        # Check authentication
+        if 'user_id' not in session:
+            return jsonify({
+                'success': False,
+                'error': 'Authentication required'
+            }), 401
+        
+        user_id = session['user_id']
+        
         # Get the agreement
         agreement = TenancyAgreement.query.get(agreement_id)
         if not agreement:
@@ -91,7 +106,7 @@ def complete_deposit_payment(agreement_id):
             }), 404
         
         # Verify user is the tenant
-        if agreement.tenant_id != current_user.id:
+        if agreement.tenant_id != user_id:
             return jsonify({
                 'success': False,
                 'error': 'Unauthorized access'
@@ -139,7 +154,7 @@ def complete_deposit_payment(agreement_id):
             # Create new deposit transaction
             deposit = DepositTransaction(
                 tenancy_agreement_id=agreement_id,
-                tenant_id=current_user.id,
+                tenant_id=user_id,
                 landlord_id=agreement.landlord_id,
                 property_id=agreement.property_id,
                 amount=total_amount,
@@ -183,12 +198,20 @@ def complete_deposit_payment(agreement_id):
         }), 500
 
 @deposit_payment_bp.route('/api/deposit-payment/<int:agreement_id>', methods=['POST'])
-@login_required
 def process_deposit_payment(agreement_id):
     """
     Process deposit payment and activate the tenancy agreement
     """
     try:
+        # Check authentication
+        if 'user_id' not in session:
+            return jsonify({
+                'success': False,
+                'error': 'Authentication required'
+            }), 401
+        
+        user_id = session['user_id']
+        
         # Get the agreement
         agreement = TenancyAgreement.query.get(agreement_id)
         if not agreement:
@@ -198,7 +221,7 @@ def process_deposit_payment(agreement_id):
             }), 404
         
         # Verify user is the tenant
-        if agreement.tenant_id != current_user.id:
+        if agreement.tenant_id != user_id:
             return jsonify({
                 'success': False,
                 'error': 'Unauthorized access'
@@ -282,12 +305,20 @@ def process_deposit_payment(agreement_id):
         }), 500
 
 @deposit_payment_bp.route('/api/deposit-payment/<int:agreement_id>/calculate', methods=['GET'])
-@login_required
 def calculate_deposit_amount(agreement_id):
     """
     Calculate deposit amount for an agreement
     """
     try:
+        # Check authentication
+        if 'user_id' not in session:
+            return jsonify({
+                'success': False,
+                'error': 'Authentication required'
+            }), 401
+        
+        user_id = session['user_id']
+        
         # Get the agreement
         agreement = TenancyAgreement.query.get(agreement_id)
         if not agreement:
@@ -297,7 +328,7 @@ def calculate_deposit_amount(agreement_id):
             }), 404
         
         # Verify user is the tenant
-        if agreement.tenant_id != current_user.id:
+        if agreement.tenant_id != user_id:
             return jsonify({
                 'success': False,
                 'error': 'Unauthorized access'

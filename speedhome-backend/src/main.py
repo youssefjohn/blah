@@ -46,6 +46,10 @@ app = Flask(__name__, static_folder=os.path.join(os.path.dirname(__file__), 'sta
 app.config['SECRET_KEY'] = 'asdf#FGSgvasgf$5$WGT'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
 
+# Stripe configuration (test keys)
+app.config['STRIPE_SECRET_KEY'] = 'sk_test_51234567890abcdef'  # Test key
+app.config['STRIPE_PUBLISHABLE_KEY'] = 'pk_test_51234567890abcdef'  # Test key
+
 CORS(app, origins=['http://localhost:5173', 'http://localhost:5174'], supports_credentials=True)
 
 # --- BLUEPRINT REGISTRATION ---
