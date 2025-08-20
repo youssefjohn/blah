@@ -153,11 +153,6 @@ const DepositPaymentPage = () => {
                 <span className="font-medium">{agreement.property_address}</span>
               </div>
               
-              <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                <span className="text-gray-600">Monthly Rent</span>
-                <span className="font-medium">RM {agreement.monthly_rent}</span>
-              </div>
-              
               <div className="border-t pt-4">
                 <div className="flex justify-between items-center p-3 bg-orange-50 rounded-lg">
                   <span className="text-orange-700 font-medium">Security Deposit (2 months)</span>

@@ -154,34 +154,58 @@ const PaymentFormContent = ({ agreement, onPaymentSuccess, onPaymentError }) => 
     <div className="bg-white rounded-lg shadow-lg p-6">
       <div className="mb-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-2">
-          Complete Your Tenancy Agreement
+          {agreement.payment_type === 'deposit' ? 'Security Deposit Payment' : 'Complete Your Tenancy Agreement'}
         </h3>
         <p className="text-gray-600">
-          Pay the agreement processing fee to finalize your tenancy agreement.
+          {agreement.payment_type === 'deposit' 
+            ? 'Complete your security deposit payment to activate your tenancy agreement.'
+            : 'Pay the agreement processing fee to finalize your tenancy agreement.'
+          }
         </p>
       </div>
 
-      {/* Payment Summary */}
+      {/* Payment Summary - Different for deposit vs agreement fee */}
       <div className="bg-gray-50 rounded-lg p-4 mb-6">
         <div className="flex justify-between items-center mb-2">
           <span className="text-gray-600">Property:</span>
           <span className="font-medium">{agreement.property_address}</span>
         </div>
-        <div className="flex justify-between items-center mb-2">
-          <span className="text-gray-600">Monthly Rent:</span>
-          <span className="font-medium">RM {agreement.monthly_rent}</span>
-        </div>
-        <div className="flex justify-between items-center mb-2">
-          <span className="text-gray-600">Security Deposit:</span>
-          <span className="font-medium">RM {agreement.security_deposit}</span>
-        </div>
-        <hr className="my-3" />
-        <div className="flex justify-between items-center">
-          <span className="text-lg font-semibold text-gray-900">Agreement Fee:</span>
-          <span className="text-lg font-bold text-blue-600">
-            RM {paymentIntent?.amount || agreement.agreement_fee}
-          </span>
-        </div>
+        
+        {agreement.payment_type !== 'deposit' && (
+          <>
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-gray-600">Monthly Rent:</span>
+              <span className="font-medium">RM {agreement.monthly_rent}</span>
+            </div>
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-gray-600">Security Deposit:</span>
+              <span className="font-medium">RM {agreement.security_deposit}</span>
+            </div>
+            <hr className="my-3" />
+            <div className="flex justify-between items-center">
+              <span className="text-lg font-semibold text-gray-900">Agreement Fee:</span>
+              <span className="text-lg font-bold text-blue-600">
+                RM {paymentIntent?.amount || agreement.agreement_fee}
+              </span>
+            </div>
+          </>
+        )}
+        
+        {agreement.payment_type === 'deposit' && (
+          <>
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-gray-600">Security Deposit:</span>
+              <span className="font-medium">RM {agreement.security_deposit}</span>
+            </div>
+            <hr className="my-3" />
+            <div className="flex justify-between items-center">
+              <span className="text-lg font-semibold text-gray-900">Total Deposit:</span>
+              <span className="text-lg font-bold text-orange-600">
+                RM {agreement.payment_required}
+              </span>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Payment Form */}
@@ -225,7 +249,9 @@ const PaymentFormContent = ({ agreement, onPaymentSuccess, onPaymentError }) => 
           className={`w-full py-3 px-4 rounded-md text-white font-medium ${
             processing || !stripe || !paymentIntent
               ? 'bg-gray-400 cursor-not-allowed'
-              : 'bg-blue-600 hover:bg-blue-700 focus:ring-2 focus:ring-blue-500'
+              : agreement.payment_type === 'deposit' 
+                ? 'bg-orange-600 hover:bg-orange-700 focus:ring-2 focus:ring-orange-500'
+                : 'bg-blue-600 hover:bg-blue-700 focus:ring-2 focus:ring-blue-500'
           }`}
         >
           {processing ? (
@@ -234,7 +260,7 @@ const PaymentFormContent = ({ agreement, onPaymentSuccess, onPaymentError }) => 
               Processing Payment...
             </div>
           ) : (
-            `Pay RM ${paymentIntent?.amount || agreement.agreement_fee}`
+            `Pay RM ${agreement.payment_required || paymentIntent?.amount || agreement.agreement_fee}`
           )}
         </button>
       </form>
