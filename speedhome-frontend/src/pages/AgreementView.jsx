@@ -447,12 +447,14 @@ const AgreementView = () => {
                   📄 Preview Agreement
                 </button>
                 
-                <button
-                  onClick={() => downloadPDF('draft')}
-                  className="w-full bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-md text-sm font-medium"
-                >
-                  📥 Download Draft PDF
-                </button>
+                {agreement.status !== 'active' && (
+                  <button
+                    onClick={() => downloadPDF('draft')}
+                    className="w-full bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-md text-sm font-medium"
+                  >
+                    📥 Download Draft PDF
+                  </button>
+                )}
 
                 {agreement.status === 'active' && (
                   <button
