@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
 import TenancyAgreementAPI from '../services/TenancyAgreementAPI';
-import PaymentForm from '../components/PaymentForm';
-
+import DepositPaymentForm from '../components/DepositPaymentForm';
 const DepositPaymentPage = () => {
   const { agreementId } = useParams();
   const navigate = useNavigate();
@@ -183,7 +181,7 @@ const DepositPaymentPage = () => {
             <h2 className="text-xl font-semibold mb-4">Payment Details</h2>
             
             {paymentStatus === 'pending' && (
-              <PaymentForm
+              <DepositPaymentForm
                 agreement={{
                   ...agreement,
                   payment_required: depositAmount.toFixed(2),
