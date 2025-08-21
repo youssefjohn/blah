@@ -126,12 +126,15 @@ def seed_data():
             tenant_id=tenant.id,
             landlord_id=landlord.id,
             status='approved',
-            monthly_rent=last_property.price,
-            lease_duration_months=12,
-            lease_start_date=date.today() - timedelta(days=30),  # Started 30 days ago
-            lease_end_date=date.today() + timedelta(days=5),     # Ends in 5 days (for testing)
-            created_at=datetime.utcnow() - timedelta(days=35),
-            approved_at=datetime.utcnow() - timedelta(days=32)
+            lease_duration_preference='12 months',
+            full_name=tenant.full_name,
+            email=tenant.email,
+            phone_number=tenant.phone_number,
+            employment_status='employed',
+            monthly_income=5000.00,
+            move_in_date=date.today() - timedelta(days=30),
+            is_complete=True,
+            step_completed=6
         )
         db.session.add(application)
         db.session.commit()
