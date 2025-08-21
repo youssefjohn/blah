@@ -61,7 +61,7 @@ def get_deposit_for_agreement(agreement_id):
             deposit_data = result['deposit']
             deposit_data['agreement'] = {
                 'id': agreement.id,
-                'property_address': agreement.property.address if agreement.property else 'N/A',
+                'property_address': agreement.property.title + ", " + agreement.property.location if agreement.property else 'N/A',
                 'monthly_rent': float(agreement.monthly_rent) if agreement.monthly_rent else 0,
                 'lease_start_date': agreement.lease_start_date.isoformat() if agreement.lease_start_date else None,
                 'lease_end_date': agreement.lease_end_date.isoformat() if agreement.lease_end_date else None,
@@ -80,7 +80,7 @@ def get_deposit_for_agreement(agreement_id):
                 'message': 'No deposit found for this agreement',
                 'agreement': {
                     'id': agreement.id,
-                    'property_address': agreement.property.address if agreement.property else 'N/A',
+                    'property_address': agreement.property.title + ", " + agreement.property.location if agreement.property else 'N/A',
                     'monthly_rent': float(agreement.monthly_rent) if agreement.monthly_rent else 0,
                     'status': agreement.status
                 }
@@ -118,7 +118,7 @@ def get_tenant_deposit_dashboard():
             
             agreement_data = {
                 'agreement_id': agreement.id,
-                'property_address': agreement.property.address if agreement.property else 'N/A',
+                'property_address': agreement.property.title + ", " + agreement.property.location if agreement.property else 'N/A',
                 'monthly_rent': float(agreement.monthly_rent) if agreement.monthly_rent else 0,
                 'lease_end_date': agreement.lease_end_date.isoformat() if agreement.lease_end_date else None,
                 'has_deposit': deposit is not None

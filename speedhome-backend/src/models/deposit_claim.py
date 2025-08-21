@@ -106,7 +106,7 @@ class DepositClaim(db.Model):
             # Related data
             'landlord_name': f"{self.landlord.first_name} {self.landlord.last_name}" if self.landlord else None,
             'tenant_name': f"{self.tenant.first_name} {self.tenant.last_name}" if self.tenant else None,
-            'property_address': self.property.address if self.property else None,
+            'property_address': f"{self.property.title}, {self.property.location}" if self.property else None,
             # Using regular methods instead of properties to avoid SQLAlchemy conflicts
             'days_until_deadline': self.get_days_until_response_deadline(),
             'is_overdue': self.is_response_overdue(),

@@ -53,14 +53,14 @@ class PropertyLifecycleService:
                     # Create notifications for both tenant and landlord
                     tenant_notification = Notification(
                         recipient_id=agreement.tenant_id,
-                        message=f"Your tenancy at {agreement.property.address} expires in 7 days on {agreement.end_date.strftime('%B %d, %Y')}",
+                        message=f"Your tenancy at {f"{agreement.property.title}, {agreement.property.location}"} expires in 7 days on {agreement.end_date.strftime('%B %d, %Y')}",
                         notification_type='LEASE_EXPIRY_ADVANCE',
                         priority='HIGH'
                     )
                     
                     landlord_notification = Notification(
                         recipient_id=agreement.property.owner_id,
-                        message=f"Tenancy agreement for {agreement.property.address} expires in 7 days on {agreement.end_date.strftime('%B %d, %Y')}",
+                        message=f"Tenancy agreement for {f"{agreement.property.title}, {agreement.property.location}"} expires in 7 days on {agreement.end_date.strftime('%B %d, %Y')}",
                         notification_type='LEASE_EXPIRY_ADVANCE',
                         priority='HIGH'
                     )
