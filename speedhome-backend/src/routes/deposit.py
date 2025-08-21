@@ -525,7 +525,7 @@ def get_deposit_by_agreement(agreement_id):
         deposit_data = deposit.to_dict()
         deposit_data.update({
             'property_address': agreement.property_address,
-            'tenant_name': f"{agreement.tenant_first_name} {agreement.tenant_last_name}",
+            'tenant_name': agreement.tenant_full_name,
             'landlord_name': agreement.landlord_full_name,
             'tenancy_ending_soon': tenancy_ending_soon,
             'claims': [claim.to_dict() for claim in claims]
