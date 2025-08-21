@@ -575,8 +575,17 @@ def release_deposit(deposit_id):
         
         db.session.commit()
         
-        # Send notification to tenant
-        DepositNotificationService.notify_deposit_released(deposit)
+        # Send notification to tenant and landlord
+        DepositNotificationService.notify_deposit_resolved(
+            deposit_transaction_id=deposit.id,
+            tenant_id=deposit.tenant_id,
+            landlord_id=deposit.landlord_id,
+            tenant_refund=amount,
+            landlord_payout=0,
+            property_address=deposit.tenancy_agreement.property_address,
+            tenancy_agreement_id=deposit.tenancy_agreement_id,
+            property_id=deposit.property_id
+        )
         
         logger.info(f"Released deposit {deposit_id} amount {amount}")
         
