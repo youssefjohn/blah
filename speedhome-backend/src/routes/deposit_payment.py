@@ -177,6 +177,12 @@ def complete_deposit_payment(agreement_id):
         agreement.status = 'active'
         agreement.activated_at = datetime.utcnow()
         
+        # Update property status to RENTED
+        from ..models.property import Property, PropertyStatus
+        property = Property.query.get(agreement.property_id)
+        if property:
+            property.transition_to_rented()
+        
         # Commit all changes
         db.session.commit()
         
