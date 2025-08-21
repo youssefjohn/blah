@@ -20,7 +20,6 @@ import DepositManagementPage from './pages/DepositManagementPage';
 import DepositClaimPage from './pages/DepositClaimPage';
 import DepositDisputePage from './pages/DepositDisputePage';
 import DepositResolutionPage from './pages/DepositResolutionPage';
-import DepositTestingPage from './pages/DepositTestingPage';
 import BookingAPI from './services/BookingAPI';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import ApplicationAPI from './services/ApplicationAPI';
@@ -806,7 +805,6 @@ function AppContent() {
         <Route path="/deposit/:depositId/claim" element={<DepositClaimPage />} />
         <Route path="/deposit/claims/:claimId" element={<DepositDisputePage />} />
         <Route path="/deposit/disputes/:disputeId" element={<DepositResolutionPage />} />
-        <Route path="/deposit-testing" element={<DepositTestingPage />} />
       </Routes>
       <Footer />
 
