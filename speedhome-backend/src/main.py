@@ -50,7 +50,7 @@ app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
 app.config['STRIPE_SECRET_KEY'] = os.environ.get('STRIPE_SECRET_KEY', 'sk_test_default')
 app.config['STRIPE_PUBLISHABLE_KEY'] = os.environ.get('STRIPE_PUBLISHABLE_KEY', 'pk_test_default')
 
-CORS(app, origins=['http://localhost:5173', 'http://localhost:5174'], supports_credentials=True)
+CORS(app, origins=['http://localhost:5173', 'http://localhost:5174', 'http://127.0.0.1:5173', 'http://127.0.0.1:5174'], supports_credentials=True)
 
 # --- BLUEPRINT REGISTRATION ---
 app.register_blueprint(property_bp, url_prefix='/api')
