@@ -67,7 +67,7 @@ try:
             sqft=800,
             owner_id=landlord.id,
             status=PropertyStatus.PENDING,  # Will be PENDING after application approved
-            created_at=datetime.utcnow() - timedelta(days=10)
+            date_added=datetime.utcnow() - timedelta(days=10)
         )
         db.session.add(property)
         db.session.commit()
