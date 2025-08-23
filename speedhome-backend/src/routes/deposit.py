@@ -627,38 +627,70 @@ def create_deposit_claims(deposit_id):
         if not claim_items:
             return jsonify({'success': False, 'error': 'At least one claim item required'}), 400
         
+        # Validate each claim item has required fields
+        for i, item in enumerate(claim_items):
+            if not item.get('title'):
+                return jsonify({'success': False, 'error': f'Title is required for item {i+1}'}), 400
+            if not item.get('description'):
+                return jsonify({'success': False, 'error': f'Description is required for item {i+1}'}), 400
+            if not item.get('amount'):
+                return jsonify({'success': False, 'error': f'Amount is required for item {i+1}'}), 400
+
         total_claimed = sum(float(item['amount']) for item in claim_items)
         if total_claimed > deposit.amount:
             return jsonify({'success': False, 'error': 'Total claimed amount exceeds deposit'}), 400
+
+        # Create individual claims for each item
+        created_claims = []
+        for item in claim_items:
+            claim = DepositClaim(
+                deposit_transaction_id=deposit_id,
+                tenancy_agreement_id=deposit.tenancy_agreement_id,
+                property_id=deposit.property_id,
+                tenant_id=deposit.tenant_id,
+                landlord_id=deposit.landlord_id,
+                claim_type=DepositClaimType.DAMAGE,  # Default type, could be made dynamic
+                title=item['title'],
+                description=item['description'],
+                claimed_amount=float(item['amount']),
+                evidence_photos=item.get('evidence_photos', []),
+                evidence_documents=item.get('evidence_documents', []),
+                status=DepositClaimStatus.SUBMITTED,
+                submitted_at=datetime.utcnow(),
+                tenant_response_deadline=datetime.utcnow() + timedelta(days=7)
+            )
+            db.session.add(claim)
+            created_claims.append(claim)
         
-        # Create the main claim
-        claim = DepositClaim(
-            deposit_transaction_id=deposit_id,
-            tenancy_agreement_id=deposit.tenancy_agreement_id,
-            property_id=deposit.property_id,
-            tenant_id=deposit.tenant_id,
-            landlord_id=deposit.landlord_id,
-            claimed_amount=total_claimed,
-            claim_items=claim_items,
-            status=DepositClaimStatus.SUBMITTED,
-            response_deadline=datetime.utcnow() + timedelta(days=7)
-        )
-        
-        db.session.add(claim)
         
         # Update deposit status
         deposit.status = DepositTransactionStatus.DISPUTED
         
         db.session.commit()
         
-        # Send notification to tenant
-        DepositNotificationService.notify_deposit_claim_submitted(claim)
+        # Send notification to tenant for the first claim (or could send for each)
+        if created_claims:
+            # For now, send notification using the first claim
+            # In a more sophisticated system, you might send a summary notification
+            first_claim = created_claims[0]
+            DepositNotificationService.notify_deposit_claim_submitted(
+                deposit_claim_id=first_claim.id,
+                tenant_id=first_claim.tenant_id,
+                claim_title=f"{len(created_claims)} deposit claim(s)",
+                claimed_amount=total_claimed,
+                property_address=deposit.tenancy_agreement.property_address,
+                response_deadline=first_claim.tenant_response_deadline,
+                tenancy_agreement_id=first_claim.tenancy_agreement_id,
+                property_id=first_claim.property_id
+            )
         
-        logger.info(f"Created deposit claims for deposit {deposit_id} total amount {total_claimed}")
+        logger.info(f"Created {len(created_claims)} deposit claims for deposit {deposit_id} total amount {total_claimed}")
         
         return jsonify({
             'success': True,
-            'claim': claim.to_dict(),
+            'claims': [claim.to_dict() for claim in created_claims],
+            'total_claims': len(created_claims),
+            'total_amount': total_claimed,
             'message': 'Claims submitted successfully'
         })
         
