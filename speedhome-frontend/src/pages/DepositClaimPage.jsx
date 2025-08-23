@@ -131,7 +131,7 @@ const DepositClaimPage = () => {
         },
         body: JSON.stringify({
           claim_items: claimItems.map(item => ({
-            reason: item.reason,
+            title: item.reason,  // Map reason to title for backend compatibility
             amount: parseFloat(item.amount),
             description: item.description,
             evidence_photos: item.evidence_photos,
