@@ -624,16 +624,26 @@ def create_deposit_claims(deposit_id):
         data = request.get_json()
         claim_items = data.get('claim_items', [])
         
+        # DEBUG: Log what we received
+        logger.info(f"DEBUG: Received data: {data}")
+        logger.info(f"DEBUG: Claim items count: {len(claim_items)}")
+        logger.info(f"DEBUG: Claim items: {claim_items}")
+        
         if not claim_items:
+            logger.error("DEBUG: No claim items provided")
             return jsonify({'success': False, 'error': 'At least one claim item required'}), 400
         
         # Validate each claim item has required fields
         for i, item in enumerate(claim_items):
+            logger.info(f"DEBUG: Validating item {i+1}: {item}")
             if not item.get('title'):
+                logger.error(f"DEBUG: Item {i+1} missing title: {item}")
                 return jsonify({'success': False, 'error': f'Title is required for item {i+1}'}), 400
             if not item.get('description'):
+                logger.error(f"DEBUG: Item {i+1} missing description: {item}")
                 return jsonify({'success': False, 'error': f'Description is required for item {i+1}'}), 400
             if not item.get('amount'):
+                logger.error(f"DEBUG: Item {i+1} missing amount: {item}")
                 return jsonify({'success': False, 'error': f'Amount is required for item {i+1}'}), 400
 
         total_claimed = sum(float(item['amount']) for item in claim_items)
