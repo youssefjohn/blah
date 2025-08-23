@@ -96,6 +96,7 @@ try:
         agreement = TenancyAgreement(
             property_id=property.id,
             property_address=f"{property.title}, {property.location}",
+            property_type=property.property_type,  # Required field
             tenant_id=tenant.id,
             tenant_full_name=f"{tenant.first_name} {tenant.last_name}",
             landlord_id=landlord.id,
