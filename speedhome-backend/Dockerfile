@@ -24,6 +24,8 @@ COPY requirements.txt .
 # Install the Python packages
 RUN pip install --no-cache-dir -r requirements.txt
 
+RUN echo "Cache bust: $(date)"
+
 # Copy the rest of your backend code into the container
 COPY . .
 
