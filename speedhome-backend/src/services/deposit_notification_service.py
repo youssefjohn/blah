@@ -5,8 +5,8 @@ Uses flexible entity references - no foreign key dependencies
 """
 
 from datetime import datetime, timedelta
-from models.user import db
-from models.notification import Notification, NotificationType, NotificationPriority
+from src.models.user import db
+from src.models.notification import Notification, NotificationType, NotificationPriority
 
 class DepositNotificationService:
     """Service for managing deposit-related notifications"""
