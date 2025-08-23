@@ -174,7 +174,7 @@ class DepositNotificationService:
         tenant_notification = DepositNotificationService.create_notification(
             recipient_id=tenant_id,
             message=tenant_message,
-            notification_type=NotificationType.DEPOSIT_RESOLVED,
+            notification_type=NotificationType.DEPOSIT_RELEASED,
             priority=NotificationPriority.NORMAL,
             action_url=f"/deposit/status/{deposit_transaction_id}",
             entity_type="deposit_transaction",
@@ -192,7 +192,7 @@ class DepositNotificationService:
         landlord_notification = DepositNotificationService.create_notification(
             recipient_id=landlord_id,
             message=landlord_message,
-            notification_type=NotificationType.DEPOSIT_RESOLVED,
+            notification_type=NotificationType.DEPOSIT_RELEASED,
             priority=NotificationPriority.NORMAL,
             action_url=f"/deposit/status/{deposit_transaction_id}",
             entity_type="deposit_transaction",
