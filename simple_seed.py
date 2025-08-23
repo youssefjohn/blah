@@ -31,10 +31,12 @@ try:
         # Create landlord
         landlord = User(
             email='landlord@test.com',
+            username='landlord',
             password_hash='scrypt:32768:8:1$salt$hash',  # password123
-            full_name='John Landlord',
-            phone_number='+60123456789',
-            user_type='landlord',
+            first_name='John',
+            last_name='Landlord',
+            phone='+60123456789',
+            role='landlord',
             is_verified=True
         )
         db.session.add(landlord)
@@ -42,10 +44,12 @@ try:
         # Create tenant
         tenant = User(
             email='tenant@test.com',
+            username='tenant',
             password_hash='scrypt:32768:8:1$salt$hash',  # password123
-            full_name='Jane Tenant',
-            phone_number='+60123456788',
-            user_type='tenant',
+            first_name='Jane',
+            last_name='Tenant',
+            phone='+60123456788',
+            role='tenant',
             is_verified=True
         )
         db.session.add(tenant)
@@ -74,9 +78,9 @@ try:
             tenant_id=tenant.id,
             landlord_id=landlord.id,
             status='approved',
-            full_name=tenant.full_name,
+            full_name=f"{tenant.first_name} {tenant.last_name}",
             email=tenant.email,
-            phone_number=tenant.phone_number,
+            phone_number=tenant.phone,
             employment_status='employed',
             monthly_income=5000.00,
             move_in_date=date.today() + timedelta(days=7),
@@ -93,9 +97,9 @@ try:
             property_id=property.id,
             property_address=f"{property.title}, {property.location}",
             tenant_id=tenant.id,
-            tenant_full_name=tenant.full_name,
+            tenant_full_name=f"{tenant.first_name} {tenant.last_name}",
             landlord_id=landlord.id,
-            landlord_full_name=landlord.full_name,
+            landlord_full_name=f"{landlord.first_name} {landlord.last_name}",
             monthly_rent=Decimal(str(property.price)),
             security_deposit=Decimal(str(property.price * 2.5)),  # 2.5 months
             lease_start_date=date.today() + timedelta(days=7),
