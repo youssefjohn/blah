@@ -59,12 +59,12 @@ try:
         property = Property(
             title='Test Property for Deposit System',
             description='A beautiful property for testing the deposit workflow',
-            price=1500.00,
+            price=1500,
             location='Kuala Lumpur',
             property_type='apartment',
             bedrooms=2,
             bathrooms=2,
-            size=800,
+            sqft=800,
             owner_id=landlord.id,
             status=PropertyStatus.PENDING,  # Will be PENDING after application approved
             created_at=datetime.utcnow() - timedelta(days=10)
