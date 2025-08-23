@@ -104,6 +104,7 @@ try:
             security_deposit=Decimal(str(property.price * 2.5)),  # 2.5 months
             lease_start_date=date.today() + timedelta(days=7),
             lease_end_date=date.today() + timedelta(days=372),  # ~1 year
+            lease_duration_months=12,  # Required field
             status='pending_signatures',  # Not signed yet
             application_id=application.id,
             created_at=datetime.utcnow() - timedelta(days=2)
