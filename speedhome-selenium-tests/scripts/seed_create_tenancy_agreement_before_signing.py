@@ -4,7 +4,11 @@ import sys
 import os
 from datetime import datetime, timedelta, date
 from decimal import Decimal
+from dotenv import load_dotenv
 from config.test_config import TestConfig
+
+# Load environment variables from .env file
+load_dotenv('/app/.env')
 
 # Add the backend path
 # This assumes the script is run from the project root (lettings-project)

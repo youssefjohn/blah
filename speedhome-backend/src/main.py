@@ -74,7 +74,12 @@ app.register_blueprint(deposit_payment_bp)
 app.register_blueprint(admin_auth_bp)
 
 # --- DATABASE CONFIGURATION ---
-app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{os.path.join(os.path.dirname(__file__), 'database', 'app.db')}"
+# Use PostgreSQL from environment variable (no SQLite fallback)
+database_url = os.environ.get('DATABASE_URL')
+if not database_url:
+    raise RuntimeError("DATABASE_URL environment variable is required")
+
+app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
 

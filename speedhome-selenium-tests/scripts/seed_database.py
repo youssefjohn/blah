@@ -1,8 +1,14 @@
+#!/usr/bin/env python3
+
 import sys
 import os
 from datetime import datetime, timedelta, date, time
 # --- ADD THIS FOR MORE REALISTIC DATA ---
 import random
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv('/app/.env')
 
 # This path addition tells the script where its own project root is,
 # allowing it to find the 'config' module.

@@ -5,6 +5,10 @@ import os
 from datetime import datetime, date, timedelta
 # --- ADD THIS IMPORT ---
 import random
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv('/app/.env')
 
 # Add the backend path
 backend_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'speedhome-backend'))
