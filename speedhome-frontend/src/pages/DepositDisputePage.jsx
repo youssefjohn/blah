@@ -16,10 +16,7 @@ const DepositDisputePage = () => {
   const [counterEvidence, setCounterEvidence] = useState({});
 
   useEffect(() => {
-    if (!isTenant()) {
-      navigate('/dashboard');
-      return;
-    }
+    // Both landlords and tenants should be able to view dispute details
     loadClaimData();
   }, [claimId]);
 
