@@ -78,8 +78,6 @@ const DepositClaimPage = () => {
   };
 
   const handleFileUpload = async (id, field, files) => {
-    // In a real implementation, you would upload files to S3 or similar
-    // For now, we'll just store the file names
     const fileNames = Array.from(files).map(file => file.name);
     updateClaimItem(id, field, fileNames);
   };
@@ -105,12 +103,12 @@ const DepositClaimPage = () => {
         return false;
       }
     }
-    
+
     const totalClaimed = calculateTotalClaimed();
     if (totalClaimed > deposit.amount) {
       return false;
     }
-    
+
     return true;
   };
 
@@ -122,22 +120,26 @@ const DepositClaimPage = () => {
 
     try {
       setSubmitting(true);
-      
+
+      const payload = {
+        title: "Landlord Claim for Security Deposit",
+        description: "Claim for deductions from the security deposit at the end of the tenancy.",
+        claim_items: claimItems.map(item => ({
+          title: item.reason,
+          amount: parseFloat(item.amount),
+          description: item.description,
+          evidence_photos: item.evidence_photos,
+          evidence_documents: item.evidence_documents
+        }))
+      };
+
       const response = await fetch(`/api/deposits/${depositId}/claims`, {
         method: 'POST',
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          claim_items: claimItems.map(item => ({
-            title: item.reason,  // Map reason to title for backend compatibility
-            amount: parseFloat(item.amount),
-            description: item.description,
-            evidence_photos: item.evidence_photos,
-            evidence_documents: item.evidence_documents
-          }))
-        })
+        body: JSON.stringify(payload)
       });
 
       const result = await response.json();
@@ -190,7 +192,6 @@ const DepositClaimPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
@@ -209,9 +210,7 @@ const DepositClaimPage = () => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Content */}
           <div className="lg:col-span-2">
-            {/* Property Info */}
             <div className="bg-white shadow rounded-lg p-6 mb-6">
               <h2 className="text-xl font-bold text-gray-900 mb-4">Property Information</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -226,7 +225,6 @@ const DepositClaimPage = () => {
               </div>
             </div>
 
-            {/* Claim Items */}
             <div className="bg-white shadow rounded-lg p-6 mb-6">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold text-gray-900">Deduction Items</h2>
@@ -346,11 +344,10 @@ const DepositClaimPage = () => {
             </div>
           </div>
 
-          {/* Sidebar Summary */}
           <div>
             <div className="bg-white shadow rounded-lg p-6 mb-6">
               <h3 className="text-lg font-bold text-gray-900 mb-4">Claim Summary</h3>
-              
+
               <div className="space-y-3">
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-600">Total Held:</span>
@@ -416,4 +413,3 @@ const DepositClaimPage = () => {
 };
 
 export default DepositClaimPage;
-

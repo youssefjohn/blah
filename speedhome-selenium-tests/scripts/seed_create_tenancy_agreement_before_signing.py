@@ -7,14 +7,14 @@ from decimal import Decimal
 from dotenv import load_dotenv
 from config.test_config import TestConfig
 
-# Load environment variables from .env file
-load_dotenv('/app/.env')
-
-# Add the backend path
-# This assumes the script is run from the project root (lettings-project)
-backend_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'speedhome-backend'))
+# --- FIX: Use a reliable, absolute path inside the container ---
+backend_path = '/app'
 if backend_path not in sys.path:
     sys.path.insert(0, backend_path)
+
+# Load the environment variables from the correct .env file path
+dotenv_path = os.path.join(backend_path, '.env')
+load_dotenv(dotenv_path=dotenv_path)
 
 try:
     from src.main import app
@@ -105,12 +105,10 @@ try:
             property_type=property_obj.property_type,
             tenant_id=tenant.id,
             tenant_full_name=f"{tenant.first_name} {tenant.last_name}",
-            # --- FIX: Add the missing contact details ---
             tenant_phone=tenant.phone,
             tenant_email=tenant.email,
             landlord_id=landlord.id,
             landlord_full_name=f"{landlord.first_name} {landlord.last_name}",
-            # --- FIX: Add the missing contact details ---
             landlord_phone=landlord.phone,
             landlord_email=landlord.email,
             monthly_rent=Decimal(str(property_obj.price)),

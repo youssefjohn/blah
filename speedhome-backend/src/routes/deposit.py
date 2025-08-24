@@ -15,6 +15,7 @@ from ..models.deposit_dispute import DepositDispute, DepositDisputeStatus, Depos
 from ..models.tenancy_agreement import TenancyAgreement
 from ..models.property import Property
 from ..models.user import User
+from decimal import Decimal
 from ..models.conversation import Conversation
 from ..services.deposit_notification_service import DepositNotificationService
 from ..services.stripe_service import stripe_service
@@ -235,92 +236,95 @@ def get_deposit_claims(deposit_id):
         'claims': [claim.to_dict() for claim in claims]
     })
 
+
 @deposit_bp.route('/<int:deposit_id>/claims', methods=['POST'])
-def create_deposit_claim(deposit_id):
-    """Create a new deposit claim (landlord only)"""
+def create_deposit_claims(deposit_id):
+    """Create one or more new deposit claims from a list of items."""
     if 'user_id' not in session:
         return jsonify({'success': False, 'error': 'Authentication required'}), 401
-    
+
     user_id = session['user_id']
-    
+
     deposit = DepositTransaction.query.get(deposit_id)
     if not deposit:
         return jsonify({'success': False, 'error': 'Deposit not found'}), 404
-    
-    # Check if user is the landlord
+
     if deposit.landlord_id != user_id:
-        return jsonify({'success': False, 'error': 'Only landlord can create claims'}), 403
-    
+        return jsonify({'success': False, 'error': 'Only the landlord can create claims'}), 403
+
     try:
         data = request.get_json()
-        
-        # Validate required fields
-        required_fields = ['title', 'description', 'claimed_amount', 'category']
-        for field in required_fields:
-            if not data.get(field):
-                return jsonify({'success': False, 'error': f'{field} is required'}), 400
-        
-        claimed_amount = float(data['claimed_amount'])
-        
-        # Validate claim amount
-        if claimed_amount <= 0:
-            return jsonify({'success': False, 'error': 'Claim amount must be positive'}), 400
-        
-        if claimed_amount > deposit.amount:
-            return jsonify({'success': False, 'error': 'Claim amount cannot exceed deposit amount'}), 400
-        
-        # Create deposit claim
-        claim = DepositClaim(
-            deposit_transaction_id=deposit_id,
-            tenancy_agreement_id=deposit.tenancy_agreement_id,
-            property_id=deposit.property_id,
-            landlord_id=deposit.landlord_id,
-            tenant_id=deposit.tenant_id,
-            title=data['title'],
-            description=data['description'],
-            claimed_amount=claimed_amount,
-            category=data['category'],
-            evidence_photos=data.get('evidence_photos', []),
-            evidence_documents=data.get('evidence_documents', []),
-            status=DepositClaimStatus.SUBMITTED,
-            tenant_response_deadline=datetime.utcnow() + timedelta(days=7),
-            auto_approve_at=datetime.utcnow() + timedelta(days=7)
-        )
-        
-        db.session.add(claim)
+
+        # --- MODIFIED LOGIC TO HANDLE AN ARRAY OF CLAIM ITEMS ---
+
+        # Validate top-level fields for the overall submission
+        if not data.get('title'):
+            return jsonify({'success': False, 'error': 'A top-level claim title is required'}), 400
+
+        claim_items = data.get('claim_items')
+        if not claim_items or not isinstance(claim_items, list) or len(claim_items) == 0:
+            return jsonify({'success': False, 'error': 'claim_items must be a non-empty list'}), 400
+
+        total_claimed_in_request = sum(Decimal(str(item.get('amount', 0))) for item in claim_items)
+
+        # Check if the total claim amount is valid
+        if total_claimed_in_request <= 0:
+            return jsonify({'success': False, 'error': 'Total claim amount must be positive'}), 400
+
+        # You might want a more sophisticated check for existing claims vs. remaining amount
+        if total_claimed_in_request > deposit.amount:
+            return jsonify(
+                {'success': False, 'error': 'Total claim amount cannot exceed the total deposit amount'}), 400
+
+        claims_created = []
+        for item in claim_items:
+            # Validate each item in the list
+            if not item.get('title') or not item.get('amount') or not item.get('description'):
+                # Skip invalid items or return an error
+                continue
+
+                # Create a separate DepositClaim record for each item
+            new_claim = DepositClaim(
+                deposit_transaction_id=deposit_id,
+                tenancy_agreement_id=deposit.tenancy_agreement_id,
+                property_id=deposit.property_id,
+                landlord_id=deposit.landlord_id,
+                tenant_id=deposit.tenant_id,
+                title=item['title'],
+                description=item.get('description', ''),
+                claimed_amount=Decimal(str(item['amount'])),
+                category=item.get('title'),  # Use the title/reason as the category
+                evidence_photos=item.get('evidence_photos', []),
+                evidence_documents=item.get('evidence_documents', []),
+                status=DepositClaimStatus.SUBMITTED,
+                tenant_response_deadline=datetime.utcnow() + timedelta(days=7),
+                auto_approve_at=datetime.utcnow() + timedelta(days=7)
+            )
+            db.session.add(new_claim)
+            claims_created.append(new_claim)
+
+        if not claims_created:
+            return jsonify({'success': False, 'error': 'No valid claim items were provided.'}), 400
+
         db.session.commit()
-        
-        # Create conversation for claim discussion
-        conversation = Conversation(
-            property_id=deposit.property_id,
-            tenant_id=deposit.tenant_id,
-            landlord_id=deposit.landlord_id,
-            booking_id=None,  # Not related to booking
-            status='active',
-            context_type='deposit_claim',
-            context_id=claim.id,
-            created_at=datetime.utcnow()
-        )
-        
-        db.session.add(conversation)
-        claim.conversation_id = conversation.id
-        db.session.commit()
-        
-        # Send notification to tenant
-        DepositNotificationService.notify_deposit_claim_submitted(claim)
-        
-        logger.info(f"Created deposit claim {claim.id} for deposit {deposit_id}")
-        
+
+        # You can create a single conversation for the batch of claims
+        # or handle notifications for each claim individually
+        for claim in claims_created:
+            DepositNotificationService.notify_deposit_claim_submitted(claim)
+
+        logger.info(f"Created {len(claims_created)} deposit claim items for deposit {deposit_id}")
+
         return jsonify({
             'success': True,
-            'claim': claim.to_dict(),
-            'message': 'Deposit claim created successfully'
-        })
-        
+            'message': f'Successfully created {len(claims_created)} claim items.'
+        }), 201
+
     except Exception as e:
         logger.error(f"Error creating deposit claim: {str(e)}")
         db.session.rollback()
-        return jsonify({'success': False, 'error': 'Failed to create claim'}), 500
+        return jsonify({'success': False, 'error': f'Failed to create claim: {str(e)}'}), 500
+
 
 # ============================================================================
 # DEPOSIT DISPUTE ROUTES
@@ -600,114 +604,7 @@ def release_deposit(deposit_id):
         db.session.rollback()
         return jsonify({'success': False, 'error': 'Failed to release deposit'}), 500
 
-@deposit_bp.route('/<int:deposit_id>/claims', methods=['POST'])
-def create_deposit_claims(deposit_id):
-    """Create multiple deposit claims (landlord making deductions)"""
-    if 'user_id' not in session:
-        return jsonify({'success': False, 'error': 'Authentication required'}), 401
-    
-    user_id = session['user_id']
-    
-    try:
-        deposit = DepositTransaction.query.get(deposit_id)
-        if not deposit:
-            return jsonify({'success': False, 'error': 'Deposit not found'}), 404
-        
-        # Check if user is the landlord
-        if deposit.landlord_id != user_id:
-            return jsonify({'success': False, 'error': 'Only landlord can create claims'}), 403
-        
-        # Check if deposit can have claims
-        if deposit.status != DepositTransactionStatus.HELD_IN_ESCROW:
-            return jsonify({'success': False, 'error': 'Cannot create claims for deposit in current status'}), 400
-        
-        data = request.get_json()
-        claim_items = data.get('claim_items', [])
-        
-        # DEBUG: Log what we received
-        logger.info(f"DEBUG: Received data: {data}")
-        logger.info(f"DEBUG: Claim items count: {len(claim_items)}")
-        logger.info(f"DEBUG: Claim items: {claim_items}")
-        
-        if not claim_items:
-            logger.error("DEBUG: No claim items provided")
-            return jsonify({'success': False, 'error': 'At least one claim item required'}), 400
-        
-        # Validate each claim item has required fields
-        for i, item in enumerate(claim_items):
-            logger.info(f"DEBUG: Validating item {i+1}: {item}")
-            if not item.get('title'):
-                logger.error(f"DEBUG: Item {i+1} missing title: {item}")
-                return jsonify({'success': False, 'error': f'Title is required for item {i+1}'}), 400
-            if not item.get('description'):
-                logger.error(f"DEBUG: Item {i+1} missing description: {item}")
-                return jsonify({'success': False, 'error': f'Description is required for item {i+1}'}), 400
-            if not item.get('amount'):
-                logger.error(f"DEBUG: Item {i+1} missing amount: {item}")
-                return jsonify({'success': False, 'error': f'Amount is required for item {i+1}'}), 400
 
-        total_claimed = sum(float(item['amount']) for item in claim_items)
-        if total_claimed > deposit.amount:
-            return jsonify({'success': False, 'error': 'Total claimed amount exceeds deposit'}), 400
-
-        # Create individual claims for each item
-        created_claims = []
-        for item in claim_items:
-            claim = DepositClaim(
-                deposit_transaction_id=deposit_id,
-                tenancy_agreement_id=deposit.tenancy_agreement_id,
-                property_id=deposit.property_id,
-                tenant_id=deposit.tenant_id,
-                landlord_id=deposit.landlord_id,
-                claim_type=DepositClaimType.DAMAGE,  # Default type, could be made dynamic
-                title=item['title'],
-                description=item['description'],
-                claimed_amount=float(item['amount']),
-                evidence_photos=item.get('evidence_photos', []),
-                evidence_documents=item.get('evidence_documents', []),
-                status=DepositClaimStatus.SUBMITTED,
-                submitted_at=datetime.utcnow(),
-                tenant_response_deadline=datetime.utcnow() + timedelta(days=7)
-            )
-            db.session.add(claim)
-            created_claims.append(claim)
-        
-        
-        # Update deposit status
-        deposit.status = DepositTransactionStatus.DISPUTED
-        
-        db.session.commit()
-        
-        # Send notification to tenant for the first claim (or could send for each)
-        if created_claims:
-            # For now, send notification using the first claim
-            # In a more sophisticated system, you might send a summary notification
-            first_claim = created_claims[0]
-            DepositNotificationService.notify_deposit_claim_submitted(
-                deposit_claim_id=first_claim.id,
-                tenant_id=first_claim.tenant_id,
-                claim_title=f"{len(created_claims)} deposit claim(s)",
-                claimed_amount=total_claimed,
-                property_address=deposit.tenancy_agreement.property_address,
-                response_deadline=first_claim.tenant_response_deadline,
-                tenancy_agreement_id=first_claim.tenancy_agreement_id,
-                property_id=first_claim.property_id
-            )
-        
-        logger.info(f"Created {len(created_claims)} deposit claims for deposit {deposit_id} total amount {total_claimed}")
-        
-        return jsonify({
-            'success': True,
-            'claims': [claim.to_dict() for claim in created_claims],
-            'total_claims': len(created_claims),
-            'total_amount': total_claimed,
-            'message': 'Claims submitted successfully'
-        })
-        
-    except Exception as e:
-        logger.error(f"Error creating deposit claims: {str(e)}")
-        db.session.rollback()
-        return jsonify({'success': False, 'error': 'Failed to create claims'}), 500
 
 @deposit_bp.route('/claims/<int:claim_id>', methods=['GET'])
 def get_claim_details(claim_id):
