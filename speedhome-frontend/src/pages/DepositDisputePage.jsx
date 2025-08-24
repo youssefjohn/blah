@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 const DepositDisputePage = () => {
   const { claimId } = useParams();
   const navigate = useNavigate();
-  const { user, isTenant } = useAuth();
+  const { user, isTenant, isLandlord } = useAuth();
   
   // --- FIX: State updated to handle a list of claims and page-level data ---
   const [claims, setClaims] = useState([]);
@@ -222,7 +222,9 @@ const DepositDisputePage = () => {
               >
                 ← Back
               </button>
-              <h1 className="text-2xl font-bold text-gray-900">Review Your Landlord's Deposit Claims</h1>
+              <h1 className="text-2xl font-bold text-gray-900">
+                {isLandlord() ? 'Deposit Claim Status' : 'Review Your Landlord\'s Deposit Claims'}
+              </h1>
             </div>
           </div>
         </div>
@@ -253,16 +255,28 @@ const DepositDisputePage = () => {
               </div>
             </div>
 
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-              <h4 className="font-medium text-blue-800 mb-2">📋 How to Respond</h4>
-              <ul className="text-sm text-blue-700 space-y-1">
-                <li>• <strong>Agree:</strong> Accept the charge as valid</li>
-                <li>• <strong>Disagree:</strong> Dispute the charge completely</li>
-                <li>• <strong>Partial Accept:</strong> Accept a different amount</li>
-                <li>• You must provide an explanation for disagreements or partial acceptances</li>
-                <li>• You can upload counter-evidence to support your position</li>
-              </ul>
-            </div>
+            {isTenant() && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                <h4 className="font-medium text-blue-800 mb-2">📋 How to Respond</h4>
+                <ul className="text-sm text-blue-700 space-y-1">
+                  <li>• <strong>Agree:</strong> Accept the charge as valid</li>
+                  <li>• <strong>Disagree:</strong> Dispute the charge completely</li>
+                  <li>• <strong>Partial Accept:</strong> Accept a different amount</li>
+                  <li>• You must provide an explanation for disagreements or partial acceptances</li>
+                  <li>• You can upload counter-evidence to support your position</li>
+                </ul>
+              </div>
+            )}
+
+            {isLandlord() && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+                <h4 className="font-medium text-green-800 mb-2">📋 Claim Status</h4>
+                <p className="text-sm text-green-700">
+                  You are viewing the deposit claims you submitted. The tenant has until{' '}
+                  <strong>{new Date(pageData?.response_deadline).toLocaleDateString()}</strong> to respond.
+                </p>
+              </div>
+            )}
 
             <div className="space-y-6">
               {claims.map((item, index) => (
@@ -276,9 +290,12 @@ const DepositDisputePage = () => {
 
                   <p className="text-gray-600 mb-4">{item.description}</p>
 
+                  {/* Show evidence section for both landlords and tenants */}
                   {(item.evidence_photos?.length > 0 || item.evidence_documents?.length > 0) && (
                     <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-                      <h4 className="font-medium text-gray-900 mb-2">Landlord's Evidence:</h4>
+                      <h4 className="font-medium text-gray-900 mb-2">
+                        {isLandlord() ? 'Your Evidence:' : 'Landlord\'s Evidence:'}
+                      </h4>
                       {item.evidence_photos?.length > 0 && (
                         <p className="text-sm text-gray-600">📷 {item.evidence_photos.length} photo(s)</p>
                       )}
@@ -286,117 +303,130 @@ const DepositDisputePage = () => {
                         <p className="text-sm text-gray-600">📄 {item.evidence_documents.length} document(s)</p>
                       )}
                       <button className="text-blue-600 hover:text-blue-800 text-sm font-medium mt-1">
-                        View Landlord's Evidence →
+                        View {isLandlord() ? 'Your' : 'Landlord\'s'} Evidence →
                       </button>
                     </div>
                   )}
 
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Your Response *
-                      </label>
-                      <div className="space-y-2">
-                        <label className="flex items-center">
-                          <input
-                            type="radio"
-                            name={`response_${item.id}`}
-                            value="accept"
-                            checked={responses[item.id]?.response === 'accept'}
-                            onChange={(e) => updateResponse(item.id, 'response', e.target.value)}
-                            className="mr-2"
-                          />
-                          <span className="text-green-600 font-medium">✅ Agree - This charge is valid</span>
+                  {/* Tenant response form - only show for tenants */}
+                  {isTenant() && (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Your Response *
                         </label>
-                        <label className="flex items-center">
-                          <input
-                            type="radio"
-                            name={`response_${item.id}`}
-                            value="partial_accept"
-                            checked={responses[item.id]?.response === 'partial_accept'}
-                            onChange={(e) => updateResponse(item.id, 'response', e.target.value)}
-                            className="mr-2"
-                          />
-                          <span className="text-orange-600 font-medium">⚖️ Partial Accept - I agree to a different amount</span>
-                        </label>
-                        <label className="flex items-center">
-                          <input
-                            type="radio"
-                            name={`response_${item.id}`}
-                            value="reject"
-                            checked={responses[item.id]?.response === 'reject'}
-                            onChange={(e) => updateResponse(item.id, 'response', e.target.value)}
-                            className="mr-2"
-                          />
-                          <span className="text-red-600 font-medium">❌ Disagree - This charge is not valid</span>
-                        </label>
+                        <div className="space-y-2">
+                          <label className="flex items-center">
+                            <input
+                              type="radio"
+                              name={`response_${item.id}`}
+                              value="accept"
+                              checked={responses[item.id]?.response === 'accept'}
+                              onChange={(e) => updateResponse(item.id, 'response', e.target.value)}
+                              className="mr-2"
+                            />
+                            <span className="text-green-600 font-medium">✅ Agree - This charge is valid</span>
+                          </label>
+                          <label className="flex items-center">
+                            <input
+                              type="radio"
+                              name={`response_${item.id}`}
+                              value="partial_accept"
+                              checked={responses[item.id]?.response === 'partial_accept'}
+                              onChange={(e) => updateResponse(item.id, 'response', e.target.value)}
+                              className="mr-2"
+                            />
+                            <span className="text-orange-600 font-medium">⚖️ Partial Accept - I agree to a different amount</span>
+                          </label>
+                          <label className="flex items-center">
+                            <input
+                              type="radio"
+                              name={`response_${item.id}`}
+                              value="reject"
+                              checked={responses[item.id]?.response === 'reject'}
+                              onChange={(e) => updateResponse(item.id, 'response', e.target.value)}
+                              className="mr-2"
+                            />
+                            <span className="text-red-600 font-medium">❌ Disagree - This charge is not valid</span>
+                          </label>
+                        </div>
                       </div>
+
+                      {responses[item.id]?.response === 'partial_accept' && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Amount You Agree To Pay (RM) *
+                          </label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0.01"
+                            max={item.claimed_amount - 0.01}
+                            value={responses[item.id]?.counter_amount || ''}
+                            onChange={(e) => updateResponse(item.id, 'counter_amount', e.target.value)}
+                            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                            placeholder="0.00"
+                            required
+                          />
+                        </div>
+                      )}
+
+                      {responses[item.id]?.response && responses[item.id]?.response !== 'accept' && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Explanation *
+                          </label>
+                          <textarea
+                            value={responses[item.id]?.explanation || ''}
+                            onChange={(e) => updateResponse(item.id, 'explanation', e.target.value)}
+                            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                            rows="3"
+                            placeholder="Please explain why you dispute this charge..."
+                            required
+                          />
+                        </div>
+                      )}
+
+                      {responses[item.id]?.response && responses[item.id]?.response !== 'accept' && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Upload Counter-Evidence Photos
+                            </label>
+                            <input
+                              type="file"
+                              multiple
+                              accept="image/*"
+                              onChange={(e) => handleFileUpload(item.id, 'evidence_photos', e.target.files)}
+                              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Upload Counter-Evidence Documents
+                            </label>
+                            <input
+                              type="file"
+                              multiple
+                              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                              onChange={(e) => handleFileUpload(item.id, 'evidence_documents', e.target.files)}
+                              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
+                  )}
 
-                    {responses[item.id]?.response === 'partial_accept' && (
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Amount You Agree To Pay (RM) *
-                        </label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0.01"
-                          max={item.claimed_amount - 0.01}
-                          value={responses[item.id]?.counter_amount || ''}
-                          onChange={(e) => updateResponse(item.id, 'counter_amount', e.target.value)}
-                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                          placeholder="0.00"
-                          required
-                        />
-                      </div>
-                    )}
-
-                    {responses[item.id]?.response && responses[item.id]?.response !== 'accept' && (
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Explanation *
-                        </label>
-                        <textarea
-                          value={responses[item.id]?.explanation || ''}
-                          onChange={(e) => updateResponse(item.id, 'explanation', e.target.value)}
-                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                          rows="3"
-                          placeholder="Please explain why you dispute this charge..."
-                          required
-                        />
-                      </div>
-                    )}
-
-                    {responses[item.id]?.response && responses[item.id]?.response !== 'accept' && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Upload Counter-Evidence Photos
-                          </label>
-                          <input
-                            type="file"
-                            multiple
-                            accept="image/*"
-                            onChange={(e) => handleFileUpload(item.id, 'evidence_photos', e.target.files)}
-                            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Upload Counter-Evidence Documents
-                          </label>
-                          <input
-                            type="file"
-                            multiple
-                            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                            onChange={(e) => handleFileUpload(item.id, 'evidence_documents', e.target.files)}
-                            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                  {/* Landlord view - show status only */}
+                  {isLandlord() && (
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h4 className="font-medium text-gray-700 mb-2">Status</h4>
+                      <p className="text-sm text-gray-600">
+                        Waiting for tenant response by {new Date(pageData?.response_deadline).toLocaleDateString()}
+                      </p>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -404,56 +434,76 @@ const DepositDisputePage = () => {
 
           <div>
             <div className="bg-white shadow rounded-lg p-6 mb-6">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">Response Summary</h3>
+              <h3 className="text-lg font-bold text-gray-900 mb-4">
+                {isLandlord() ? 'Claim Summary' : 'Response Summary'}
+              </h3>
 
               <div className="space-y-3">
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-600">Total Claimed:</span>
                   <span className="font-medium text-red-600">RM {totalClaimedAmount.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Amount Accepted:</span>
-                  <span className="font-medium text-green-600">RM {totalAccepted.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Amount Disputed:</span>
-                  <span className="font-medium text-orange-600">RM {totalDisputed.toFixed(2)}</span>
-                </div>
-                <div className="border-t pt-3">
-                  <div className="flex justify-between">
-                    <span className="text-sm font-medium text-gray-900">Estimated Refund:</span>
-                    <span className="font-bold text-blue-600">
-                      RM {(pageData.deposit_amount - totalAccepted).toFixed(2)}
-                    </span>
+                {isTenant() && (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Amount Accepted:</span>
+                      <span className="font-medium text-green-600">RM {totalAccepted.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Amount Disputed:</span>
+                      <span className="font-medium text-orange-600">RM {totalDisputed.toFixed(2)}</span>
+                    </div>
+                    <div className="border-t pt-3">
+                      <div className="flex justify-between">
+                        <span className="text-sm font-medium text-gray-900">Estimated Refund:</span>
+                        <span className="font-bold text-blue-600">
+                          RM {(pageData.deposit_amount - totalAccepted).toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  </>
+                )}
+                {isLandlord() && (
+                  <div className="border-t pt-3">
+                    <div className="flex justify-between">
+                      <span className="text-sm font-medium text-gray-900">Status:</span>
+                      <span className="font-medium text-orange-600">Pending Response</span>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
 
-            <div className="bg-white shadow rounded-lg p-6">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">Actions</h3>
+            {isTenant() && (
+              <div className="bg-white shadow rounded-lg p-6">
+                <h3 className="text-lg font-bold text-gray-900 mb-4">Actions</h3>
 
-              <div className="space-y-3">
-                <button
-                  onClick={submitResponse}
-                  disabled={!isValid || submitting}
-                  className={`w-full py-2 px-4 rounded-md text-sm font-medium ${
-                    isValid && !submitting
-                      ? 'bg-blue-500 hover:bg-blue-600 text-white'
-                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  }`}
-                >
-                  {submitting ? 'Submitting...' : 'Submit Response to Landlord'}
-                </button>
-
-                <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <p className="text-xs text-yellow-700">
-                    ⏰ You have until {new Date(pageData.response_deadline).toLocaleDateString()} to respond.
-                    Accepted amounts will be deducted immediately. Disputed amounts will go to mediation.
-                  </p>
+                <div className="space-y-3">
+                  <button
+                    onClick={submitResponse}
+                    disabled={!isValid || submitting}
+                    className={`w-full py-2 px-4 rounded-md text-sm font-medium ${
+                      isValid && !submitting
+                        ? 'bg-blue-500 hover:bg-blue-600 text-white'
+                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
+                    {submitting ? 'Submitting...' : 'Submit Response to Landlord'}
+                  </button>
                 </div>
               </div>
-            </div>
+            )}
+
+            {isLandlord() && (
+              <div className="bg-white shadow rounded-lg p-6">
+                <h3 className="text-lg font-bold text-gray-900 mb-4">Information</h3>
+                <div className="text-sm text-gray-600 space-y-2">
+                  <p>• The tenant has until <strong>{new Date(pageData?.response_deadline).toLocaleDateString()}</strong> to respond</p>
+                  <p>• You will be notified when the tenant submits their response</p>
+                  <p>• Any disputed amounts will go to mediation</p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
