@@ -7,18 +7,36 @@ const DepositDisputePage = () => {
   const navigate = useNavigate();
   const { user, isTenant } = useAuth();
   
-  const [claim, setClaim] = useState(null);
+  // --- FIX: State updated to handle a list of claims and page-level data ---
+  const [claims, setClaims] = useState([]);
+  const [pageData, setPageData] = useState(null);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-  
+
   const [responses, setResponses] = useState({});
-  const [counterEvidence, setCounterEvidence] = useState({});
 
   useEffect(() => {
-    // Both landlords and tenants should be able to view dispute details
     loadClaimData();
   }, [claimId]);
+
+  useEffect(() => {
+    // This effect runs after claims are loaded to initialize the responses state
+    if (claims.length > 0) {
+      const initialResponses = {};
+      claims.forEach(item => {
+        initialResponses[item.id] = {
+          response: '',
+          counter_amount: '',
+          explanation: '',
+          evidence_photos: [],
+          evidence_documents: []
+        };
+      });
+      setResponses(initialResponses);
+    }
+  }, [claims]);
 
   const loadClaimData = async () => {
     try {
@@ -26,26 +44,22 @@ const DepositDisputePage = () => {
       const response = await fetch(`/api/deposits/claims/${claimId}`, {
         credentials: 'include'
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to load claim data');
       }
-      
+
       const data = await response.json();
       if (data.success) {
-        setClaim(data.claim);
-        // Initialize responses for each claim item
-        const initialResponses = {};
-        data.claim.items.forEach(item => {
-          initialResponses[item.id] = {
-            response: '',
-            counter_amount: '',
-            explanation: '',
-            evidence_photos: [],
-            evidence_documents: []
-          };
+        // --- FIX: Set the new state variables from the API response ---
+        setClaims(data.claims);
+        setPageData({
+          property_address: data.property_address,
+          landlord_name: data.landlord_name,
+          deposit_amount: data.deposit_amount,
+          created_at: data.claims[0]?.created_at, // Use first claim for general dates
+          response_deadline: data.claims[0]?.tenant_response_deadline
         });
-        setResponses(initialResponses);
       } else {
         setError(data.error || 'Failed to load claim');
       }
@@ -68,17 +82,15 @@ const DepositDisputePage = () => {
   };
 
   const handleFileUpload = async (itemId, field, files) => {
-    // In a real implementation, you would upload files to S3 or similar
     const fileNames = Array.from(files).map(file => file.name);
     updateResponse(itemId, field, fileNames);
   };
 
   const calculateTotalAccepted = () => {
-    if (!claim) return 0;
-    return claim.items.reduce((total, item) => {
+    return claims.reduce((total, item) => {
       const response = responses[item.id];
       if (response?.response === 'accept') {
-        return total + item.amount;
+        return total + item.claimed_amount;
       } else if (response?.response === 'partial_accept') {
         return total + (parseFloat(response.counter_amount) || 0);
       }
@@ -87,20 +99,23 @@ const DepositDisputePage = () => {
   };
 
   const calculateTotalDisputed = () => {
-    if (!claim) return 0;
-    return claim.items.reduce((total, item) => {
+    return claims.reduce((total, item) => {
       const response = responses[item.id];
       if (response?.response === 'reject') {
-        return total + item.amount;
+        return total + item.claimed_amount;
       } else if (response?.response === 'partial_accept') {
-        return total + (item.amount - (parseFloat(response.counter_amount) || 0));
+        return total + (item.claimed_amount - (parseFloat(response.counter_amount) || 0));
       }
       return total;
     }, 0);
   };
 
+  const totalClaimedAmount = claims.reduce((total, item) => total + item.claimed_amount, 0);
+
+
   const validateResponses = () => {
-    for (const item of claim.items) {
+    if (claims.length === 0) return false;
+    for (const item of claims) {
       const response = responses[item.id];
       if (!response?.response) {
         return false;
@@ -109,7 +124,7 @@ const DepositDisputePage = () => {
         if (!response.counter_amount || parseFloat(response.counter_amount) <= 0) {
           return false;
         }
-        if (parseFloat(response.counter_amount) >= item.amount) {
+        if (parseFloat(response.counter_amount) >= item.claimed_amount) {
           return false;
         }
       }
@@ -128,7 +143,7 @@ const DepositDisputePage = () => {
 
     try {
       setSubmitting(true);
-      
+
       const response = await fetch(`/api/deposits/claims/${claimId}/respond`, {
         method: 'POST',
         credentials: 'include',
@@ -137,8 +152,8 @@ const DepositDisputePage = () => {
         },
         body: JSON.stringify({
           responses: Object.entries(responses).map(([itemId, response]) => ({
-            item_id: parseInt(itemId),
-            response: response.response,
+            claim_id: parseInt(itemId), // Changed from item_id
+            response_type: response.response, // Changed from response
             counter_amount: response.response === 'partial_accept' ? parseFloat(response.counter_amount) : null,
             explanation: response.explanation,
             evidence_photos: response.evidence_photos,
@@ -173,7 +188,7 @@ const DepositDisputePage = () => {
     );
   }
 
-  if (error || !claim) {
+  if (error || !pageData) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -197,7 +212,6 @@ const DepositDisputePage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
@@ -216,32 +230,29 @@ const DepositDisputePage = () => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Content */}
           <div className="lg:col-span-2">
-            {/* Claim Overview */}
             <div className="bg-white shadow rounded-lg p-6 mb-6">
               <h2 className="text-xl font-bold text-gray-900 mb-4">Claim Overview</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <span className="text-sm font-medium text-gray-500">Property Address</span>
-                  <p className="text-gray-900">{claim.property_address}</p>
+                  <p className="text-gray-900">{pageData.property_address}</p>
                 </div>
                 <div>
                   <span className="text-sm font-medium text-gray-500">Landlord</span>
-                  <p className="text-gray-900">{claim.landlord_name}</p>
+                  <p className="text-gray-900">{pageData.landlord_name}</p>
                 </div>
                 <div>
                   <span className="text-sm font-medium text-gray-500">Claim Submitted</span>
-                  <p className="text-gray-900">{new Date(claim.created_at).toLocaleDateString()}</p>
+                  <p className="text-gray-900">{new Date(pageData.created_at).toLocaleDateString()}</p>
                 </div>
                 <div>
                   <span className="text-sm font-medium text-gray-500">Response Deadline</span>
-                  <p className="text-red-600 font-medium">{new Date(claim.response_deadline).toLocaleDateString()}</p>
+                  <p className="text-red-600 font-medium">{new Date(pageData.response_deadline).toLocaleDateString()}</p>
                 </div>
               </div>
             </div>
 
-            {/* Instructions */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
               <h4 className="font-medium text-blue-800 mb-2">📋 How to Respond</h4>
               <ul className="text-sm text-blue-700 space-y-1">
@@ -253,20 +264,18 @@ const DepositDisputePage = () => {
               </ul>
             </div>
 
-            {/* Claim Items */}
             <div className="space-y-6">
-              {claim.items.map((item, index) => (
+              {claims.map((item, index) => (
                 <div key={item.id} className="bg-white shadow rounded-lg p-6">
                   <div className="flex justify-between items-start mb-4">
                     <h3 className="text-lg font-medium text-gray-900">
-                      Item {index + 1}: {item.reason_display}
+                      Item {index + 1}: {item.title}
                     </h3>
-                    <span className="text-xl font-bold text-red-600">RM {item.amount}</span>
+                    <span className="text-xl font-bold text-red-600">RM {item.claimed_amount}</span>
                   </div>
 
                   <p className="text-gray-600 mb-4">{item.description}</p>
 
-                  {/* Landlord's Evidence */}
                   {(item.evidence_photos?.length > 0 || item.evidence_documents?.length > 0) && (
                     <div className="mb-4 p-3 bg-gray-50 rounded-lg">
                       <h4 className="font-medium text-gray-900 mb-2">Landlord's Evidence:</h4>
@@ -282,7 +291,6 @@ const DepositDisputePage = () => {
                     </div>
                   )}
 
-                  {/* Response Options */}
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -325,7 +333,6 @@ const DepositDisputePage = () => {
                       </div>
                     </div>
 
-                    {/* Counter Amount for Partial Accept */}
                     {responses[item.id]?.response === 'partial_accept' && (
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -335,7 +342,7 @@ const DepositDisputePage = () => {
                           type="number"
                           step="0.01"
                           min="0.01"
-                          max={item.amount - 0.01}
+                          max={item.claimed_amount - 0.01}
                           value={responses[item.id]?.counter_amount || ''}
                           onChange={(e) => updateResponse(item.id, 'counter_amount', e.target.value)}
                           className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
@@ -345,7 +352,6 @@ const DepositDisputePage = () => {
                       </div>
                     )}
 
-                    {/* Explanation for Disagree or Partial Accept */}
                     {responses[item.id]?.response && responses[item.id]?.response !== 'accept' && (
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -362,7 +368,6 @@ const DepositDisputePage = () => {
                       </div>
                     )}
 
-                    {/* Counter Evidence Upload */}
                     {responses[item.id]?.response && responses[item.id]?.response !== 'accept' && (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
@@ -397,15 +402,14 @@ const DepositDisputePage = () => {
             </div>
           </div>
 
-          {/* Sidebar Summary */}
           <div>
             <div className="bg-white shadow rounded-lg p-6 mb-6">
               <h3 className="text-lg font-bold text-gray-900 mb-4">Response Summary</h3>
-              
+
               <div className="space-y-3">
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-600">Total Claimed:</span>
-                  <span className="font-medium text-red-600">RM {claim.total_amount}</span>
+                  <span className="font-medium text-red-600">RM {totalClaimedAmount.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-600">Amount Accepted:</span>
@@ -419,7 +423,7 @@ const DepositDisputePage = () => {
                   <div className="flex justify-between">
                     <span className="text-sm font-medium text-gray-900">Estimated Refund:</span>
                     <span className="font-bold text-blue-600">
-                      RM {(claim.deposit_amount - totalAccepted).toFixed(2)}
+                      RM {(pageData.deposit_amount - totalAccepted).toFixed(2)}
                     </span>
                   </div>
                 </div>
@@ -428,7 +432,7 @@ const DepositDisputePage = () => {
 
             <div className="bg-white shadow rounded-lg p-6">
               <h3 className="text-lg font-bold text-gray-900 mb-4">Actions</h3>
-              
+
               <div className="space-y-3">
                 <button
                   onClick={submitResponse}
@@ -444,7 +448,7 @@ const DepositDisputePage = () => {
 
                 <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                   <p className="text-xs text-yellow-700">
-                    ⏰ You have until {new Date(claim.response_deadline).toLocaleDateString()} to respond. 
+                    ⏰ You have until {new Date(pageData.response_deadline).toLocaleDateString()} to respond.
                     Accepted amounts will be deducted immediately. Disputed amounts will go to mediation.
                   </p>
                 </div>
@@ -458,4 +462,3 @@ const DepositDisputePage = () => {
 };
 
 export default DepositDisputePage;
-

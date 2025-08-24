@@ -617,45 +617,51 @@ def release_deposit(deposit_id):
         return jsonify({'success': False, 'error': 'Failed to release deposit'}), 500
 
 
-
 @deposit_bp.route('/claims/<int:claim_id>', methods=['GET'])
 def get_claim_details(claim_id):
-    """Get detailed information about a specific claim"""
+    """
+    Get all claim details associated with a deposit, starting from one claim ID.
+    This is for displaying the full dispute page.
+    """
     if 'user_id' not in session:
         return jsonify({'success': False, 'error': 'Authentication required'}), 401
-    
+
     user_id = session['user_id']
-    
+
     try:
-        claim = DepositClaim.query.get(claim_id)
-        if not claim:
+        # Find the initial claim to identify the parent deposit transaction
+        initial_claim = DepositClaim.query.get(claim_id)
+        if not initial_claim:
             return jsonify({'success': False, 'error': 'Claim not found'}), 404
-        
+
         # Check if user has access to this claim
-        if claim.tenant_id != user_id and claim.landlord_id != user_id:
+        if initial_claim.tenant_id != user_id and initial_claim.landlord_id != user_id:
             return jsonify({'success': False, 'error': 'Access denied'}), 403
-        
-        # Get additional details
-        deposit = DepositTransaction.query.get(claim.deposit_transaction_id)
-        agreement = TenancyAgreement.query.get(claim.tenancy_agreement_id)
-        
-        claim_data = claim.to_dict()
-        claim_data.update({
-            'property_address': agreement.property_address if agreement else 'Unknown',
-            'tenant_name': f"{agreement.tenant_first_name} {agreement.tenant_last_name}" if agreement else 'Unknown',
-            'landlord_name': agreement.landlord_full_name if agreement else 'Unknown',
-            'deposit_amount': deposit.amount if deposit else 0,
-            'items': claim.claim_items or []
-        })
-        
+
+        # Now, find all claims associated with the same deposit transaction
+        all_claims = DepositClaim.query.filter_by(
+            deposit_transaction_id=initial_claim.deposit_transaction_id
+        ).order_by(DepositClaim.created_at.asc()).all()
+
+        # Get parent objects once
+        deposit = DepositTransaction.query.get(initial_claim.deposit_transaction_id)
+        agreement = TenancyAgreement.query.get(initial_claim.tenancy_agreement_id)
+
+        # Prepare the response
+        claims_data = [claim.to_dict() for claim in all_claims]
+
         return jsonify({
             'success': True,
-            'claim': claim_data
+            'claims': claims_data,  # Return a list of claims
+            'property_address': agreement.property_address if agreement else 'Unknown',
+            'tenant_name': agreement.tenant_full_name if agreement else 'Unknown',
+            'landlord_name': agreement.landlord_full_name if agreement else 'Unknown',
+            'deposit_amount': float(deposit.amount) if deposit else 0
         })
-        
+
     except Exception as e:
         logger.error(f"Error getting claim details: {str(e)}")
-        return jsonify({'success': False, 'error': 'Failed to get claim'}), 500
+        return jsonify({'success': False, 'error': 'Failed to get claim details'}), 500
 
 @deposit_bp.route('/claims/<int:claim_id>/respond', methods=['POST'])
 def respond_to_claim_items(claim_id):
