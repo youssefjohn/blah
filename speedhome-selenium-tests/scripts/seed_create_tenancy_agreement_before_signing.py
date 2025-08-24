@@ -4,15 +4,14 @@ import sys
 import os
 from datetime import datetime, timedelta, date
 from decimal import Decimal
-from dotenv import load_dotenv
 from config.test_config import TestConfig
+from dotenv import load_dotenv
 
-# --- FIX: Use a reliable, absolute path inside the container ---
+# Use a reliable, absolute path inside the container
 backend_path = '/app'
 if backend_path not in sys.path:
     sys.path.insert(0, backend_path)
 
-# Load the environment variables from the correct .env file path
 dotenv_path = os.path.join(backend_path, '.env')
 load_dotenv(dotenv_path=dotenv_path)
 
@@ -25,6 +24,11 @@ try:
 
     with app.app_context():
         print("=== SIMPLE SEED SCRIPT ===")
+        print("Ensuring all database tables exist...")
+
+        # --- FIX: Create all tables first to ensure they exist ---
+        db.create_all()
+
         print("Creating test data for agreement stage...")
 
         # Clear existing data
@@ -34,6 +38,7 @@ try:
         db.session.query(User).filter(User.email.in_(['landlord@test.com', 'tenant@test.com'])).delete()
         db.session.commit()
 
+        # ... (rest of your script is the same)
         # Create landlord
         landlord = User(
             email='landlord@test.com',

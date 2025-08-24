@@ -4,15 +4,14 @@ import sys
 import os
 from datetime import datetime, date, timedelta
 import random
-# --- Add this import to read your .env file ---
 from dotenv import load_dotenv
 
-# Add the backend path
-backend_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'speedhome-backend'))
+# --- FIX: Use a reliable, absolute path inside the container ---
+backend_path = '/app'
 if backend_path not in sys.path:
     sys.path.insert(0, backend_path)
 
-# --- Add these lines to load the DATABASE_URL from .env ---
+# Load the environment variables from the correct .env file path
 dotenv_path = os.path.join(backend_path, '.env')
 load_dotenv(dotenv_path=dotenv_path)
 
@@ -38,7 +37,6 @@ try:
         # Store original dates for reference
         original_end_date = agreement.lease_end_date
 
-        # --- MODIFIED LOGIC ---
         # Set lease end date to a random day in the next 1-5 days
         days_in_future = random.randint(1, 5)
         new_end_date = date.today() + timedelta(days=days_in_future)
@@ -57,7 +55,6 @@ try:
         print(f"   👤 Tenant: {agreement.tenant_full_name}")
         print(f"   👤 Landlord: {agreement.landlord_full_name}")
         print(f"   📅 Original End Date: {original_end_date}")
-        # --- UPDATED PRINT STATEMENT ---
         print(f"   📅 New End Date: {agreement.lease_end_date} (ENDING SOON)")
         print(f"   💰 Security Deposit: RM {agreement.security_deposit}")
         print()

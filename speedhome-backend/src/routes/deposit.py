@@ -10,7 +10,7 @@ import logging
 
 from ..models.user import db
 from ..models.deposit_transaction import DepositTransaction, DepositTransactionStatus
-from ..models.deposit_claim import DepositClaim, DepositClaimStatus
+from ..models.deposit_claim import DepositClaim, DepositClaimStatus, DepositClaimType
 from ..models.deposit_dispute import DepositDispute, DepositDisputeStatus, DepositDisputeResponse
 from ..models.tenancy_agreement import TenancyAgreement
 from ..models.property import Property
@@ -255,9 +255,6 @@ def create_deposit_claims(deposit_id):
     try:
         data = request.get_json()
 
-        # --- MODIFIED LOGIC TO HANDLE AN ARRAY OF CLAIM ITEMS ---
-
-        # Validate top-level fields for the overall submission
         if not data.get('title'):
             return jsonify({'success': False, 'error': 'A top-level claim title is required'}), 400
 
@@ -267,23 +264,27 @@ def create_deposit_claims(deposit_id):
 
         total_claimed_in_request = sum(Decimal(str(item.get('amount', 0))) for item in claim_items)
 
-        # Check if the total claim amount is valid
         if total_claimed_in_request <= 0:
             return jsonify({'success': False, 'error': 'Total claim amount must be positive'}), 400
 
-        # You might want a more sophisticated check for existing claims vs. remaining amount
         if total_claimed_in_request > deposit.amount:
             return jsonify(
                 {'success': False, 'error': 'Total claim amount cannot exceed the total deposit amount'}), 400
 
         claims_created = []
         for item in claim_items:
-            # Validate each item in the list
-            if not item.get('title') or not item.get('amount') or not item.get('description'):
-                # Skip invalid items or return an error
+            if not all(k in item for k in ['title', 'amount', 'description']):
                 continue
 
-                # Create a separate DepositClaim record for each item
+            # --- FIX: Convert the incoming reason string to the Enum member ---
+            try:
+                # The title from the frontend (e.g., "repair_damages") is converted to
+                # uppercase to match the Enum member (e.g., DepositClaimType.REPAIR_DAMAGES)
+                claim_type_enum = DepositClaimType[item['title'].upper()]
+            except KeyError:
+                # If the title from the frontend doesn't match any enum, default to OTHER
+                claim_type_enum = DepositClaimType.OTHER
+
             new_claim = DepositClaim(
                 deposit_transaction_id=deposit_id,
                 tenancy_agreement_id=deposit.tenancy_agreement_id,
@@ -293,7 +294,8 @@ def create_deposit_claims(deposit_id):
                 title=item['title'],
                 description=item.get('description', ''),
                 claimed_amount=Decimal(str(item['amount'])),
-                category=item.get('title'),  # Use the title/reason as the category
+                category=item.get('title'),
+                claim_type=claim_type_enum,  # <-- Sets the required field
                 evidence_photos=item.get('evidence_photos', []),
                 evidence_documents=item.get('evidence_documents', []),
                 status=DepositClaimStatus.SUBMITTED,
@@ -308,10 +310,20 @@ def create_deposit_claims(deposit_id):
 
         db.session.commit()
 
-        # You can create a single conversation for the batch of claims
-        # or handle notifications for each claim individually
         for claim in claims_created:
-            DepositNotificationService.notify_deposit_claim_submitted(claim)
+            # --- FIX: Construct the address from existing fields ---
+            full_address = f"{claim.property.title}, {claim.property.location}"
+
+            DepositNotificationService.notify_deposit_claim_submitted(
+                deposit_claim_id=claim.id,
+                tenant_id=claim.tenant_id,
+                claim_title=claim.title,
+                claimed_amount=claim.claimed_amount,
+                property_address=full_address,
+                response_deadline=claim.tenant_response_deadline,
+                tenancy_agreement_id=claim.tenancy_agreement_id,
+                property_id=claim.property_id
+            )
 
         logger.info(f"Created {len(claims_created)} deposit claim items for deposit {deposit_id}")
 
