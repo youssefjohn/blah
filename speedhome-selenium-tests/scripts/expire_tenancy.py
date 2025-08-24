@@ -3,13 +3,18 @@
 import sys
 import os
 from datetime import datetime, date, timedelta
-# --- ADD THIS IMPORT ---
 import random
+# --- Add this import to read your .env file ---
+from dotenv import load_dotenv
 
 # Add the backend path
 backend_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'speedhome-backend'))
 if backend_path not in sys.path:
     sys.path.insert(0, backend_path)
+
+# --- Add these lines to load the DATABASE_URL from .env ---
+dotenv_path = os.path.join(backend_path, '.env')
+load_dotenv(dotenv_path=dotenv_path)
 
 try:
     from src.main import app
