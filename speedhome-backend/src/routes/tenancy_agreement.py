@@ -39,9 +39,41 @@ def get_agreements():
         (TenancyAgreement.landlord_id == user_id)
     ).order_by(TenancyAgreement.created_at.desc()).all()
     
+    # Import DepositTransaction here to avoid circular imports
+    from ..models.deposit_transaction import DepositTransaction
+    from ..models.deposit_claim import DepositClaim
+    
+    agreements_data = []
+    for agreement in agreements:
+        agreement_dict = agreement.to_dict()
+        
+        # Add deposit transaction data if it exists
+        deposit = DepositTransaction.query.filter_by(tenancy_agreement_id=agreement.id).first()
+        if deposit:
+            # Check if tenancy is ending soon (within 7 days)
+            tenancy_ending_soon = False
+            if agreement.lease_end_date:
+                days_until_end = (agreement.lease_end_date - datetime.now().date()).days
+                tenancy_ending_soon = days_until_end <= 7 and days_until_end >= 0
+            
+            # Get claims for this deposit
+            claims = DepositClaim.query.filter_by(deposit_transaction_id=deposit.id).all()
+            
+            agreement_dict['deposit_transaction'] = {
+                'id': deposit.id,
+                'status': deposit.status,
+                'amount': float(deposit.amount) if deposit.amount else None,
+                'tenancy_ending_soon': tenancy_ending_soon,
+                'claims': [claim.to_dict() for claim in claims]
+            }
+        else:
+            agreement_dict['deposit_transaction'] = None
+            
+        agreements_data.append(agreement_dict)
+    
     return jsonify({
         'success': True,
-        'agreements': [agreement.to_dict() for agreement in agreements]
+        'agreements': agreements_data
     })
 
 
