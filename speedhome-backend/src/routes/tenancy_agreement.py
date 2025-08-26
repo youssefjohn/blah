@@ -61,7 +61,7 @@ def get_agreements():
             
             agreement_dict['deposit_transaction'] = {
                 'id': deposit.id,
-                'status': deposit.status,
+                'status': deposit.status.value if hasattr(deposit.status, 'value') else str(deposit.status),
                 'amount': float(deposit.amount) if deposit.amount else None,
                 'tenancy_ending_soon': tenancy_ending_soon,
                 'claims': [claim.to_dict() for claim in claims]
