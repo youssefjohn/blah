@@ -204,9 +204,16 @@ const DepositManagementPage = () => {
                   {deposit.claims?.length > 0 && isTenant() && (
                     <button
                       onClick={() => navigate(`/deposit/claims/${deposit.claims[0].id}`)}
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium"
+                      className={`px-4 py-2 rounded-lg font-medium ${
+                        allClaimsResponded(deposit.claims)
+                          ? 'bg-gray-600 hover:bg-gray-700 text-white'
+                          : 'bg-blue-600 hover:bg-blue-700 text-white'
+                      }`}
                     >
-                      Review & Respond to Claims
+                      {allClaimsResponded(deposit.claims) 
+                        ? 'View Your Responses' 
+                        : 'Review & Respond to Claims'
+                      }
                     </button>
                   )}
                 </div>
@@ -409,6 +416,15 @@ const formatClaimType = (claimType) => {
     .split('_')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
+};
+
+// Helper function to check if all claims have been responded to
+const allClaimsResponded = (claims) => {
+  if (!claims || claims.length === 0) return false;
+  return claims.every(claim => 
+    claim.status && 
+    !['submitted', 'tenant_notified'].includes(claim.status.toLowerCase())
+  );
 };
 
 export default DepositManagementPage;

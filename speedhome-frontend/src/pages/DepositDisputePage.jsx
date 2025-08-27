@@ -26,6 +26,29 @@ const DepositDisputePage = () => {
       .join(' ');
   };
 
+  // Helper function to check if claims are in read-only mode (already responded to)
+  const isReadOnlyMode = () => {
+    if (!claims || claims.length === 0) return false;
+    return claims.every(claim => 
+      claim.status && 
+      !['submitted', 'tenant_notified'].includes(claim.status.toLowerCase())
+    );
+  };
+
+  // Helper function to get response text for display
+  const getResponseText = (claim) => {
+    if (!claim.status) return 'Pending Response';
+    
+    switch (claim.status.toLowerCase()) {
+      case 'accepted':
+        return 'Accepted';
+      case 'disputed':
+        return 'Disputed';
+      default:
+        return 'Pending Response';
+    }
+  };
+
   useEffect(() => {
     loadClaimData();
   }, [claimId]);
@@ -320,51 +343,73 @@ const DepositDisputePage = () => {
                     </div>
                   )}
 
-                  {/* Tenant response form - only show for tenants */}
+                  {/* Tenant response section - read-only if already responded, editable if not */}
                   {isTenant() && (
                     <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Your Response *
-                        </label>
-                        <div className="space-y-2">
-                          <label className="flex items-center">
-                            <input
-                              type="radio"
-                              name={`response_${item.id}`}
-                              value="accept"
-                              checked={responses[item.id]?.response === 'accept'}
-                              onChange={(e) => updateResponse(item.id, 'response', e.target.value)}
-                              className="mr-2"
-                            />
-                            <span className="text-green-600 font-medium">✅ Agree - This charge is valid</span>
+                      {isReadOnlyMode() ? (
+                        /* Read-only mode - show previous responses */
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Your Response
                           </label>
-                          <label className="flex items-center">
-                            <input
-                              type="radio"
-                              name={`response_${item.id}`}
-                              value="partial_accept"
-                              checked={responses[item.id]?.response === 'partial_accept'}
-                              onChange={(e) => updateResponse(item.id, 'response', e.target.value)}
-                              className="mr-2"
-                            />
-                            <span className="text-orange-600 font-medium">⚖️ Partial Accept - I agree to a different amount</span>
-                          </label>
-                          <label className="flex items-center">
-                            <input
-                              type="radio"
-                              name={`response_${item.id}`}
-                              value="reject"
-                              checked={responses[item.id]?.response === 'reject'}
-                              onChange={(e) => updateResponse(item.id, 'response', e.target.value)}
-                              className="mr-2"
-                            />
-                            <span className="text-red-600 font-medium">❌ Disagree - This charge is not valid</span>
-                          </label>
+                          <div className="p-3 bg-gray-50 rounded-lg border">
+                            <span className={`font-medium ${
+                              item.status?.toLowerCase() === 'accepted' 
+                                ? 'text-green-600' 
+                                : 'text-red-600'
+                            }`}>
+                              {item.status?.toLowerCase() === 'accepted' 
+                                ? '✅ Accepted - You agreed this charge is valid'
+                                : '❌ Disputed - You disagreed with this charge'
+                              }
+                            </span>
+                          </div>
                         </div>
-                      </div>
+                      ) : (
+                        /* Editable mode - allow tenant to respond */
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Your Response *
+                          </label>
+                          <div className="space-y-2">
+                            <label className="flex items-center">
+                              <input
+                                type="radio"
+                                name={`response_${item.id}`}
+                                value="accept"
+                                checked={responses[item.id]?.response === 'accept'}
+                                onChange={(e) => updateResponse(item.id, 'response', e.target.value)}
+                                className="mr-2"
+                              />
+                              <span className="text-green-600 font-medium">✅ Agree - This charge is valid</span>
+                            </label>
+                            <label className="flex items-center">
+                              <input
+                                type="radio"
+                                name={`response_${item.id}`}
+                                value="partial_accept"
+                                checked={responses[item.id]?.response === 'partial_accept'}
+                                onChange={(e) => updateResponse(item.id, 'response', e.target.value)}
+                                className="mr-2"
+                              />
+                              <span className="text-orange-600 font-medium">⚖️ Partial Accept - I agree to a different amount</span>
+                            </label>
+                            <label className="flex items-center">
+                              <input
+                                type="radio"
+                                name={`response_${item.id}`}
+                                value="reject"
+                                checked={responses[item.id]?.response === 'reject'}
+                                onChange={(e) => updateResponse(item.id, 'response', e.target.value)}
+                                className="mr-2"
+                              />
+                              <span className="text-red-600 font-medium">❌ Disagree - This charge is not valid</span>
+                            </label>
+                          </div>
+                        </div>
+                      )}
 
-                      {responses[item.id]?.response === 'partial_accept' && (
+                      {!isReadOnlyMode() && responses[item.id]?.response === 'partial_accept' && (
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
                             Amount You Agree To Pay (RM) *
@@ -488,20 +533,44 @@ const DepositDisputePage = () => {
 
             {isTenant() && (
               <div className="bg-white shadow rounded-lg p-6">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">Actions</h3>
+                <h3 className="text-lg font-bold text-gray-900 mb-4">
+                  {isReadOnlyMode() ? 'Response Status' : 'Actions'}
+                </h3>
 
                 <div className="space-y-3">
-                  <button
-                    onClick={submitResponse}
-                    disabled={!isValid || submitting}
-                    className={`w-full py-2 px-4 rounded-md text-sm font-medium ${
-                      isValid && !submitting
-                        ? 'bg-blue-500 hover:bg-blue-600 text-white'
-                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    }`}
-                  >
-                    {submitting ? 'Submitting...' : 'Submit Response to Landlord'}
-                  </button>
+                  {isReadOnlyMode() ? (
+                    /* Read-only mode - show status message */
+                    <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0">
+                          <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                        <div className="ml-3">
+                          <p className="text-sm font-medium text-green-800">
+                            Response Submitted Successfully
+                          </p>
+                          <p className="text-sm text-green-700 mt-1">
+                            Your responses have been sent to the landlord. You will be notified of any updates.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Editable mode - show submit button */
+                    <button
+                      onClick={submitResponse}
+                      disabled={!isValid || submitting}
+                      className={`w-full py-2 px-4 rounded-md text-sm font-medium ${
+                        isValid && !submitting
+                          ? 'bg-blue-500 hover:bg-blue-600 text-white'
+                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      }`}
+                    >
+                      {submitting ? 'Submitting...' : 'Submit Response to Landlord'}
+                    </button>
+                  )}
                 </div>
               </div>
             )}
