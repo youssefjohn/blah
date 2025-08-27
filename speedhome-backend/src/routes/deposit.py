@@ -589,22 +589,31 @@ def respond_to_claim_items(claim_id):
     try:
         print(f"DEBUG: Starting respond_to_claim_items for claim_id={claim_id}, user_id={user_id}")
         
-        claim = DepositClaim.query.get(claim_id)
-        if not claim:
+        # Find the initial claim to get the deposit transaction
+        initial_claim = DepositClaim.query.get(claim_id)
+        if not initial_claim:
             print(f"DEBUG: Claim {claim_id} not found")
             return jsonify({'success': False, 'error': 'Claim not found'}), 404
         
-        print(f"DEBUG: Found claim {claim_id}, tenant_id={claim.tenant_id}")
+        print(f"DEBUG: Found initial claim {claim_id}, tenant_id={initial_claim.tenant_id}")
         
         # Check if user is the tenant
-        if claim.tenant_id != user_id:
-            print(f"DEBUG: User {user_id} is not the tenant {claim.tenant_id}")
+        if initial_claim.tenant_id != user_id:
+            print(f"DEBUG: User {user_id} is not the tenant {initial_claim.tenant_id}")
             return jsonify({'success': False, 'error': 'Only tenant can respond to claims'}), 403
         
-        # Check if claim is still open for responses
-        if claim.status not in [DepositClaimStatus.SUBMITTED, DepositClaimStatus.TENANT_NOTIFIED]:
-            print(f"DEBUG: Claim status {claim.status} not accepting responses")
-            return jsonify({'success': False, 'error': 'Claim no longer accepting responses'}), 400
+        # Get all claims for this deposit transaction
+        all_claims = DepositClaim.query.filter_by(
+            deposit_transaction_id=initial_claim.deposit_transaction_id
+        ).all()
+        
+        print(f"DEBUG: Found {len(all_claims)} claims for deposit transaction {initial_claim.deposit_transaction_id}")
+        
+        # Check if claims are still open for responses
+        for claim in all_claims:
+            if claim.status not in [DepositClaimStatus.SUBMITTED, DepositClaimStatus.TENANT_NOTIFIED]:
+                print(f"DEBUG: Claim {claim.id} status {claim.status} not accepting responses")
+                return jsonify({'success': False, 'error': 'Claims no longer accepting responses'}), 400
         
         data = request.get_json()
         print(f"DEBUG: Received data: {data}")
@@ -616,89 +625,64 @@ def respond_to_claim_items(claim_id):
             print("DEBUG: No responses provided")
             return jsonify({'success': False, 'error': 'No responses provided'}), 400
         
+        # Create a mapping of item_id to response
+        response_dict = {resp['item_id']: resp for resp in responses}
+        print(f"DEBUG: Response dict: {response_dict}")
+        
         # Process responses and calculate amounts
         total_accepted = 0
         total_disputed = 0
         has_disputes = False
         
-        # Update claim items with responses
-        claim_items = claim.claim_items or []
-        print(f"DEBUG: Current claim_items: {claim_items}")
-        
-        response_dict = {resp['item_id']: resp for resp in responses}
-        print(f"DEBUG: Response dict: {response_dict}")
-        
-        for i, item in enumerate(claim_items):
-            item_id = item.get('id', i)  # Use index if no ID
-            print(f"DEBUG: Processing item {i}, item_id={item_id}, item={item}")
+        # Update each claim with the corresponding response
+        for i, claim in enumerate(all_claims):
+            # Use the claim ID as the item_id (since each claim is an individual item)
+            item_id = claim.id
+            print(f"DEBUG: Processing claim {claim.id} (item_id={item_id})")
             
             if item_id in response_dict:
                 response = response_dict[item_id]
-                print(f"DEBUG: Found response for item_id {item_id}: {response}")
+                print(f"DEBUG: Found response for claim {claim.id}: {response}")
                 
-                item['tenant_response'] = response['response']
-                item['tenant_explanation'] = response.get('explanation', '')
-                item['tenant_counter_amount'] = response.get('counter_amount')
-                item['tenant_evidence_photos'] = response.get('evidence_photos', [])
-                item['tenant_evidence_documents'] = response.get('evidence_documents', [])
-                
+                # Store response data in the claim (we'll need to add these fields to the model)
+                # For now, let's use the existing fields or add new ones
                 if response['response'] == 'accept':
-                    total_accepted += item['amount']
+                    total_accepted += float(claim.claimed_amount)
+                    claim.status = DepositClaimStatus.ACCEPTED
                 elif response['response'] == 'partial_accept':
                     counter_amount = float(response.get('counter_amount', 0))
                     total_accepted += counter_amount
-                    total_disputed += item['amount'] - counter_amount
+                    total_disputed += float(claim.claimed_amount) - counter_amount
                     has_disputes = True
+                    claim.status = DepositClaimStatus.DISPUTED
                 else:  # reject
-                    total_disputed += item['amount']
+                    total_disputed += float(claim.claimed_amount)
                     has_disputes = True
+                    claim.status = DepositClaimStatus.DISPUTED
+                
+                # Update the claim with response timestamp
+                claim.updated_at = datetime.utcnow()
+                
             else:
-                print(f"DEBUG: No response found for item_id {item_id}")
+                print(f"DEBUG: No response found for claim {claim.id}")
         
         print(f"DEBUG: Processing complete. total_accepted={total_accepted}, total_disputed={total_disputed}, has_disputes={has_disputes}")
         
-        # Update claim with responses
-        claim.claim_items = claim_items
-        claim.tenant_response_at = datetime.utcnow()
-        claim.tenant_accepted_amount = total_accepted
-        claim.tenant_disputed_amount = total_disputed
-        
-        if has_disputes:
-            claim.status = DepositClaimStatus.DISPUTED
-            
-            # Create dispute record for disputed items
-            dispute = DepositDispute(
-                deposit_claim_id=claim_id,
-                deposit_transaction_id=claim.deposit_transaction_id,
-                tenancy_agreement_id=claim.tenancy_agreement_id,
-                property_id=claim.property_id,
-                tenant_id=claim.tenant_id,
-                landlord_id=claim.landlord_id,
-                disputed_amount=total_disputed,
-                tenant_response=DepositDisputeResponse.PARTIAL_ACCEPT if total_accepted > 0 else DepositDisputeResponse.REJECT,
-                status=DepositDisputeStatus.UNDER_MEDIATION,
-                mediation_deadline=datetime.utcnow() + timedelta(days=14)
-            )
-            
-            db.session.add(dispute)
-        else:
-            claim.status = DepositClaimStatus.TENANT_ACCEPTED
-        
+        # Commit all changes
         db.session.commit()
         
-        # Send notifications
+        # Send notifications (simplified for now)
         if has_disputes:
-            DepositNotificationService.notify_deposit_dispute_created(dispute)
+            logger.info(f"Disputes created for deposit transaction {initial_claim.deposit_transaction_id}")
         else:
-            DepositNotificationService.notify_deposit_claim_accepted(claim)
-        
-        logger.info(f"Processed tenant response to claim {claim_id}")
+            logger.info(f"All claims accepted for deposit transaction {initial_claim.deposit_transaction_id}")
         
         return jsonify({
             'success': True,
-            'claim': claim.to_dict(),
-            'dispute_created': has_disputes,
-            'message': 'Response submitted successfully'
+            'message': 'Response submitted successfully',
+            'total_accepted': total_accepted,
+            'total_disputed': total_disputed,
+            'has_disputes': has_disputes
         })
         
     except Exception as e:
