@@ -161,8 +161,8 @@ const DepositDisputePage = () => {
         },
         body: JSON.stringify({
           responses: Object.entries(responses).map(([itemId, response]) => ({
-            claim_id: parseInt(itemId), // Changed from item_id
-            response_type: response.response, // Changed from response
+            item_id: parseInt(itemId), // Backend expects item_id, not claim_id
+            response: response.response, // Backend expects response, not response_type
             counter_amount: response.response === 'partial_accept' ? parseFloat(response.counter_amount) : null,
             explanation: response.explanation,
             evidence_photos: response.evidence_photos,
