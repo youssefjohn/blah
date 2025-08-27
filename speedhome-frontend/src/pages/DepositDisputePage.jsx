@@ -292,7 +292,7 @@ const DepositDisputePage = () => {
                 <div key={item.id} className="bg-white shadow rounded-lg p-6">
                   <div className="flex justify-between items-start mb-4">
                     <h3 className="text-lg font-medium text-gray-900">
-                      Item {index + 1}: {formatClaimType(item.claim_type)}
+                      Item {index + 1}: {formatClaimType(item.title)}
                     </h3>
                     <span className="text-xl font-bold text-red-600">RM {item.claimed_amount}</span>
                   </div>
