@@ -352,17 +352,38 @@ const DepositDisputePage = () => {
                           <label className="block text-sm font-medium text-gray-700 mb-2">
                             Your Response
                           </label>
-                          <div className="p-3 bg-gray-50 rounded-lg border">
-                            <span className={`font-medium ${
-                              item.status?.toLowerCase() === 'accepted' 
-                                ? 'text-green-600' 
-                                : 'text-red-600'
-                            }`}>
-                              {item.status?.toLowerCase() === 'accepted' 
-                                ? '✅ Accepted - You agreed this charge is valid'
-                                : '❌ Disputed - You disagreed with this charge'
-                              }
-                            </span>
+                          <div className="space-y-3">
+                            <div className="p-3 bg-gray-50 rounded-lg border">
+                              <span className={`font-medium ${
+                                item.status?.toLowerCase() === 'accepted' 
+                                  ? 'text-green-600' 
+                                  : 'text-red-600'
+                              }`}>
+                                {item.status?.toLowerCase() === 'accepted' 
+                                  ? '✅ Accepted - You agreed this charge is valid'
+                                  : item.tenant_response === 'partial_accept'
+                                    ? '⚖️ Partial Accept - You agreed to a different amount'
+                                    : '❌ Disputed - You disagreed with this charge'
+                                }
+                              </span>
+                            </div>
+                            
+                            {/* Show counter amount for partial accepts */}
+                            {item.tenant_response === 'partial_accept' && item.tenant_counter_amount && (
+                              <div className="p-3 bg-orange-50 rounded-lg border border-orange-200">
+                                <p className="text-sm font-medium text-orange-800">
+                                  Your Counter-Offer: RM {parseFloat(item.tenant_counter_amount).toFixed(2)}
+                                </p>
+                              </div>
+                            )}
+                            
+                            {/* Show tenant explanation if provided */}
+                            {item.tenant_explanation && (
+                              <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                                <p className="text-sm font-medium text-blue-800 mb-1">Your Explanation:</p>
+                                <p className="text-sm text-blue-700">{item.tenant_explanation}</p>
+                              </div>
+                            )}
                           </div>
                         </div>
                       ) : (

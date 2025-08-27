@@ -644,23 +644,28 @@ def respond_to_claim_items(claim_id):
                 response = response_dict[item_id]
                 print(f"DEBUG: Found response for claim {claim.id}: {response}")
                 
-                # Store response data in the claim (we'll need to add these fields to the model)
-                # For now, let's use the existing fields or add new ones
+                # Store response data in the claim
                 if response['response'] == 'accept':
                     total_accepted += float(claim.claimed_amount)
                     claim.status = DepositClaimStatus.ACCEPTED
+                    claim.tenant_response = 'accept'
                 elif response['response'] == 'partial_accept':
                     counter_amount = float(response.get('counter_amount', 0))
                     total_accepted += counter_amount
                     total_disputed += float(claim.claimed_amount) - counter_amount
                     has_disputes = True
                     claim.status = DepositClaimStatus.DISPUTED
+                    claim.tenant_response = 'partial_accept'
+                    claim.tenant_counter_amount = counter_amount
                 else:  # reject
                     total_disputed += float(claim.claimed_amount)
                     has_disputes = True
                     claim.status = DepositClaimStatus.DISPUTED
+                    claim.tenant_response = 'reject'
                 
-                # Update the claim with response timestamp
+                # Store common response data
+                claim.tenant_explanation = response.get('explanation', '')
+                claim.tenant_responded_at = datetime.utcnow()
                 claim.updated_at = datetime.utcnow()
                 
             else:

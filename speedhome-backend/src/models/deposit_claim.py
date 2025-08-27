@@ -67,6 +67,12 @@ class DepositClaim(db.Model):
     resolution_notes = db.Column(db.Text, nullable=True)
     resolved_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)  # Admin or system
 
+    # Tenant response tracking
+    tenant_response = db.Column(db.String(50), nullable=True)  # 'accept', 'partial_accept', 'reject'
+    tenant_explanation = db.Column(db.Text, nullable=True)  # Tenant's explanation for their response
+    tenant_counter_amount = db.Column(db.Numeric(10, 2), nullable=True)  # Amount tenant agrees to pay (for partial_accept)
+    tenant_responded_at = db.Column(db.DateTime, nullable=True)  # When tenant submitted their response
+
     # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -107,6 +113,10 @@ class DepositClaim(db.Model):
             'resolved_at': self.resolved_at.isoformat() if self.resolved_at else None,
             'approved_amount': float(self.approved_amount) if self.approved_amount else None,
             'resolution_notes': self.resolution_notes,
+            'tenant_response': self.tenant_response,
+            'tenant_explanation': self.tenant_explanation,
+            'tenant_counter_amount': float(self.tenant_counter_amount) if self.tenant_counter_amount else None,
+            'tenant_responded_at': self.tenant_responded_at.isoformat() if self.tenant_responded_at else None,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
 
