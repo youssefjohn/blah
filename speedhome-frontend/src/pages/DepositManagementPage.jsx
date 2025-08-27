@@ -199,29 +199,46 @@ const DepositManagementPage = () => {
             {/* Current Claims */}
             {canViewClaims && (
               <div className="bg-white shadow rounded-lg p-6 mb-6">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">Deposit Claims</h3>
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-bold text-gray-900">Deposit Claims</h3>
+                  {deposit.claims?.length > 0 && isTenant() && (
+                    <button
+                      onClick={() => navigate(`/deposit/claims/${deposit.claims[0].id}`)}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium"
+                    >
+                      Review & Respond to Claims
+                    </button>
+                  )}
+                </div>
                 {deposit.claims?.length > 0 ? (
                   <div className="space-y-4">
-                    {deposit.claims.map((claim) => (
+                    {deposit.claims.map((claim, index) => (
                       <div key={claim.id} className="border border-gray-200 rounded-lg p-4">
                         <div className="flex justify-between items-start mb-2">
-                          <h4 className="font-medium text-gray-900">{claim.reason}</h4>
-                          <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getClaimStatusColor(claim.status)}`}>
-                            {getClaimStatusText(claim.status)}
-                          </span>
-                        </div>
-                        <p className="text-sm text-gray-600 mb-2">{claim.description}</p>
-                        <div className="flex justify-between items-center">
-                          <span className="text-lg font-bold text-red-600">RM {claim.amount}</span>
-                          <button
-                            onClick={() => navigate(`/deposit/claims/${claim.id}`)}
-                            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                          >
-                            View Details →
-                          </button>
+                          <div>
+                            <h4 className="font-medium text-gray-900">
+                              Item {index + 1}: {formatClaimType(claim.title || claim.claim_type)}
+                            </h4>
+                            <p className="text-sm text-gray-600 mt-1">
+                              <span className="font-medium">Landlord's Comments:</span> {claim.description}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-lg font-bold text-red-600">RM {claim.claimed_amount || claim.amount}</span>
+                            <div className="mt-1">
+                              <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getClaimStatusColor(claim.status)}`}>
+                                {getClaimStatusText(claim.status)}
+                              </span>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     ))}
+                    <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                      <p className="text-sm text-blue-800">
+                        <strong>Total Claimed:</strong> RM {deposit.claims.reduce((sum, claim) => sum + (claim.claimed_amount || claim.amount || 0), 0).toFixed(2)}
+                      </p>
+                    </div>
                   </div>
                 ) : (
                   <p className="text-gray-500">No claims have been made yet.</p>
@@ -383,6 +400,15 @@ const getClaimStatusText = (status) => {
     default:
       return status;
   }
+};
+
+// Helper function to format claim types from snake_case to Title Case
+const formatClaimType = (claimType) => {
+  if (!claimType) return '';
+  return claimType
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
 };
 
 export default DepositManagementPage;
