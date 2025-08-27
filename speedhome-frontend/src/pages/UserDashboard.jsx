@@ -203,6 +203,18 @@ const UserDashboard = ({ favorites, toggleFavorite }) => {
 
   const loadDepositDetails = async (agreementId) => {
     try {
+      // First get the agreement to check if tenancy is ending soon
+      const agreement = agreements.find(a => a.id === agreementId);
+      
+      // If tenancy is ending soon and deposit is held in escrow, navigate to deposit management
+      if (agreement?.deposit_transaction && 
+          agreement.deposit_transaction.status === 'held_in_escrow' && 
+          agreement.deposit_transaction.tenancy_ending_soon) {
+        navigate(`/deposit/${agreement.deposit_transaction.id}/manage`);
+        return;
+      }
+      
+      // Otherwise, show the simple alert popup
       const result = await DepositAPI.getDepositForAgreement(agreementId);
       if (result.success && result.has_deposit) {
         alert(`Deposit Details:\n\nTotal Amount: ${DepositAPI.formatMYR(result.deposit.amount)}\nStatus: ${DepositAPI.getDepositStatusText(result.deposit.status)}\nCreated: ${new Date(result.deposit.created_at).toLocaleDateString()}`);
@@ -891,26 +903,12 @@ const hasNewMessages = conversations.some(convo => convo.unread_count > 0);
                               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                                 ✓ Held in Escrow
                               </span>
-                              {/* Conditional View Details button */}
-                              {agreement.deposit_transaction && 
-                               agreement.deposit_transaction.status === 'held_in_escrow' && 
-                               agreement.deposit_transaction.tenancy_ending_soon ? (
-                                <Link
-                                  to={`/deposit/${agreement.deposit_transaction.id}/manage`}
-                                  className="ml-2 text-blue-600 hover:text-blue-800 text-xs underline"
-                                >
-                                  {agreement.deposit_transaction.claims?.some(claim => claim.tenant_response_status === 'pending') 
-                                    ? 'Respond to Deposit Claim' 
-                                    : 'View Deposit Status'}
-                                </Link>
-                              ) : (
-                                <button 
-                                  onClick={() => loadDepositDetails(agreement.id)}
-                                  className="ml-2 text-blue-600 hover:text-blue-800 text-xs underline"
-                                >
-                                  View Details
-                                </button>
-                              )}
+                              <button 
+                                onClick={() => loadDepositDetails(agreement.id)}
+                                className="ml-2 text-blue-600 hover:text-blue-800 text-xs underline"
+                              >
+                                View Details
+                              </button>
                             </div>
                           </div>
                         </div>
