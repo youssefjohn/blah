@@ -903,12 +903,6 @@ const hasNewMessages = conversations.some(convo => convo.unread_count > 0);
                               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                                 ✓ Held in Escrow
                               </span>
-                              <button 
-                                onClick={() => loadDepositDetails(agreement.id)}
-                                className="ml-2 text-blue-600 hover:text-blue-800 text-xs underline"
-                              >
-                                View Details
-                              </button>
                             </div>
                           </div>
                         </div>
