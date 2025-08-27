@@ -17,6 +17,15 @@ const DepositDisputePage = () => {
 
   const [responses, setResponses] = useState({});
 
+  // Helper function to format claim types from snake_case to Title Case
+  const formatClaimType = (claimType) => {
+    if (!claimType) return '';
+    return claimType
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
   useEffect(() => {
     loadClaimData();
   }, [claimId]);
@@ -283,12 +292,15 @@ const DepositDisputePage = () => {
                 <div key={item.id} className="bg-white shadow rounded-lg p-6">
                   <div className="flex justify-between items-start mb-4">
                     <h3 className="text-lg font-medium text-gray-900">
-                      Item {index + 1}: {item.title}
+                      Item {index + 1}: {formatClaimType(item.claim_type)}
                     </h3>
                     <span className="text-xl font-bold text-red-600">RM {item.claimed_amount}</span>
                   </div>
 
-                  <p className="text-gray-600 mb-4">{item.description}</p>
+                  <div className="mb-4">
+                    <p className="text-sm font-medium text-gray-700 mb-1">Landlord's Comments:</p>
+                    <p className="text-gray-600">{item.description}</p>
+                  </div>
 
                   {/* Show evidence section for both landlords and tenants */}
                   {(item.evidence_photos?.length > 0 || item.evidence_documents?.length > 0) && (
