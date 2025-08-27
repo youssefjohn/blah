@@ -672,22 +672,33 @@ def respond_to_claim_items(claim_id):
     user_id = session['user_id']
     
     try:
+        print(f"DEBUG: Starting respond_to_claim_items for claim_id={claim_id}, user_id={user_id}")
+        
         claim = DepositClaim.query.get(claim_id)
         if not claim:
+            print(f"DEBUG: Claim {claim_id} not found")
             return jsonify({'success': False, 'error': 'Claim not found'}), 404
+        
+        print(f"DEBUG: Found claim {claim_id}, tenant_id={claim.tenant_id}")
         
         # Check if user is the tenant
         if claim.tenant_id != user_id:
+            print(f"DEBUG: User {user_id} is not the tenant {claim.tenant_id}")
             return jsonify({'success': False, 'error': 'Only tenant can respond to claims'}), 403
         
         # Check if claim is still open for responses
         if claim.status not in [DepositClaimStatus.SUBMITTED, DepositClaimStatus.TENANT_NOTIFIED]:
+            print(f"DEBUG: Claim status {claim.status} not accepting responses")
             return jsonify({'success': False, 'error': 'Claim no longer accepting responses'}), 400
         
         data = request.get_json()
+        print(f"DEBUG: Received data: {data}")
+        
         responses = data.get('responses', [])
+        print(f"DEBUG: Extracted responses: {responses}")
         
         if not responses:
+            print("DEBUG: No responses provided")
             return jsonify({'success': False, 'error': 'No responses provided'}), 400
         
         # Process responses and calculate amounts
@@ -697,12 +708,19 @@ def respond_to_claim_items(claim_id):
         
         # Update claim items with responses
         claim_items = claim.claim_items or []
+        print(f"DEBUG: Current claim_items: {claim_items}")
+        
         response_dict = {resp['item_id']: resp for resp in responses}
+        print(f"DEBUG: Response dict: {response_dict}")
         
         for i, item in enumerate(claim_items):
             item_id = item.get('id', i)  # Use index if no ID
+            print(f"DEBUG: Processing item {i}, item_id={item_id}, item={item}")
+            
             if item_id in response_dict:
                 response = response_dict[item_id]
+                print(f"DEBUG: Found response for item_id {item_id}: {response}")
+                
                 item['tenant_response'] = response['response']
                 item['tenant_explanation'] = response.get('explanation', '')
                 item['tenant_counter_amount'] = response.get('counter_amount')
@@ -719,6 +737,10 @@ def respond_to_claim_items(claim_id):
                 else:  # reject
                     total_disputed += item['amount']
                     has_disputes = True
+            else:
+                print(f"DEBUG: No response found for item_id {item_id}")
+        
+        print(f"DEBUG: Processing complete. total_accepted={total_accepted}, total_disputed={total_disputed}, has_disputes={has_disputes}")
         
         # Update claim with responses
         claim.claim_items = claim_items
