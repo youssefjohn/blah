@@ -239,6 +239,47 @@ const DepositManagementPage = () => {
                             </div>
                           </div>
                         </div>
+                        
+                        {/* Show tenant response details if available */}
+                        {claim.tenant_response && (
+                          <div className="mt-3 p-3 bg-gray-50 rounded-lg border-l-4 border-blue-500">
+                            <h5 className="text-sm font-medium text-gray-900 mb-2">Tenant's Response:</h5>
+                            <div className="space-y-2">
+                              <div className="flex items-center">
+                                <span className={`text-sm font-medium ${
+                                  claim.tenant_response === 'accept' 
+                                    ? 'text-green-600' 
+                                    : claim.tenant_response === 'partial_accept'
+                                      ? 'text-orange-600'
+                                      : 'text-red-600'
+                                }`}>
+                                  {claim.tenant_response === 'accept' 
+                                    ? '✅ Accepted - Tenant agreed to pay full amount'
+                                    : claim.tenant_response === 'partial_accept'
+                                      ? '⚖️ Partial Accept - Tenant offered different amount'
+                                      : '❌ Rejected - Tenant disputed this charge'
+                                  }
+                                </span>
+                              </div>
+                              
+                              {/* Show counter amount for partial accepts */}
+                              {claim.tenant_response === 'partial_accept' && claim.tenant_counter_amount && (
+                                <div className="text-sm">
+                                  <span className="font-medium text-orange-800">Counter-Offer:</span>
+                                  <span className="ml-1 font-bold text-orange-600">RM {parseFloat(claim.tenant_counter_amount).toFixed(2)}</span>
+                                </div>
+                              )}
+                              
+                              {/* Show tenant explanation if provided */}
+                              {claim.tenant_explanation && (
+                                <div className="text-sm">
+                                  <span className="font-medium text-gray-700">Tenant's Explanation:</span>
+                                  <p className="mt-1 text-gray-600 italic">"{claim.tenant_explanation}"</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                     <div className="mt-4 p-3 bg-blue-50 rounded-lg">
@@ -277,6 +318,16 @@ const DepositManagementPage = () => {
                       📋 Make Deduction Claim
                     </button>
                   </>
+                )}
+
+                {/* Landlord Response to Disputes */}
+                {isLandlord() && deposit.claims?.some(claim => claim.status === 'DISPUTED') && (
+                  <button
+                    onClick={() => navigate(`/deposit/${deposit.id}/landlord-response`)}
+                    className="w-full bg-purple-500 hover:bg-purple-600 text-white py-2 px-4 rounded-md text-sm font-medium"
+                  >
+                    ⚖️ Respond to Disputes
+                  </button>
                 )}
 
                 {/* View Claims Button */}
