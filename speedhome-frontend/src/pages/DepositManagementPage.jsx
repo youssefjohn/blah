@@ -321,7 +321,7 @@ const DepositManagementPage = () => {
                 )}
 
                 {/* Landlord Response to Disputes */}
-                {isLandlord() && deposit.claims?.some(claim => claim.status === 'DISPUTED') && (
+                {isLandlord() && deposit.claims?.some(claim => claim.status === 'disputed') && (
                   <button
                     onClick={() => navigate(`/deposit/${deposit.id}/landlord-response`)}
                     className="w-full bg-purple-500 hover:bg-purple-600 text-white py-2 px-4 rounded-md text-sm font-medium"
