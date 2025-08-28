@@ -16,17 +16,17 @@ from ..models.user import User
 from decimal import Decimal
 from ..models.conversation import Conversation
 from ..services.deposit_notification_service import DepositNotificationService
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_login import login_required, current_user
 
 # Create blueprint
 deposit_bp = Blueprint('deposit', __name__)
 
 @deposit_bp.route('/deposits/<int:deposit_id>/landlord-respond', methods=['POST'])
-@jwt_required()
+@login_required
 def landlord_respond_to_disputes(deposit_id):
     """Handle landlord's response to tenant disputes"""
     try:
-        current_user_id = get_jwt_identity()
+        current_user_id = current_user.id
         data = request.get_json()
         
         print(f"DEBUG: Landlord response for deposit {deposit_id} from user {current_user_id}")
