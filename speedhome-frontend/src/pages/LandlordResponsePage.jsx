@@ -18,29 +18,31 @@ const LandlordResponsePage = () => {
 
   const fetchDepositDetails = async () => {
     try {
-      const response = await fetch(`/api/deposits/${depositId}/claims`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+      const response = await fetch(`/api/deposits/agreement/${depositId}`, {
+        credentials: 'include'
       });
 
       if (response.ok) {
         const data = await response.json();
-        setDeposit(data.deposit);
-        
-        // Filter only disputed claims
-        const disputed = data.deposit.claims.filter(claim => claim.status === 'DISPUTED');
-        setDisputedClaims(disputed);
-        
-        // Initialize responses state
-        const initialResponses = {};
-        disputed.forEach(claim => {
-          initialResponses[claim.id] = {
-            response: '', // 'accept_counter', 'reject_counter', 'escalate'
-            landlord_notes: ''
-          };
-        });
-        setResponses(initialResponses);
+        if (data.success) {
+          setDeposit(data.deposit);
+          
+          // Filter only disputed claims
+          const disputed = data.deposit.claims.filter(claim => claim.status === 'disputed');
+          setDisputedClaims(disputed);
+          
+          // Initialize responses state
+          const initialResponses = {};
+          disputed.forEach(claim => {
+            initialResponses[claim.id] = {
+              response: '', // 'accept_counter', 'reject_counter', 'escalate'
+              landlord_notes: ''
+            };
+          });
+          setResponses(initialResponses);
+        } else {
+          console.error('Failed to fetch deposit details:', data.error);
+        }
       } else {
         console.error('Failed to fetch deposit details');
       }
@@ -83,15 +85,15 @@ const LandlordResponsePage = () => {
       const response = await fetch(`/api/deposits/${depositId}/landlord-respond`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Content-Type': 'application/json'
         },
+        credentials: 'include',
         body: JSON.stringify(responseData)
       });
 
       if (response.ok) {
         alert('Response submitted successfully!');
-        navigate(`/deposit/${depositId}`);
+        navigate(`/deposit/${depositId}/manage`);
       } else {
         const errorData = await response.json();
         alert(`Error: ${errorData.message || 'Failed to submit response'}`);
