@@ -83,14 +83,24 @@ const DepositDisputePage = () => {
 
       const data = await response.json();
       if (data.success) {
+        // Filter claims to only show those that need tenant responses
+        const pendingClaims = data.claims.filter(claim => 
+          !claim.tenant_response || 
+          claim.status === 'submitted' || 
+          claim.status === 'tenant_notified' ||
+          claim.status === 'pending_response'
+        );
+        
         // --- FIX: Set the new state variables from the API response ---
-        setClaims(data.claims);
+        setClaims(pendingClaims);
         setPageData({
           property_address: data.property_address,
           landlord_name: data.landlord_name,
           deposit_amount: data.deposit_amount,
           created_at: data.claims[0]?.created_at, // Use first claim for general dates
-          response_deadline: data.claims[0]?.tenant_response_deadline
+          response_deadline: data.claims[0]?.tenant_response_deadline,
+          total_claims: data.claims.length,
+          pending_claims: pendingClaims.length
         });
       } else {
         setError(data.error || 'Failed to load claim');
@@ -288,16 +298,30 @@ const DepositDisputePage = () => {
             </div>
 
             {isTenant() && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                <h4 className="font-medium text-blue-800 mb-2">📋 How to Respond</h4>
-                <ul className="text-sm text-blue-700 space-y-1">
-                  <li>• <strong>Agree:</strong> Accept the charge as valid</li>
-                  <li>• <strong>Disagree:</strong> Dispute the charge completely</li>
-                  <li>• <strong>Partial Accept:</strong> Accept a different amount</li>
-                  <li>• You must provide an explanation for disagreements or partial acceptances</li>
-                  <li>• You can upload counter-evidence to support your position</li>
-                </ul>
-              </div>
+              <>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                  <h4 className="font-medium text-blue-800 mb-2">📋 How to Respond</h4>
+                  <ul className="text-sm text-blue-700 space-y-1">
+                    <li>• <strong>Agree:</strong> Accept the charge as valid</li>
+                    <li>• <strong>Disagree:</strong> Dispute the charge completely</li>
+                    <li>• <strong>Partial Accept:</strong> Accept a different amount</li>
+                    <li>• You must provide an explanation for disagreements or partial acceptances</li>
+                    <li>• You can upload counter-evidence to support your position</li>
+                  </ul>
+                </div>
+                
+                {pageData.total_claims > pageData.pending_claims && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+                    <h4 className="font-medium text-yellow-800 mb-2">ℹ️ Claims Status</h4>
+                    <p className="text-sm text-yellow-700">
+                      Showing {pageData.pending_claims} new claim(s) that need your response. 
+                      You have already responded to {pageData.total_claims - pageData.pending_claims} previous claim(s).
+                      <br />
+                      <strong>Note:</strong> Once you respond to a claim, your response is final and cannot be changed.
+                    </p>
+                  </div>
+                )}
+              </>
             )}
 
             {isLandlord() && (
@@ -311,14 +335,29 @@ const DepositDisputePage = () => {
             )}
 
             <div className="space-y-6">
-              {claims.map((item, index) => (
-                <div key={item.id} className="bg-white shadow rounded-lg p-6">
-                  <div className="flex justify-between items-start mb-4">
-                    <h3 className="text-lg font-medium text-gray-900">
-                      Item {index + 1}: {formatClaimType(item.title)}
-                    </h3>
-                    <span className="text-xl font-bold text-red-600">RM {item.claimed_amount}</span>
-                  </div>
+              {claims.length === 0 ? (
+                <div className="bg-white shadow rounded-lg p-8 text-center">
+                  <div className="text-green-500 text-6xl mb-4">✅</div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">All Claims Responded To</h3>
+                  <p className="text-gray-600 mb-4">
+                    You have responded to all deposit claims. No new claims require your attention at this time.
+                  </p>
+                  <button
+                    onClick={() => navigate(-1)}
+                    className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-md"
+                  >
+                    Return to Deposit Management
+                  </button>
+                </div>
+              ) : (
+                claims.map((item, index) => (
+                  <div key={item.id} className="bg-white shadow rounded-lg p-6">
+                    <div className="flex justify-between items-start mb-4">
+                      <h3 className="text-lg font-medium text-gray-900">
+                        Item {index + 1}: {formatClaimType(item.title)}
+                      </h3>
+                      <span className="text-xl font-bold text-red-600">RM {item.claimed_amount}</span>
+                    </div>
 
                   <div className="mb-4">
                     <p className="text-sm font-medium text-gray-700 mb-1">Landlord's Comments:</p>
@@ -550,6 +589,8 @@ const DepositDisputePage = () => {
                   </div>
                 )}
               </div>
+                ))
+              )}
             </div>
 
             {isTenant() && (
