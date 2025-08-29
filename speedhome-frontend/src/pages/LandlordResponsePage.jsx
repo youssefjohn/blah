@@ -160,7 +160,7 @@ const LandlordResponsePage = () => {
           <h3 className="font-medium text-blue-900 mb-2">Instructions:</h3>
           <ul className="text-sm text-blue-800 space-y-1">
             <li>• Review each tenant response carefully</li>
-            <li>• You can accept their counter-offer, reject it, or escalate to mediation</li>
+            <li>• You can accept their counter-offer or escalate to mediation</li>
             <li>• Add notes to explain your decision</li>
             <li>• All disputed claims must be addressed before submitting</li>
           </ul>
@@ -245,23 +245,6 @@ const LandlordResponsePage = () => {
                       </div>
                     </label>
                   )}
-                  
-                  <label className="flex items-start">
-                    <input
-                      type="radio"
-                      name={`response_${claim.id}`}
-                      value="reject_counter"
-                      checked={responses[claim.id]?.response === 'reject_counter'}
-                      onChange={(e) => handleResponseChange(claim.id, 'response', e.target.value)}
-                      className="mt-1 mr-3"
-                    />
-                    <div>
-                      <span className="text-red-600 font-medium">❌ Reject Response</span>
-                      <p className="text-sm text-gray-600">
-                        Maintain your original claim of RM {claim.claimed_amount}
-                      </p>
-                    </div>
-                  </label>
                   
                   <label className="flex items-start">
                     <input
