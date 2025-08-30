@@ -556,10 +556,17 @@ def get_deposit_by_agreement(agreement_id):
             'claims': [claim.to_dict() for claim in claims]
         })
         
-        return jsonify({
+        response = jsonify({
             'success': True,
             'deposit': deposit_data
         })
+        
+        # Add cache-control headers to prevent 304 responses
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        
+        return response
         
     except Exception as e:
         logger.error(f"Error getting deposit by agreement: {str(e)}")
