@@ -610,10 +610,10 @@ def release_deposit(deposit_id):
         if release_type == 'full' and amount != deposit.amount:
             return jsonify({'success': False, 'error': 'Amount must equal full deposit for full release'}), 400
         
-        # Update deposit status
-        deposit.status = DepositTransactionStatus.RELEASED
-        deposit.released_amount = amount
-        deposit.released_at = datetime.utcnow()
+        # Update deposit status - full release means refund to tenant
+        deposit.status = DepositTransactionStatus.REFUNDED
+        deposit.refunded_amount = amount  # Full release goes to TENANT
+        deposit.refunded_at = datetime.utcnow()
         
         db.session.commit()
         

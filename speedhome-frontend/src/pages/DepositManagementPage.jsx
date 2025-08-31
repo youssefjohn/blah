@@ -183,7 +183,9 @@ const DepositManagementPage = () => {
                     {/* Released to Landlord */}
                     {deposit.fund_breakdown.released_to_landlord > 0 && (
                       <div className="bg-blue-50 p-4 rounded-lg">
-                        <div className="text-sm font-medium text-blue-600 mb-1">Released to Landlord</div>
+                        <div className="text-sm font-medium text-blue-600 mb-1">
+                          Released to {deposit.landlord_name} (Landlord)
+                        </div>
                         <div className="text-xl font-bold text-blue-700">
                           RM {deposit.fund_breakdown.released_to_landlord.toFixed(2)}
                         </div>
@@ -194,7 +196,9 @@ const DepositManagementPage = () => {
                     {/* Refunded to Tenant */}
                     {deposit.fund_breakdown.refunded_to_tenant > 0 && (
                       <div className="bg-green-50 p-4 rounded-lg">
-                        <div className="text-sm font-medium text-green-600 mb-1">Refunded to Tenant</div>
+                        <div className="text-sm font-medium text-green-600 mb-1">
+                          Refunded to {deposit.tenant_name} (Tenant)
+                        </div>
                         <div className="text-xl font-bold text-green-700">
                           RM {deposit.fund_breakdown.refunded_to_tenant.toFixed(2)}
                         </div>

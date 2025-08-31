@@ -901,7 +901,7 @@ const hasNewMessages = conversations.some(convo => convo.unread_count > 0);
                               <div className="grid grid-cols-3 gap-2 mt-3">
                                 {agreement.deposit_transaction.fund_breakdown.refunded_to_tenant > 0 && (
                                   <div className="bg-green-100 p-2 rounded text-center">
-                                    <div className="text-xs text-green-600">Refunded</div>
+                                    <div className="text-xs text-green-600">Refunded to You</div>
                                     <div className="font-bold text-green-700 text-sm">
                                       RM {agreement.deposit_transaction.fund_breakdown.refunded_to_tenant.toFixed(2)}
                                     </div>
