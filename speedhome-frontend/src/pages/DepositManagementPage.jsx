@@ -156,7 +156,7 @@ const DepositManagementPage = () => {
             {/* Deposit Overview */}
             <div className="bg-white shadow rounded-lg p-6 mb-6">
               <h2 className="text-xl font-bold text-gray-900 mb-4">Deposit Overview</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                 <div>
                   <span className="text-sm font-medium text-gray-500">Property Address</span>
                   <p className="text-gray-900">{deposit.property_address}</p>
@@ -174,6 +174,55 @@ const DepositManagementPage = () => {
                   <p className="text-gray-900">{new Date(deposit.paid_at).toLocaleDateString()}</p>
                 </div>
               </div>
+
+              {/* Fund Breakdown Section */}
+              {deposit.fund_breakdown && (
+                <div className="border-t pt-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Fund Breakdown</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Released to Landlord */}
+                    {deposit.fund_breakdown.released_to_landlord > 0 && (
+                      <div className="bg-blue-50 p-4 rounded-lg">
+                        <div className="text-sm font-medium text-blue-600 mb-1">Released to Landlord</div>
+                        <div className="text-xl font-bold text-blue-700">
+                          RM {deposit.fund_breakdown.released_to_landlord.toFixed(2)}
+                        </div>
+                        <div className="text-xs text-blue-600 mt-1">Accepted claims</div>
+                      </div>
+                    )}
+
+                    {/* Refunded to Tenant */}
+                    {deposit.fund_breakdown.refunded_to_tenant > 0 && (
+                      <div className="bg-green-50 p-4 rounded-lg">
+                        <div className="text-sm font-medium text-green-600 mb-1">Refunded to Tenant</div>
+                        <div className="text-xl font-bold text-green-700">
+                          RM {deposit.fund_breakdown.refunded_to_tenant.toFixed(2)}
+                        </div>
+                        <div className="text-xs text-green-600 mt-1">Undisputed balance</div>
+                      </div>
+                    )}
+
+                    {/* Remaining in Escrow */}
+                    {deposit.fund_breakdown.remaining_in_escrow > 0 && (
+                      <div className="bg-yellow-50 p-4 rounded-lg">
+                        <div className="text-sm font-medium text-yellow-600 mb-1">Held in Escrow</div>
+                        <div className="text-xl font-bold text-yellow-700">
+                          RM {deposit.fund_breakdown.remaining_in_escrow.toFixed(2)}
+                        </div>
+                        <div className="text-xs text-yellow-600 mt-1">Disputed amounts</div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Summary Message */}
+                  <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                    <p className="text-sm text-gray-700">
+                      <span className="font-medium">Fair Release System:</span> Only disputed amounts are held in escrow. 
+                      Undisputed balances and accepted claims are released immediately.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Tenancy Ending Soon Notice */}

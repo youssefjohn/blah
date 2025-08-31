@@ -878,25 +878,86 @@ const hasNewMessages = conversations.some(convo => convo.unread_count > 0);
                             <h4 className="font-semibold text-blue-900">🏠 Security Deposit</h4>
                             <span className="text-sm text-blue-600">Malaysian Standard (2 months)</span>
                           </div>
-                          <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div>
-                              <div className="text-gray-600">Security Deposit</div>
-                              <div className="font-semibold text-blue-800">
-                                {DepositAPI.formatMYR((agreement.monthly_rent || 0) * 2)}
+                          
+                          {/* Fund Breakdown for Active Deposits */}
+                          {agreement.deposit_transaction && agreement.deposit_transaction.fund_breakdown ? (
+                            <div className="space-y-3">
+                              <div className="grid grid-cols-2 gap-4 text-sm">
+                                <div>
+                                  <div className="text-gray-600">Total Deposit</div>
+                                  <div className="font-semibold text-blue-800">
+                                    RM {agreement.deposit_transaction.amount}
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="text-gray-600">Status</div>
+                                  <div className="font-semibold text-blue-800">
+                                    {agreement.deposit_transaction.status.replace('_', ' ').toUpperCase()}
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              {/* Fund Breakdown Cards */}
+                              <div className="grid grid-cols-3 gap-2 mt-3">
+                                {agreement.deposit_transaction.fund_breakdown.refunded_to_tenant > 0 && (
+                                  <div className="bg-green-100 p-2 rounded text-center">
+                                    <div className="text-xs text-green-600">Refunded</div>
+                                    <div className="font-bold text-green-700 text-sm">
+                                      RM {agreement.deposit_transaction.fund_breakdown.refunded_to_tenant.toFixed(2)}
+                                    </div>
+                                  </div>
+                                )}
+                                
+                                {agreement.deposit_transaction.fund_breakdown.released_to_landlord > 0 && (
+                                  <div className="bg-blue-100 p-2 rounded text-center">
+                                    <div className="text-xs text-blue-600">To Landlord</div>
+                                    <div className="font-bold text-blue-700 text-sm">
+                                      RM {agreement.deposit_transaction.fund_breakdown.released_to_landlord.toFixed(2)}
+                                    </div>
+                                  </div>
+                                )}
+                                
+                                {agreement.deposit_transaction.fund_breakdown.remaining_in_escrow > 0 && (
+                                  <div className="bg-yellow-100 p-2 rounded text-center">
+                                    <div className="text-xs text-yellow-600">In Escrow</div>
+                                    <div className="font-bold text-yellow-700 text-sm">
+                                      RM {agreement.deposit_transaction.fund_breakdown.remaining_in_escrow.toFixed(2)}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                              
+                              <div className="text-xs text-blue-600 mt-2">
+                                ✓ Fair Release System: Only disputed amounts held in escrow
                               </div>
                             </div>
-                            <div>
-                              <div className="text-gray-600">Utility Deposit</div>
-                              <div className="font-semibold text-blue-800">
-                                {DepositAPI.formatMYR((agreement.monthly_rent || 0) * 0.5)}
+                          ) : (
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                              <div>
+                                <div className="text-gray-600">Security Deposit</div>
+                                <div className="font-semibold text-blue-800">
+                                  {DepositAPI.formatMYR((agreement.monthly_rent || 0) * 2)}
+                                </div>
+                              </div>
+                              <div>
+                                <div className="text-gray-600">Utility Deposit</div>
+                                <div className="font-semibold text-blue-800">
+                                  {DepositAPI.formatMYR((agreement.monthly_rent || 0) * 0.5)}
+                                </div>
                               </div>
                             </div>
-                          </div>
+                          )}
+                          
                           <div className="mt-3 pt-3 border-t border-blue-200">
                             <div className="flex justify-between items-center">
-                              <span className="font-semibold text-blue-900">Total Deposit:</span>
+                              <span className="font-semibold text-blue-900">
+                                {agreement.deposit_transaction ? 'Deposit Status:' : 'Total Deposit:'}
+                              </span>
                               <span className="font-bold text-lg text-blue-900">
-                                {DepositAPI.formatMYR((agreement.monthly_rent || 0) * 2.5)}
+                                {agreement.deposit_transaction 
+                                  ? `RM ${agreement.deposit_transaction.amount}`
+                                  : DepositAPI.formatMYR((agreement.monthly_rent || 0) * 2.5)
+                                }
                               </span>
                             </div>
                             <div className="mt-2">
