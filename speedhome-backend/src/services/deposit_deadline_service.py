@@ -9,12 +9,12 @@ Handles the 7-day inspection period logic:
 """
 
 from datetime import datetime, timedelta
+from ..models.user import db
 from ..models.deposit_transaction import DepositTransaction, DepositTransactionStatus
 from ..models.deposit_claim import DepositClaim, DepositClaimStatus
 from ..models.tenancy_agreement import TenancyAgreement
 from ..services.fund_release_service import fund_release_service
 from ..services.deposit_notification_service import DepositNotificationService
-from .. import db
 import logging
 
 logger = logging.getLogger(__name__)
