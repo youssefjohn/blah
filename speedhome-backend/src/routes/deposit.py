@@ -16,6 +16,7 @@ from ..models.user import User
 from decimal import Decimal
 from ..models.conversation import Conversation
 from ..services.deposit_notification_service import DepositNotificationService
+from ..services.fund_release_service import fund_release_service
 from flask_login import login_required, current_user
 
 # Create blueprint
@@ -400,6 +401,14 @@ def create_deposit_claims(deposit_id):
             return jsonify({'success': False, 'error': 'No valid claim items were provided.'}), 400
 
         db.session.commit()
+        
+        # Process automatic undisputed balance release
+        # When landlord submits claims, immediately release undisputed balance to tenant
+        release_result = fund_release_service.release_undisputed_balance(deposit)
+        if release_result['success'] and release_result['amount'] > 0:
+            logger.info(f"Released £{release_result['amount']} undisputed balance to tenant for deposit {deposit_id}")
+        elif not release_result['success']:
+            logger.error(f"Failed to release undisputed balance for deposit {deposit_id}: {release_result.get('error')}")
 
         for claim in claims_created:
             # --- FIX: Construct the address from existing fields ---
@@ -544,13 +553,17 @@ def get_deposit_by_agreement(agreement_id):
             deposit_transaction_id=deposit.id
         ).all()
         
+        # Get fund breakdown using the fund release service
+        fund_breakdown = fund_release_service.get_deposit_breakdown(deposit)
+
         deposit_data = deposit.to_dict()
         deposit_data.update({
             'property_address': agreement.property_address,
             'tenant_name': agreement.tenant_full_name,
             'landlord_name': agreement.landlord_full_name,
             'tenancy_ending_soon': tenancy_ending_soon,
-            'claims': [claim.to_dict() for claim in claims]
+            'claims': [claim.to_dict() for claim in claims],
+            'fund_breakdown': fund_breakdown  # Add detailed fund breakdown
         })
         
         response = jsonify({
@@ -771,8 +784,20 @@ def respond_to_claim_items(claim_id):
         
         print(f"DEBUG: Processing complete. total_accepted={total_accepted}, total_disputed={total_disputed}, has_disputes={has_disputes}")
         
-        # Commit all changes
+        # Commit all changes first
         db.session.commit()
+        
+        # Process automatic fund releases
+        deposit_transaction = DepositTransaction.query.get(initial_claim.deposit_transaction_id)
+        
+        # Release accepted claims to landlord immediately
+        for claim in all_claims:
+            if claim.status == DepositClaimStatus.ACCEPTED:
+                release_result = fund_release_service.release_accepted_claim(deposit_transaction, claim)
+                if release_result['success']:
+                    logger.info(f"Released £{release_result['amount']} to landlord for accepted claim {claim.id}")
+                else:
+                    logger.error(f"Failed to release funds for claim {claim.id}: {release_result.get('error')}")
         
         # Send notifications (simplified for now)
         if has_disputes:
