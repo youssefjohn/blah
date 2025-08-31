@@ -17,6 +17,7 @@ from decimal import Decimal
 from ..models.conversation import Conversation
 from ..services.deposit_notification_service import DepositNotificationService
 from ..services.fund_release_service import fund_release_service
+from ..services.deposit_deadline_service import deposit_deadline_service
 from flask_login import login_required, current_user
 
 # Create blueprint
@@ -402,34 +403,17 @@ def create_deposit_claims(deposit_id):
 
         db.session.commit()
         
-        # Process automatic undisputed balance release
-        # When landlord submits claims, immediately release undisputed balance to tenant
-        release_result = fund_release_service.release_undisputed_balance(deposit)
-        if release_result['success'] and release_result['amount'] > 0:
-            logger.info(f"Released £{release_result['amount']} undisputed balance to tenant for deposit {deposit_id}")
-        elif not release_result['success']:
-            logger.error(f"Failed to release undisputed balance for deposit {deposit_id}: {release_result.get('error')}")
-
-        for claim in claims_created:
-            # --- FIX: Construct the address from existing fields ---
-            full_address = f"{claim.property.title}, {claim.property.location}"
-
-            DepositNotificationService.notify_deposit_claim_submitted(
-                deposit_claim_id=claim.id,
-                tenant_id=claim.tenant_id,
-                claim_title=claim.title,
-                claimed_amount=claim.claimed_amount,
-                property_address=full_address,
-                response_deadline=claim.tenant_response_deadline,
-                tenancy_agreement_id=claim.tenancy_agreement_id,
-                property_id=claim.property_id
-            )
+        # NOTE: No immediate undisputed balance release during 7-day inspection period
+        # The entire deposit remains held until the 7-day window closes
+        
+        # NOTE: No immediate tenant notifications during 7-day inspection period
+        # Tenant will be notified once all claims are finalized after 7 days
 
         logger.info(f"Created {len(claims_created)} deposit claim items for deposit {deposit_id}")
 
         return jsonify({
             'success': True,
-            'message': f'Successfully created {len(claims_created)} claim items.'
+            'message': f'Successfully created {len(claims_created)} claim items. Tenant will be notified after 7-day inspection period.'
         }), 201
 
     except Exception as e:
@@ -555,6 +539,9 @@ def get_deposit_by_agreement(agreement_id):
         
         # Get fund breakdown using the fund release service
         fund_breakdown = fund_release_service.get_deposit_breakdown(deposit)
+        
+        # Get 7-day inspection period status
+        inspection_status = deposit_deadline_service.get_inspection_period_status(deposit)
 
         deposit_data = deposit.to_dict()
         deposit_data.update({
@@ -563,7 +550,8 @@ def get_deposit_by_agreement(agreement_id):
             'landlord_name': agreement.landlord_full_name,
             'tenancy_ending_soon': tenancy_ending_soon,
             'claims': [claim.to_dict() for claim in claims],
-            'fund_breakdown': fund_breakdown  # Add detailed fund breakdown
+            'fund_breakdown': fund_breakdown,  # Add detailed fund breakdown
+            'inspection_status': inspection_status  # Add 7-day period status
         })
         
         response = jsonify({
@@ -822,4 +810,49 @@ def respond_to_claim_items(claim_id):
 # ============================================================================
 # END OF DEPOSIT ROUTES
 # ============================================================================
+
+
+
+@deposit_bp.route('/<int:deposit_id>/finalize-claims', methods=['POST'])
+def finalize_claims(deposit_id):
+    """Manually finalize claims and release undisputed balance (landlord action)"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+    
+    user_id = session['user_id']
+    
+    try:
+        deposit = DepositTransaction.query.get(deposit_id)
+        if not deposit:
+            return jsonify({'success': False, 'error': 'Deposit not found'}), 404
+        
+        # Check if user is the landlord
+        if deposit.landlord_id != user_id:
+            return jsonify({'success': False, 'error': 'Only landlord can finalize claims'}), 403
+        
+        # Check if deposit is in correct status
+        if deposit.status != DepositTransactionStatus.HELD_IN_ESCROW:
+            return jsonify({'success': False, 'error': 'Deposit cannot be finalized in current status'}), 400
+        
+        # Check if still within 7-day window
+        inspection_status = deposit_deadline_service.get_inspection_period_status(deposit)
+        if not inspection_status['can_add_claims']:
+            return jsonify({'success': False, 'error': 'Inspection period has expired'}), 400
+        
+        # Finalize claims and release funds
+        result = deposit_deadline_service.finalize_claims_and_release_funds(deposit)
+        
+        if result['success']:
+            return jsonify({
+                'success': True,
+                'message': f'Successfully finalized {result["claims_count"]} claims and released undisputed balance',
+                'claims_count': result['claims_count']
+            })
+        else:
+            return jsonify({'success': False, 'error': result.get('error', 'Failed to finalize claims')}), 500
+        
+    except Exception as e:
+        logger.error(f"Error finalizing claims: {str(e)}")
+        return jsonify({'success': False, 'error': 'Failed to finalize claims'}), 500
+
 
