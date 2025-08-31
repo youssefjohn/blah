@@ -66,7 +66,7 @@ app.register_blueprint(documents_bp)
 app.register_blueprint(webhooks_bp, url_prefix='/api/webhooks')
 app.register_blueprint(stripe_config_bp, url_prefix='/api/stripe')
 app.register_blueprint(admin_testing_bp)
-app.register_blueprint(deposit_bp, url_prefix='/api')
+app.register_blueprint(deposit_bp)
 app.register_blueprint(tenant_deposit_bp)
 app.register_blueprint(deposit_payment_bp)
 

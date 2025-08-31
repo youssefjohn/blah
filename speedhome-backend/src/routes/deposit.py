@@ -19,9 +19,9 @@ from ..services.deposit_notification_service import DepositNotificationService
 from flask_login import login_required, current_user
 
 # Create blueprint
-deposit_bp = Blueprint('deposit', __name__)
+deposit_bp = Blueprint('deposit', __name__, url_prefix='/api/deposits')
 
-@deposit_bp.route('/deposits/<int:deposit_id>/landlord-respond', methods=['POST'])
+@deposit_bp.route('/<int:deposit_id>/landlord-respond', methods=['POST'])
 @login_required
 def landlord_respond_to_disputes(deposit_id):
     """Handle landlord's response to tenant disputes"""
@@ -114,9 +114,6 @@ def landlord_respond_to_disputes(deposit_id):
 
 from ..services.stripe_service import stripe_service
 from ..services.s3_service import s3_service
-
-# Create blueprint
-deposit_bp = Blueprint('deposit', __name__, url_prefix='/api/deposits')
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
