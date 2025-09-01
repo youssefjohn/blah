@@ -124,7 +124,11 @@ const DepositManagementPage = () => {
   const isNearingEnd = deposit.tenancy_ending_soon;
   const hasEnded = deposit.tenancy_has_ended;
   const canRelease = isLandlord() && deposit.status === 'held_in_escrow' && hasEnded; // Only after tenancy ends
-  const canViewClaims = deposit.status === 'disputed' || deposit.claims?.length > 0;
+  
+  // Claims should only be visible to tenants AFTER inspection period expires
+  const inspectionActive = deposit.inspection_status?.is_active;
+  const canViewClaims = (deposit.status === 'disputed' || deposit.claims?.length > 0) && 
+                        (!isTenant() || !inspectionActive); // Hide from tenants during inspection
 
   return (
     <div className="min-h-screen bg-gray-50">
