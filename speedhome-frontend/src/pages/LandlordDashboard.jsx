@@ -1770,7 +1770,8 @@ const LandlordDashboard = ({ onAddProperty }) => {
                           )}
                           {/* Deposit Management Button - Show when tenancy has ended and deposit needs managing */}
                           {agreement.deposit_transaction && 
-                           agreement.deposit_transaction.status === 'held_in_escrow' && 
+                           (agreement.deposit_transaction.status === 'held_in_escrow' || 
+                            agreement.deposit_transaction.status === 'partially_released') && 
                            agreement.deposit_transaction.tenancy_has_ended && (
                             <Link
                               to={`/deposit/${agreement.deposit_transaction.id}/manage`}
