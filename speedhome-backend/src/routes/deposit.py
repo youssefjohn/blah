@@ -678,14 +678,30 @@ def get_claim_details(claim_id):
         if initial_claim.tenant_id != user_id and initial_claim.landlord_id != user_id:
             return jsonify({'success': False, 'error': 'Access denied'}), 403
 
+        # Get parent objects
+        deposit = DepositTransaction.query.get(initial_claim.deposit_transaction_id)
+        agreement = TenancyAgreement.query.get(initial_claim.tenancy_agreement_id)
+
+        # Check if inspection period is still active (for tenants)
+        inspection_status = deposit_deadline_service.get_inspection_status(agreement)
+        
+        # If tenant is trying to access during inspection period, return empty claims
+        if user_id == initial_claim.tenant_id and inspection_status['is_active']:
+            return jsonify({
+                'success': True,
+                'claims': [],  # Empty claims during inspection period
+                'property_address': agreement.property_address if agreement else 'Unknown',
+                'tenant_name': agreement.tenant_full_name if agreement else 'Unknown',
+                'landlord_name': agreement.landlord_full_name if agreement else 'Unknown',
+                'deposit_amount': float(deposit.amount) if deposit else 0,
+                'inspection_status': inspection_status,
+                'message': f'Landlord has {inspection_status["days_remaining"]} days remaining to finalize claims.'
+            })
+
         # Now, find all claims associated with the same deposit transaction
         all_claims = DepositClaim.query.filter_by(
             deposit_transaction_id=initial_claim.deposit_transaction_id
         ).order_by(DepositClaim.created_at.asc()).all()
-
-        # Get parent objects once
-        deposit = DepositTransaction.query.get(initial_claim.deposit_transaction_id)
-        agreement = TenancyAgreement.query.get(initial_claim.tenancy_agreement_id)
 
         # Prepare the response
         claims_data = [claim.to_dict() for claim in all_claims]
@@ -696,7 +712,8 @@ def get_claim_details(claim_id):
             'property_address': agreement.property_address if agreement else 'Unknown',
             'tenant_name': agreement.tenant_full_name if agreement else 'Unknown',
             'landlord_name': agreement.landlord_full_name if agreement else 'Unknown',
-            'deposit_amount': float(deposit.amount) if deposit else 0
+            'deposit_amount': float(deposit.amount) if deposit else 0,
+            'inspection_status': inspection_status
         })
 
     except Exception as e:

@@ -83,6 +83,20 @@ const DepositDisputePage = () => {
 
       const data = await response.json();
       if (data.success) {
+        // Check if inspection period is still active
+        if (data.inspection_status && data.inspection_status.is_active) {
+          // During inspection period, show message instead of claims
+          setClaims([]);
+          setPageData({
+            property_address: data.property_address,
+            landlord_name: data.landlord_name,
+            deposit_amount: data.deposit_amount,
+            inspection_status: data.inspection_status,
+            inspection_message: data.message
+          });
+          return;
+        }
+
         // Filter claims to only show those that need tenant responses
         const pendingClaims = data.claims.filter(claim => 
           !claim.tenant_response || 
@@ -100,7 +114,8 @@ const DepositDisputePage = () => {
           created_at: data.claims[0]?.created_at, // Use first claim for general dates
           response_deadline: data.claims[0]?.tenant_response_deadline,
           total_claims: data.claims.length,
-          pending_claims: pendingClaims.length
+          pending_claims: pendingClaims.length,
+          inspection_status: data.inspection_status
         });
       } else {
         setError(data.error || 'Failed to load claim');
@@ -273,7 +288,22 @@ const DepositDisputePage = () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Show inspection period message if active */}
+        {pageData.inspection_status && pageData.inspection_status.is_active ? (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-6">
+            <div className="flex items-center">
+              <div className="text-yellow-500 text-4xl mr-4">🔍</div>
+              <div>
+                <h2 className="text-xl font-bold text-yellow-800 mb-2">Landlord Inspection Period</h2>
+                <p className="text-yellow-700 mb-2">{pageData.inspection_message}</p>
+                <p className="text-sm text-yellow-600">
+                  You will be notified when the inspection period ends and can respond to any claims.
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2">
             <div className="bg-white shadow rounded-lg p-6 mb-6">
               <h2 className="text-xl font-bold text-gray-900 mb-4">Claim Overview</h2>
@@ -647,7 +677,8 @@ const DepositDisputePage = () => {
               </div>
             )}
           </div>
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );
