@@ -58,6 +58,18 @@ try:
         # Check inspection status
         if deposit_transaction:
             inspection_status = deposit_deadline_service.get_inspection_period_status(deposit_transaction)
+            
+            # If inspection period has expired, auto-finalize claims and release funds
+            if not inspection_status['is_active'] and not inspection_status.get('error'):
+                print("🔄 Inspection period has expired - triggering auto-finalization...")
+                finalization_result = deposit_deadline_service.finalize_claims_and_release_funds(deposit_transaction)
+                
+                if finalization_result['success']:
+                    print(f"✅ Auto-finalization successful:")
+                    print(f"   - Finalized {finalization_result['claims_count']} claims")
+                    print(f"   - Released undisputed balance: {finalization_result['undisputed_release']}")
+                else:
+                    print(f"❌ Auto-finalization failed: {finalization_result.get('error')}")
         else:
             inspection_status = {'is_active': False, 'days_remaining': 0, 'can_add_claims': False, 'error': 'No deposit transaction found'}
 
