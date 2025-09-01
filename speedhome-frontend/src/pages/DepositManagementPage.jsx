@@ -122,7 +122,8 @@ const DepositManagementPage = () => {
   }
 
   const isNearingEnd = deposit.tenancy_ending_soon;
-  const canRelease = isLandlord() && deposit.status === 'held_in_escrow' && isNearingEnd;
+  const hasEnded = deposit.tenancy_has_ended;
+  const canRelease = isLandlord() && deposit.status === 'held_in_escrow' && hasEnded; // Only after tenancy ends
   const canViewClaims = deposit.status === 'disputed' || deposit.claims?.length > 0;
 
   return (
@@ -229,21 +230,40 @@ const DepositManagementPage = () => {
               )}
             </div>
 
-            {/* Tenancy Ending Soon Notice */}
-            {isNearingEnd && (
+            {/* Tenancy Status Notices */}
+            {isNearingEnd && !hasEnded && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                <h4 className="font-medium text-blue-800 mb-2">📅 Tenancy Ending Soon</h4>
+                <p className="text-sm text-blue-700 mb-4">
+                  The lease for this property is ending within 7 days. Prepare for the deposit release process.
+                </p>
+                {isLandlord() && (
+                  <p className="text-sm text-blue-600">
+                    You'll be able to inspect the property and manage the deposit after the tenant vacates.
+                  </p>
+                )}
+                {isTenant() && (
+                  <p className="text-sm text-blue-600">
+                    Please prepare for move-out. Your landlord will have 7 days after tenancy ends to process the deposit.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {hasEnded && (
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-                <h4 className="font-medium text-yellow-800 mb-2">⏰ Tenancy Ending Soon</h4>
+                <h4 className="font-medium text-yellow-800 mb-2">🏠 Tenancy Has Ended - Inspection Period</h4>
                 <p className="text-sm text-yellow-700 mb-4">
-                  The lease for this property is ending within 7 days. It's time to manage the deposit release process.
+                  The tenancy has ended and the property is now vacant. The 7-day inspection period is active.
                 </p>
                 {isLandlord() && (
                   <p className="text-sm text-yellow-600">
-                    As the landlord, you can now choose to release the full deposit or make deduction claims.
+                    You have {deposit.inspection_status?.days_remaining || 0} days remaining to inspect the property and submit any deduction claims, or release the full deposit.
                   </p>
                 )}
                 {isTenant() && (
                   <p className="text-sm text-yellow-600">
-                    Your landlord will soon initiate the deposit release process. You'll be notified of any actions required.
+                    Your landlord has {deposit.inspection_status?.days_remaining || 0} days to inspect and process your deposit. You'll be notified of any claims.
                   </p>
                 )}
               </div>

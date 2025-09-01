@@ -345,6 +345,17 @@ def create_deposit_claims(deposit_id):
     if deposit.landlord_id != user_id:
         return jsonify({'success': False, 'error': 'Only the landlord can create claims'}), 403
 
+    # Check if tenancy has actually ended before allowing claims
+    agreement = TenancyAgreement.query.get(deposit.tenancy_agreement_id)
+    if agreement and agreement.lease_end_date:
+        from datetime import datetime
+        days_until_end = (agreement.lease_end_date - datetime.now().date()).days
+        if days_until_end >= 0:
+            return jsonify({
+                'success': False, 
+                'error': 'Claims can only be made after the tenancy has ended. Tenant must vacate first.'
+            }), 400
+
     try:
         data = request.get_json()
 
@@ -525,12 +536,15 @@ def get_deposit_by_agreement(agreement_id):
         if not agreement:
             return jsonify({'success': False, 'error': 'Agreement not found'}), 404
         
-        # Check if tenancy is ending soon (within 7 days)
+        # Check tenancy status
         from datetime import datetime, timedelta
         tenancy_ending_soon = False
+        tenancy_has_ended = False
+        
         if agreement.lease_end_date:
             days_until_end = (agreement.lease_end_date - datetime.now().date()).days
             tenancy_ending_soon = days_until_end <= 7 and days_until_end >= 0
+            tenancy_has_ended = days_until_end < 0  # Tenancy has actually ended
         
         # Get claims for this deposit
         claims = DepositClaim.query.filter_by(
@@ -549,6 +563,7 @@ def get_deposit_by_agreement(agreement_id):
             'tenant_name': agreement.tenant_full_name,
             'landlord_name': agreement.landlord_full_name,
             'tenancy_ending_soon': tenancy_ending_soon,
+            'tenancy_has_ended': tenancy_has_ended,  # Add actual ended status
             'claims': [claim.to_dict() for claim in claims],
             'fund_breakdown': fund_breakdown,  # Add detailed fund breakdown
             'inspection_status': inspection_status  # Add 7-day period status
@@ -591,6 +606,17 @@ def release_deposit(deposit_id):
         if deposit.status != DepositTransactionStatus.HELD_IN_ESCROW:
             return jsonify({'success': False, 'error': 'Deposit cannot be released in current status'}), 400
         
+        # Check if tenancy has actually ended before allowing release
+        agreement = TenancyAgreement.query.get(deposit.tenancy_agreement_id)
+        if agreement and agreement.lease_end_date:
+            from datetime import datetime
+            days_until_end = (agreement.lease_end_date - datetime.now().date()).days
+            if days_until_end >= 0:
+                return jsonify({
+                    'success': False, 
+                    'error': 'Deposit can only be released after the tenancy has ended. Tenant must vacate first.'
+                }), 400
+
         data = request.get_json()
         release_type = data.get('release_type', 'full')
         amount = float(data.get('amount', deposit.amount))
