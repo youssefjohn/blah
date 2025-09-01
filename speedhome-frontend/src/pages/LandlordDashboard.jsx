@@ -1768,10 +1768,10 @@ const LandlordDashboard = ({ onAddProperty }) => {
                               Sign Agreement
                             </Link>
                           )}
-                          {/* Deposit Management Button - Show when deposit is ready to manage */}
+                          {/* Deposit Management Button - Show when tenancy has ended and deposit needs managing */}
                           {agreement.deposit_transaction && 
                            agreement.deposit_transaction.status === 'held_in_escrow' && 
-                           agreement.deposit_transaction.tenancy_ending_soon && (
+                           agreement.deposit_transaction.tenancy_has_ended && (
                             <Link
                               to={`/deposit/${agreement.deposit_transaction.id}/manage`}
                               className="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded text-sm inline-block"
