@@ -1010,17 +1010,17 @@ const hasNewMessages = conversations.some(convo => convo.unread_count > 0);
                           </div>
                         )}
                         
-                        {/* Deposit Management Button - Show when deposit is ready to manage */}
+                        {/* Deposit Management Button - Show when tenancy has ended and deposit needs managing */}
                         {agreement.deposit_transaction && 
                          agreement.deposit_transaction.status === 'held_in_escrow' && 
-                         agreement.deposit_transaction.tenancy_ending_soon && (
+                         agreement.deposit_transaction.tenancy_has_ended && (
                           <Link
                             to={`/deposit/${agreement.deposit_transaction.id}/manage`}
                             className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg transition-colors"
                           >
                             {agreement.deposit_transaction.claims?.some(claim => claim.tenant_response_status === 'pending') 
-                              ? 'Respond to Deposit Claim' 
-                              : 'View Deposit Status'}
+                              ? 'Respond to Deposit Claims' 
+                              : 'Manage Deposit'}
                           </Link>
                         )}
                       </div>

@@ -50,20 +50,28 @@ def get_agreements():
         # Add deposit transaction data if it exists
         deposit = DepositTransaction.query.filter_by(tenancy_agreement_id=agreement.id).first()
         if deposit:
-            # Check if tenancy is ending soon (within 7 days)
+            # Check tenancy status
             tenancy_ending_soon = False
+            tenancy_has_ended = False
             if agreement.lease_end_date:
                 days_until_end = (agreement.lease_end_date - datetime.now().date()).days
                 tenancy_ending_soon = days_until_end <= 7 and days_until_end >= 0
+                tenancy_has_ended = days_until_end < 0  # Tenancy has actually ended
             
             # Get claims for this deposit
             claims = DepositClaim.query.filter_by(deposit_transaction_id=deposit.id).all()
+            
+            # Get fund breakdown using the fund release service
+            from ..services.fund_release_service import fund_release_service
+            fund_breakdown = fund_release_service.get_deposit_breakdown(deposit)
             
             agreement_dict['deposit_transaction'] = {
                 'id': deposit.id,
                 'status': deposit.status.value if hasattr(deposit.status, 'value') else str(deposit.status),
                 'amount': float(deposit.amount) if deposit.amount else None,
                 'tenancy_ending_soon': tenancy_ending_soon,
+                'tenancy_has_ended': tenancy_has_ended,  # Add this field
+                'fund_breakdown': fund_breakdown,  # Add fund breakdown
                 'claims': [claim.to_dict() for claim in claims]
             }
         else:
@@ -123,20 +131,28 @@ def get_tenant_agreements():
         # Add deposit transaction data if it exists
         deposit = DepositTransaction.query.filter_by(tenancy_agreement_id=agreement.id).first()
         if deposit:
-            # Check if tenancy is ending soon (within 7 days)
+            # Check tenancy status
             tenancy_ending_soon = False
+            tenancy_has_ended = False
             if agreement.lease_end_date:
                 days_until_end = (agreement.lease_end_date - datetime.now().date()).days
                 tenancy_ending_soon = days_until_end <= 7 and days_until_end >= 0
+                tenancy_has_ended = days_until_end < 0  # Tenancy has actually ended
             
             # Get claims for this deposit
             claims = DepositClaim.query.filter_by(deposit_transaction_id=deposit.id).all()
+            
+            # Get fund breakdown using the fund release service
+            from ..services.fund_release_service import fund_release_service
+            fund_breakdown = fund_release_service.get_deposit_breakdown(deposit)
             
             agreement_dict['deposit_transaction'] = {
                 'id': deposit.id,
                 'status': deposit.status.value if hasattr(deposit.status, 'value') else str(deposit.status),
                 'amount': float(deposit.amount) if deposit.amount else None,
                 'tenancy_ending_soon': tenancy_ending_soon,
+                'tenancy_has_ended': tenancy_has_ended,  # Add this field
+                'fund_breakdown': fund_breakdown,  # Add fund breakdown
                 'claims': [claim.to_dict() for claim in claims]
             }
         else:
