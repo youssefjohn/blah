@@ -35,6 +35,7 @@ from src.routes.admin_testing import admin_testing_bp
 from src.routes.deposit import deposit_bp
 from src.routes.tenant_deposit import tenant_deposit_bp
 from src.routes.deposit_payment import deposit_payment_bp
+from src.routes.admin_deposit import admin_deposit_bp
 
 # Import admin components
 from src.admin.admin_config import init_admin
@@ -69,6 +70,7 @@ app.register_blueprint(admin_testing_bp)
 app.register_blueprint(deposit_bp)
 app.register_blueprint(tenant_deposit_bp)
 app.register_blueprint(deposit_payment_bp)
+app.register_blueprint(admin_deposit_bp)
 
 # Register admin authentication blueprint
 app.register_blueprint(admin_auth_bp)
@@ -131,6 +133,16 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"❌️ Failed to start background scheduler: {str(e)}")
         print("Application will continue without background jobs")
+    
+    # Initialize and start deposit background jobs
+    try:
+        from src.services.background_jobs import start_background_jobs
+        print("Starting deposit background jobs...")
+        start_background_jobs()
+        print("✅ Deposit background jobs started successfully")
+    except Exception as e:
+        print(f"❌️ Failed to start deposit background jobs: {str(e)}")
+        print("Application will continue without deposit background processing")
     
     app.run(host='0.0.0.0', port=5001, debug=True)
 
