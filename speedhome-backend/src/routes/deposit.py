@@ -683,7 +683,7 @@ def get_claim_details(claim_id):
         agreement = TenancyAgreement.query.get(initial_claim.tenancy_agreement_id)
 
         # Check if inspection period is still active (for tenants)
-        inspection_status = deposit_deadline_service.get_inspection_status(agreement)
+        inspection_status = deposit_deadline_service.get_inspection_period_status(deposit)
         
         # If tenant is trying to access during inspection period, return empty claims
         if user_id == initial_claim.tenant_id and inspection_status['is_active']:

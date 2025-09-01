@@ -49,8 +49,17 @@ try:
         # Commit the changes
         db.session.commit()
 
+        # Get the deposit transaction for this agreement
+        from src.models.deposit_transaction import DepositTransaction
+        deposit_transaction = DepositTransaction.query.filter_by(
+            tenancy_agreement_id=agreement.id
+        ).first()
+
         # Check inspection status
-        inspection_status = deposit_deadline_service.get_inspection_status(agreement)
+        if deposit_transaction:
+            inspection_status = deposit_deadline_service.get_inspection_period_status(deposit_transaction)
+        else:
+            inspection_status = {'is_active': False, 'days_remaining': 0, 'can_add_claims': False, 'error': 'No deposit transaction found'}
 
         print(f"📋 Found agreement: {agreement.id}")
         print(f"   Original start: {original_start_date}")
