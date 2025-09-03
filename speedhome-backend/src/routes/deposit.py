@@ -92,7 +92,7 @@ def landlord_respond_to_disputes(deposit_id):
                     
             elif landlord_response == 'reject_counter':
                 # Landlord rejects tenant's counter-offer - escalate to mediation
-                claim.status = DepositClaimStatus.MEDIATION
+                claim.status = DepositClaimStatus.UNDER_REVIEW  # Use existing enum value
                 if claim.tenant_counter_amount:
                     claim.resolution_notes = f"Landlord rejected tenant's counter-offer of RM {claim.tenant_counter_amount}. Escalated to mediation. {landlord_notes}".strip()
                 else:
@@ -100,7 +100,7 @@ def landlord_respond_to_disputes(deposit_id):
                     
             elif landlord_response == 'escalate':
                 # Escalate to mediation
-                claim.status = DepositClaimStatus.MEDIATION
+                claim.status = DepositClaimStatus.UNDER_REVIEW  # Use existing enum value
                 claim.resolution_notes = f"Dispute escalated to mediation. {landlord_notes}".strip()
             
             claim.resolved_by = current_user_id
@@ -114,11 +114,11 @@ def landlord_respond_to_disputes(deposit_id):
         all_claims = DepositClaim.query.filter_by(deposit_transaction_id=deposit_id).all()
         
         resolved_count = sum(1 for claim in all_claims if claim.status in [DepositClaimStatus.RESOLVED, DepositClaimStatus.ACCEPTED])
-        mediation_count = sum(1 for claim in all_claims if claim.status == DepositClaimStatus.MEDIATION)
+        mediation_count = sum(1 for claim in all_claims if claim.status == DepositClaimStatus.UNDER_REVIEW)
         disputed_count = sum(1 for claim in all_claims if claim.status == DepositClaimStatus.DISPUTED)
         
         if mediation_count > 0:
-            deposit.status = 'MEDIATION'
+            deposit.status = 'UNDER_REVIEW'  # Use string value for deposit status
         elif disputed_count > 0:
             deposit.status = 'DISPUTED'
         elif resolved_count == len(all_claims):
