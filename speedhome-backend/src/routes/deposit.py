@@ -3,7 +3,6 @@ Deposit Management Routes
 Handles all deposit-related API endpoints including payments, claims, disputes, and status tracking
 """
 from flask import Blueprint, request, jsonify, session
-from flask_login import login_required, current_user
 from datetime import datetime, timedelta
 import logging
 from ..models.user import db
@@ -18,17 +17,19 @@ from ..models.conversation import Conversation
 from ..services.deposit_notification_service import DepositNotificationService
 from ..services.fund_release_service import fund_release_service
 from ..services.deposit_deadline_service import deposit_deadline_service
-from flask_login import login_required, current_user
 
 # Create blueprint
 deposit_bp = Blueprint('deposit', __name__, url_prefix='/api/deposits')
 
 @deposit_bp.route('/<int:deposit_id>/landlord-respond', methods=['POST'])
-@login_required
 def landlord_respond_to_disputes(deposit_id):
     """Handle landlord's response to tenant disputes"""
+    # Check session-based authentication
+    if 'user_id' not in session:
+        return jsonify({'message': 'Authentication required'}), 401
+    
     try:
-        current_user_id = current_user.id
+        current_user_id = session['user_id']
         data = request.get_json()
         
         print(f"DEBUG: Landlord response for deposit {deposit_id} from user {current_user_id}")
