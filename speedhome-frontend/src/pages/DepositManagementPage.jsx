@@ -255,19 +255,51 @@ const DepositManagementPage = () => {
             )}
 
             {hasEnded && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-                <h4 className="font-medium text-yellow-800 mb-2">🏠 Tenancy Has Ended - Inspection Period</h4>
-                <p className="text-sm text-yellow-700 mb-4">
-                  The tenancy has ended and the property is now vacant. The 7-day inspection period is active.
+              <div className={`border rounded-lg p-4 mb-6 ${
+                (deposit.inspection_status?.days_remaining || 0) > 0 
+                  ? 'bg-yellow-50 border-yellow-200' 
+                  : 'bg-red-50 border-red-200'
+              }`}>
+                <h4 className={`font-medium mb-2 ${
+                  (deposit.inspection_status?.days_remaining || 0) > 0 
+                    ? 'text-yellow-800' 
+                    : 'text-red-800'
+                }`}>
+                  🏠 Tenancy Has Ended - {(deposit.inspection_status?.days_remaining || 0) > 0 ? 'Inspection Period Active' : 'Inspection Period Ended'}
+                </h4>
+                <p className={`text-sm mb-4 ${
+                  (deposit.inspection_status?.days_remaining || 0) > 0 
+                    ? 'text-yellow-700' 
+                    : 'text-red-700'
+                }`}>
+                  The tenancy has ended and the property is now vacant. {
+                    (deposit.inspection_status?.days_remaining || 0) > 0 
+                      ? 'The 7-day inspection period is active.' 
+                      : 'The 7-day inspection period has ended.'
+                  }
                 </p>
                 {isLandlord() && (
-                  <p className="text-sm text-yellow-600">
-                    You have {deposit.inspection_status?.days_remaining || 0} days remaining to inspect the property and submit any deduction claims, or release the full deposit.
+                  <p className={`text-sm ${
+                    (deposit.inspection_status?.days_remaining || 0) > 0 
+                      ? 'text-yellow-600' 
+                      : 'text-red-600'
+                  }`}>
+                    {(deposit.inspection_status?.days_remaining || 0) > 0 
+                      ? `You have ${deposit.inspection_status?.days_remaining || 0} days remaining to inspect the property and submit any deduction claims, or release the full deposit.`
+                      : 'The inspection period has expired. Any undisputed deposit amounts have been automatically released to the tenant.'
+                    }
                   </p>
                 )}
                 {isTenant() && (
-                  <p className="text-sm text-yellow-600">
-                    Your landlord has {deposit.inspection_status?.days_remaining || 0} days to inspect and process your deposit. You'll be notified of any claims.
+                  <p className={`text-sm ${
+                    (deposit.inspection_status?.days_remaining || 0) > 0 
+                      ? 'text-yellow-600' 
+                      : 'text-red-600'
+                  }`}>
+                    {(deposit.inspection_status?.days_remaining || 0) > 0 
+                      ? `Your landlord has ${deposit.inspection_status?.days_remaining || 0} days to inspect and process your deposit. You'll be notified of any claims.`
+                      : 'The inspection period has ended. Any undisputed deposit amounts have been automatically released to you.'
+                    }
                   </p>
                 )}
               </div>
