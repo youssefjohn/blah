@@ -21,6 +21,11 @@ from ..services.deposit_deadline_service import deposit_deadline_service
 # Create blueprint
 deposit_bp = Blueprint('deposit', __name__, url_prefix='/api/deposits')
 
+@deposit_bp.route('/test', methods=['POST'])
+def test_endpoint():
+    """Test endpoint to verify blueprint is working"""
+    return jsonify({'message': 'Test endpoint working', 'success': True})
+
 @deposit_bp.route('/<int:deposit_id>/landlord-respond', methods=['POST'])
 def landlord_respond_to_disputes(deposit_id):
     """Handle landlord's response to tenant disputes"""
@@ -29,18 +34,25 @@ def landlord_respond_to_disputes(deposit_id):
         return jsonify({'message': 'Authentication required'}), 401
     
     try:
+        print(f"DEBUG: Starting landlord response processing...")
         current_user_id = session['user_id']
+        print(f"DEBUG: User ID from session: {current_user_id}")
+        
         data = request.get_json()
+        print(f"DEBUG: Request data received: {data}")
         
         print(f"DEBUG: Landlord response for deposit {deposit_id} from user {current_user_id}")
         print(f"DEBUG: Response data: {data}")
         print(f"DEBUG: Number of responses: {len(data.get('responses', []))}")
         
         # Get the deposit transaction
+        print(f"DEBUG: Looking up deposit {deposit_id}")
         deposit = DepositTransaction.query.get_or_404(deposit_id)
+        print(f"DEBUG: Found deposit, landlord_id: {deposit.landlord_id}")
         
         # Verify landlord owns this deposit
         if deposit.landlord_id != current_user_id:
+            print(f"DEBUG: Unauthorized - deposit landlord {deposit.landlord_id} != current user {current_user_id}")
             return jsonify({'message': 'Unauthorized'}), 403
         
         # Process each response
@@ -128,8 +140,11 @@ def landlord_respond_to_disputes(deposit_id):
         
     except Exception as e:
         print(f"ERROR: Error processing landlord response: {e}")
+        print(f"ERROR: Exception type: {type(e)}")
+        import traceback
+        print(f"ERROR: Traceback: {traceback.format_exc()}")
         db.session.rollback()
-        return jsonify({'message': 'Internal server error'}), 500
+        return jsonify({'message': f'Internal server error: {str(e)}'}), 500
 
 
 from ..services.stripe_service import stripe_service
