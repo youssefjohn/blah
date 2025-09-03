@@ -21,8 +21,8 @@ try:
     from src.models.user import db
 
     with app.app_context():
-        print("=== END TENANCY SOON SCRIPT ===")
-        print("Making tenancy agreement end in the near future for testing...")
+        print("=== END TENANCY NOW SCRIPT ===")
+        print("Making tenancy agreement end in the past for testing deposit flow...")
 
         # Find the most recent active tenancy agreement
         agreement = TenancyAgreement.query.filter(
@@ -35,39 +35,32 @@ try:
             exit(1)
 
         # Store original dates for reference
+        original_start_date = agreement.lease_start_date
         original_end_date = agreement.lease_end_date
 
-        # Set lease end date to a random day in the next 1-5 days
-        days_in_future = random.randint(1, 5)
-        new_end_date = date.today() + timedelta(days=days_in_future)
+        print(f"📋 Found agreement: {agreement.id}")
+        print(f"   Original start: {original_start_date}")
+        print(f"   Original end: {original_end_date}")
+
+        # Set lease end date to 1 day ago (tenancy has ended)
+        new_end_date = date.today() - timedelta(days=1)
         agreement.lease_end_date = new_end_date
 
-        # Also update the lease start date to be in the past if needed
-        if agreement.lease_start_date and agreement.lease_start_date > new_end_date:
-            agreement.lease_start_date = new_end_date - timedelta(days=365)  # 1 year ago
+        # Set lease start date to be well in the past (1 year lease)
+        new_start_date = new_end_date - timedelta(days=365)
+        agreement.lease_start_date = new_start_date
 
         # Commit the changes
         db.session.commit()
 
-        print(f"✅ SUCCESS! Tenancy agreement updated:")
-        print(f"   📄 Agreement ID: {agreement.id}")
-        print(f"   🏠 Property: {agreement.property_address}")
-        print(f"   👤 Tenant: {agreement.tenant_full_name}")
-        print(f"   👤 Landlord: {agreement.landlord_full_name}")
-        print(f"   📅 Original End Date: {original_end_date}")
-        print(f"   📅 New End Date: {agreement.lease_end_date} (ENDING SOON)")
-        print(f"   💰 Security Deposit: RM {agreement.security_deposit}")
-        print()
-        print("🎯 READY FOR DEPOSIT TESTING:")
-        print("   1. Log in as landlord or tenant")
-        print("   2. Navigate to deposit management")
-        print("   3. You should now see deposit release options!")
-        print("   4. Test the deposit release/claim workflow")
-        print()
-        print("=== UPDATE COMPLETE ===")
+        print(f"✅ Updated tenancy agreement:")
+        print(f"   New start: {new_start_date}")
+        print(f"   New end: {new_end_date} (1 day ago)")
+        print(f"   Status: Tenancy has ENDED - 7-day inspection period is active")
+        print(f"   Landlord can now inspect property and make deposit claims")
+        print(f"   Days remaining in inspection period: 6 days")
 
 except Exception as e:
     print(f"❌ Error: {e}")
     import traceback
-
     traceback.print_exc()

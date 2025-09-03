@@ -51,6 +51,7 @@ try:
 
         # Get the deposit transaction for this agreement
         from src.models.deposit_transaction import DepositTransaction
+
         deposit_transaction = DepositTransaction.query.filter_by(
             tenancy_agreement_id=agreement.id
         ).first()
@@ -58,12 +59,12 @@ try:
         # Check inspection status
         if deposit_transaction:
             inspection_status = deposit_deadline_service.get_inspection_period_status(deposit_transaction)
-            
+
             # If inspection period has expired, auto-finalize claims and release funds
             if not inspection_status['is_active'] and not inspection_status.get('error'):
                 print("🔄 Inspection period has expired - triggering auto-finalization...")
                 finalization_result = deposit_deadline_service.finalize_claims_and_release_funds(deposit_transaction)
-                
+
                 if finalization_result['success']:
                     print(f"✅ Auto-finalization successful:")
                     print(f"   - Finalized {finalization_result['claims_count']} claims")
@@ -71,7 +72,8 @@ try:
                 else:
                     print(f"❌ Auto-finalization failed: {finalization_result.get('error')}")
         else:
-            inspection_status = {'is_active': False, 'days_remaining': 0, 'can_add_claims': False, 'error': 'No deposit transaction found'}
+            inspection_status = {'is_active': False, 'days_remaining': 0, 'can_add_claims': False,
+                                 'error': 'No deposit transaction found'}
 
         print(f"📋 Found agreement: {agreement.id}")
         print(f"   Original start: {original_start_date}")
@@ -102,5 +104,6 @@ try:
 except Exception as e:
     print(f"❌ Error: {e}")
     import traceback
+
     traceback.print_exc()
 

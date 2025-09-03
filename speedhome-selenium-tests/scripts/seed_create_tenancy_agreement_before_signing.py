@@ -6,6 +6,9 @@ from datetime import datetime, timedelta, date
 from decimal import Decimal
 from config.test_config import TestConfig
 from dotenv import load_dotenv
+from src.models.deposit_claim import DepositClaim
+from src.models.notification import Notification
+from src.models.deposit_transaction import DepositTransaction
 
 # Use a reliable, absolute path inside the container
 backend_path = '/app'
@@ -24,21 +27,16 @@ try:
 
     with app.app_context():
         print("=== SIMPLE SEED SCRIPT ===")
-        print("Ensuring all database tables exist...")
 
-        # --- FIX: Create all tables first to ensure they exist ---
+        # --- FIX: Nuke and rebuild the database for a clean slate ---
+        print("Dropping all tables to ensure a clean state...")
+        db.drop_all()
+        print("Recreating all tables from models...")
         db.create_all()
+        print("Database reset complete.")
 
         print("Creating test data for agreement stage...")
 
-        # Clear existing data
-        db.session.query(TenancyAgreement).delete()
-        db.session.query(Application).delete()
-        db.session.query(Property).delete()
-        db.session.query(User).filter(User.email.in_(['landlord@test.com', 'tenant@test.com'])).delete()
-        db.session.commit()
-
-        # ... (rest of your script is the same)
         # Create landlord
         landlord = User(
             email='landlord@test.com',
