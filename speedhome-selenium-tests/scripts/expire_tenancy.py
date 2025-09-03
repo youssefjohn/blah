@@ -24,17 +24,34 @@ try:
         print("=== END TENANCY SOON SCRIPT ===")
         print("Making tenancy agreement end in the near future for testing...")
 
+        # Find ALL tenancy agreements first for debugging
+        all_agreements = TenancyAgreement.query.all()
+        print(f"Found {len(all_agreements)} total agreements:")
+        for i, ag in enumerate(all_agreements):
+            print(f"  {i+1}. Agreement {ag.id}: Status={ag.status}, Start={ag.lease_start_date}, End={ag.lease_end_date}")
+
         # Find the most recent active tenancy agreement
         agreement = TenancyAgreement.query.filter(
             TenancyAgreement.status.in_(['active', 'pending_signatures', 'signed'])
         ).order_by(TenancyAgreement.created_at.desc()).first()
 
         if not agreement:
-            print("❌ No tenancy agreement found!")
-            print("   Make sure you have created a tenancy agreement first.")
-            exit(1)
+            print("❌ No tenancy agreement found with active/pending_signatures/signed status!")
+            print("   Trying to find ANY agreement...")
+            agreement = TenancyAgreement.query.order_by(TenancyAgreement.created_at.desc()).first()
+            if not agreement:
+                print("   No agreements found at all!")
+                exit(1)
+            else:
+                print(f"   Found agreement {agreement.id} with status: {agreement.status}")
+
+        print(f"\n🎯 TARGETING Agreement {agreement.id}:")
+        print(f"   Current Status: {agreement.status}")
+        print(f"   Current Start: {agreement.lease_start_date}")
+        print(f"   Current End: {agreement.lease_end_date}")
 
         # Store original dates for reference
+        original_start_date = agreement.lease_start_date
         original_end_date = agreement.lease_end_date
 
         # Set lease end date to yesterday (for deposit testing)
@@ -44,14 +61,26 @@ try:
         # Set lease start date to one day before the end date
         agreement.lease_start_date = new_end_date - timedelta(days=1)
 
+        print(f"\n📝 UPDATING Agreement {agreement.id}:")
+        print(f"   New Start: {agreement.lease_start_date}")
+        print(f"   New End: {agreement.lease_end_date}")
+
         # Commit the changes
         db.session.commit()
+        print("✅ Database changes committed!")
 
-        print(f"✅ SUCCESS! Tenancy agreement updated:")
+        # Verify the changes were saved
+        db.session.refresh(agreement)
+        print(f"\n🔍 VERIFICATION - Agreement {agreement.id} after commit:")
+        print(f"   Saved Start: {agreement.lease_start_date}")
+        print(f"   Saved End: {agreement.lease_end_date}")
+
+        print(f"\n✅ SUCCESS! Tenancy agreement updated:")
         print(f"   📄 Agreement ID: {agreement.id}")
         print(f"   🏠 Property: {agreement.property_address}")
         print(f"   👤 Tenant: {agreement.tenant_full_name}")
         print(f"   👤 Landlord: {agreement.landlord_full_name}")
+        print(f"   📅 Original Start Date: {original_start_date}")
         print(f"   📅 Original End Date: {original_end_date}")
         print(f"   📅 New Start Date: {agreement.lease_start_date}")
         print(f"   📅 New End Date: {agreement.lease_end_date} (ENDED YESTERDAY)")
