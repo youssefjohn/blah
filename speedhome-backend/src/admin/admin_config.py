@@ -120,10 +120,8 @@ class MediationClaimsAdminView(AdminAuthMixin, ModelView):
         'tenant_counter_amount': 'Tenant Counter-Offer'
     }
     
-    # Add custom action buttons for mediation decisions
-    column_extra_row_actions = [
-        ('mediation_decision', 'Mediate', 'Are you sure you want to review this case?')
-    ]
+    # Enable custom row actions
+    can_view_details = True
     
     def get_query(self):
         """Only show claims that are in mediation (under_review status)"""
@@ -138,6 +136,15 @@ class MediationClaimsAdminView(AdminAuthMixin, ModelView):
         return super(MediationClaimsAdminView, self).get_count_query().filter(
             self.model.status == DepositClaimStatus.UNDER_REVIEW
         )
+    
+    @expose('/details/')
+    def details_view(self):
+        """Override details view to redirect to mediation decision"""
+        from flask import request, redirect, url_for
+        id = request.args.get('id')
+        if id:
+            return redirect(url_for('admin_mediation.mediation_decision_view', id=id))
+        return redirect(url_for('admin_mediation.index_view'))
     
     @expose('/mediation/<int:id>')
     def mediation_decision_view(self, id):
