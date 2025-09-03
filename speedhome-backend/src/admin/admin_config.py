@@ -123,14 +123,14 @@ class MediationClaimsAdminView(AdminAuthMixin, ModelView):
     def get_query(self):
         """Only show claims that are in mediation (under_review status)"""
         from ..models.deposit_claim import DepositClaimStatus
-        return self.session.query(self.model).filter(
+        return super(MediationClaimsAdminView, self).get_query().filter(
             self.model.status == DepositClaimStatus.UNDER_REVIEW
         )
     
     def get_count_query(self):
         """Count only mediation claims"""
         from ..models.deposit_claim import DepositClaimStatus
-        return self.session.query(self.model).filter(
+        return super(MediationClaimsAdminView, self).get_count_query().filter(
             self.model.status == DepositClaimStatus.UNDER_REVIEW
         )
 
