@@ -90,10 +90,14 @@ class ViewingSlotAdminView(AdminAuthMixin, ModelView):
 
 class NotificationAdminView(AdminAuthMixin, ModelView):
     """Admin view for Notification model"""
-    column_list = ['id', 'user_id', 'title', 'message', 'type', 'is_read', 'created_at']
-    column_searchable_list = ['title', 'message', 'type']
-    column_filters = ['type', 'is_read', 'created_at']
+    column_list = ['id', 'recipient_id', 'message', 'notification_type', 'is_read', 'created_at']
+    column_searchable_list = ['message']  # Remove 'title' since it doesn't exist
+    column_filters = ['notification_type', 'is_read', 'created_at', 'priority']
     column_editable_list = ['is_read']
+    column_labels = {
+        'recipient_id': 'Recipient',
+        'notification_type': 'Type'
+    }
 
 class DepositTransactionAdminView(AdminAuthMixin, ModelView):
     """Admin view for Deposit Transactions"""
