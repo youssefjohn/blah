@@ -21,6 +21,8 @@ try:
     from src.models.property import Property, PropertyStatus
     from src.models.application import Application
     from src.models.tenancy_agreement import TenancyAgreement
+    from src.models.deposit_transaction import DepositTransaction
+    from src.models.deposit_claim import DepositClaim
 
     with app.app_context():
         print("=== SIMPLE SEED SCRIPT ===")
@@ -31,10 +33,18 @@ try:
 
         print("Creating test data for agreement stage...")
 
-        # Clear existing data
+        # Clear existing data in correct order (child tables first)
+        print("Clearing existing deposit claims...")
+        db.session.query(DepositClaim).delete()
+        print("Clearing existing deposit transactions...")
+        db.session.query(DepositTransaction).delete()
+        print("Clearing existing tenancy agreements...")
         db.session.query(TenancyAgreement).delete()
+        print("Clearing existing applications...")
         db.session.query(Application).delete()
+        print("Clearing existing properties...")
         db.session.query(Property).delete()
+        print("Clearing existing test users...")
         db.session.query(User).filter(User.email.in_(['landlord@test.com', 'tenant@test.com'])).delete()
         db.session.commit()
 
