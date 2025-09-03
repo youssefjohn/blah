@@ -33,6 +33,7 @@ def landlord_respond_to_disputes(deposit_id):
         
         print(f"DEBUG: Landlord response for deposit {deposit_id} from user {current_user_id}")
         print(f"DEBUG: Response data: {data}")
+        print(f"DEBUG: Number of responses: {len(data.get('responses', []))}")
         
         # Get the deposit transaction
         deposit = DepositTransaction.query.get_or_404(deposit_id)
@@ -53,8 +54,15 @@ def landlord_respond_to_disputes(deposit_id):
             
             # Get the claim
             claim = DepositClaim.query.get(claim_id)
-            if not claim or claim.deposit_transaction_id != deposit_id:
+            if not claim:
+                print(f"DEBUG: Claim {claim_id} not found")
                 continue
+            if claim.deposit_transaction_id != deposit_id:
+                print(f"DEBUG: Claim {claim_id} belongs to different deposit {claim.deposit_transaction_id}, expected {deposit_id}")
+                continue
+            
+            print(f"DEBUG: Found claim {claim_id}, current status: {claim.status}")
+            original_status = claim.status
             
             # Update claim based on landlord response
             if landlord_response == 'accept_counter':
@@ -86,7 +94,8 @@ def landlord_respond_to_disputes(deposit_id):
             claim.resolved_at = datetime.utcnow()
             claim.updated_at = datetime.utcnow()
             
-            print(f"DEBUG: Updated claim {claim_id} status to {claim.status}")
+            print(f"DEBUG: Updated claim {claim_id} status from {original_status} to {claim.status}")
+            print(f"DEBUG: Claim resolution notes: {claim.resolution_notes}")
         
         # Update deposit transaction status based on claim resolutions
         all_claims = DepositClaim.query.filter_by(deposit_transaction_id=deposit_id).all()

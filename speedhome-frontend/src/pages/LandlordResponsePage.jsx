@@ -83,6 +83,7 @@ const LandlordResponsePage = () => {
       };
 
       console.log('Submitting landlord response:', responseData);
+      console.log('Response details:', JSON.stringify(responseData, null, 2));
 
       const response = await fetch(`/api/deposits/${depositId}/landlord-respond`, {
         method: 'POST',
