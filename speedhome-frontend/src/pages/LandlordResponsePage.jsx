@@ -82,6 +82,8 @@ const LandlordResponsePage = () => {
         }))
       };
 
+      console.log('Submitting landlord response:', responseData);
+
       const response = await fetch(`/api/deposits/${depositId}/landlord-respond`, {
         method: 'POST',
         headers: {
@@ -91,11 +93,27 @@ const LandlordResponsePage = () => {
         body: JSON.stringify(responseData)
       });
 
+      console.log('Response status:', response.status);
+      console.log('Response ok:', response.ok);
+
       // Handle both successful responses and redirects (302)
       if (response.ok || response.status === 302) {
+        console.log('Response successful, reloading data...');
         alert('Response submitted successfully!');
-        navigate(`/deposit/${depositId}/manage`);
+        
+        // Reload the deposit data to refresh the disputed claims list
+        setLoading(true);
+        await fetchDepositDetails();
+        
+        // Check if there are still disputed claims after reload
+        if (disputedClaims.length === 0) {
+          console.log('No more disputed claims, navigating back...');
+          navigate(`/deposit/${depositId}/manage`);
+        } else {
+          console.log('Still have disputed claims:', disputedClaims.length);
+        }
       } else {
+        console.error('Response failed with status:', response.status);
         const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
         alert(`Error: ${errorData.message || 'Failed to submit response'}`);
       }
