@@ -120,7 +120,10 @@ class MediationClaimsAdminView(AdminAuthMixin, ModelView):
         'tenant_counter_amount': 'Tenant Counter-Offer'
     }
     
-    # Enable custom row actions
+    # Disable edit/create/delete - only allow viewing and custom mediation decisions
+    can_edit = False
+    can_create = False
+    can_delete = False
     can_view_details = True
     
     def get_query(self):
