@@ -118,11 +118,11 @@ def landlord_respond_to_disputes(deposit_id):
         disputed_count = sum(1 for claim in all_claims if claim.status == DepositClaimStatus.DISPUTED)
         
         if mediation_count > 0:
-            deposit.status = 'UNDER_REVIEW'  # Use string value for deposit status
+            deposit.status = DepositTransactionStatus.DISPUTED  # Use correct enum value
         elif disputed_count > 0:
-            deposit.status = 'DISPUTED'
+            deposit.status = DepositTransactionStatus.DISPUTED
         elif resolved_count == len(all_claims):
-            deposit.status = 'RESOLVED'
+            deposit.status = DepositTransactionStatus.PARTIALLY_RELEASED  # Claims resolved, may need fund release
         
         deposit.updated_at = datetime.utcnow()
         
