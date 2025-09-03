@@ -30,7 +30,25 @@ try:
 
         # --- FIX: Nuke and rebuild the database for a clean slate ---
         print("Dropping all tables to ensure a clean state...")
-        db.drop_all()
+        # Alternative approach: Delete in correct order instead of dropping all
+        try:
+            # Delete child tables first to avoid foreign key violations
+            from src.models.deposit_transaction import DepositTransaction
+            from src.models.deposit_claim import DepositClaim
+            db.session.query(Notification).delete()
+            db.session.query(DepositTransaction).delete()
+            db.session.query(DepositClaim).delete()
+            db.session.query(TenancyAgreement).delete()
+            db.session.query(Application).delete()
+            db.session.query(Property).delete()
+            db.session.query(User).delete()
+            db.session.commit()
+            print("Cleared existing data successfully.")
+        except Exception as e:
+            print(f"Error clearing data, falling back to drop_all: {e}")
+            db.session.rollback()
+            db.drop_all()
+            
         print("Recreating all tables from models...")
         db.create_all()
         print("Database reset complete.")

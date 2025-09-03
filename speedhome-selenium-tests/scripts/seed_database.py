@@ -45,12 +45,17 @@ def seed_data():
 
         # 1. Clear existing data to ensure a clean slate
         print("Clearing old data...")
+        # Delete in correct order to respect foreign key constraints
+        # First delete child tables that reference parent tables
+        db.session.query(Notification).delete()
+        from src.models.deposit_transaction import DepositTransaction
+        from src.models.deposit_claim import DepositClaim
+        db.session.query(DepositTransaction).delete()
+        db.session.query(DepositClaim).delete()
         db.session.query(TenancyAgreement).delete()
         db.session.query(Application).delete()
         db.session.query(Booking).delete()
         db.session.query(ViewingSlot).delete()
-        # --- FIX: Clear the Notification table as well ---
-        db.session.query(Notification).delete()
         db.session.query(Property).delete()
         db.session.query(User).delete()
         db.session.commit()
