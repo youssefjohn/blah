@@ -69,6 +69,14 @@ def landlord_respond_to_disputes(deposit_id):
                     claim.status = DepositClaimStatus.RESOLVED
                     claim.resolution_notes = f"Landlord accepted tenant's rejection. No deduction applied. {landlord_notes}".strip()
                     
+            elif landlord_response == 'reject_counter':
+                # Landlord rejects tenant's counter-offer - escalate to mediation
+                claim.status = DepositClaimStatus.MEDIATION
+                if claim.tenant_counter_amount:
+                    claim.resolution_notes = f"Landlord rejected tenant's counter-offer of RM {claim.tenant_counter_amount}. Escalated to mediation. {landlord_notes}".strip()
+                else:
+                    claim.resolution_notes = f"Landlord rejected tenant's dispute. Escalated to mediation. {landlord_notes}".strip()
+                    
             elif landlord_response == 'escalate':
                 # Escalate to mediation
                 claim.status = DepositClaimStatus.MEDIATION
