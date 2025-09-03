@@ -10,6 +10,8 @@ from ..models.viewing_slot import ViewingSlot
 from ..models.message import Message
 from ..models.conversation import Conversation
 from ..models.notification import Notification
+from ..models.deposit_transaction import DepositTransaction
+from ..models.deposit_claim import DepositClaim
 # from ..models.application import Application  # Temporarily disabled due to migration issues import Notification
 
 # Initialize Flask-Login
@@ -88,10 +90,58 @@ class ViewingSlotAdminView(AdminAuthMixin, ModelView):
 
 class NotificationAdminView(AdminAuthMixin, ModelView):
     """Admin view for Notification model"""
-    column_list = ['id', 'recipient.username', 'message', 'is_read', 'created_at']
-    column_searchable_list = ['message']
-    column_filters = ['is_read', 'created_at']
+    column_list = ['id', 'user_id', 'title', 'message', 'type', 'is_read', 'created_at']
+    column_searchable_list = ['title', 'message', 'type']
+    column_filters = ['type', 'is_read', 'created_at']
     column_editable_list = ['is_read']
+
+class DepositTransactionAdminView(AdminAuthMixin, ModelView):
+    """Admin view for Deposit Transactions"""
+    column_list = ['id', 'property_id', 'tenant_id', 'landlord_id', 'amount', 'status', 'created_at']
+    column_searchable_list = ['property.address', 'tenant.username', 'landlord.username']
+    column_filters = ['status', 'created_at']
+    column_labels = {
+        'property_id': 'Property',
+        'tenant_id': 'Tenant', 
+        'landlord_id': 'Landlord'
+    }
+
+class MediationClaimsAdminView(AdminAuthMixin, ModelView):
+    """Admin view for Claims requiring mediation"""
+    column_list = ['id', 'title', 'claimed_amount', 'tenant_counter_amount', 'status', 'created_at', 'tenant_response', 'landlord_response']
+    column_searchable_list = ['title', 'description']
+    column_filters = ['status', 'claim_type', 'created_at']
+    column_labels = {
+        'claimed_amount': 'Claimed Amount',
+        'tenant_counter_amount': 'Tenant Counter-Offer',
+        'tenant_response': 'Tenant Response',
+        'landlord_response': 'Landlord Response'
+    }
+    
+    def get_query(self):
+        """Only show claims that are in mediation (under_review status)"""
+        from ..models.deposit_claim import DepositClaimStatus
+        return self.session.query(self.model).filter(
+            self.model.status == DepositClaimStatus.UNDER_REVIEW
+        )
+    
+    def get_count_query(self):
+        """Count only mediation claims"""
+        from ..models.deposit_claim import DepositClaimStatus
+        return self.session.query(self.model).filter(
+            self.model.status == DepositClaimStatus.UNDER_REVIEW
+        )
+
+class DepositClaimAdminView(AdminAuthMixin, ModelView):
+    """Admin view for all Deposit Claims"""
+    column_list = ['id', 'title', 'claimed_amount', 'approved_amount', 'status', 'claim_type', 'created_at']
+    column_searchable_list = ['title', 'description']
+    column_filters = ['status', 'claim_type', 'created_at']
+    column_editable_list = ['approved_amount', 'status']
+    column_labels = {
+        'claimed_amount': 'Claimed Amount',
+        'approved_amount': 'Approved Amount'
+    }
 
 def init_admin(app):
     """Initialize Flask-Admin with the Flask app"""
@@ -116,6 +166,12 @@ def setup_admin(app, db):
     admin.add_view(ConversationAdminView(Conversation, db.session, name='Conversations', category='Messaging', endpoint='admin_conversations'))
     admin.add_view(MessageAdminView(Message, db.session, name='Messages', category='Messaging', endpoint='admin_messages'))
     admin.add_view(NotificationAdminView(Notification, db.session, name='Notifications', category='System', endpoint='admin_notifications'))
+    
+    # Deposit Management Views
+    admin.add_view(MediationClaimsAdminView(DepositClaim, db.session, name='Mediation Queue', category='Deposit Management', endpoint='admin_mediation'))
+    admin.add_view(DepositClaimAdminView(DepositClaim, db.session, name='All Claims', category='Deposit Management', endpoint='admin_claims'))
+    admin.add_view(DepositTransactionAdminView(DepositTransaction, db.session, name='Deposit Transactions', category='Deposit Management', endpoint='admin_deposits'))
+    
     # admin.add_view(ApplicationAdminView(Application, db.session, name='Applications', category='Property Management'))  # Temporarily disabled
     
     return admin
