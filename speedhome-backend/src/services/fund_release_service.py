@@ -236,15 +236,18 @@ class FundReleaseService:
             
             mediation_amount = sum(
                 float(claim.claimed_amount) for claim in claims 
-                if claim.status.value == 'MEDIATION'
+                if claim.status == DepositClaimStatus.UNDER_REVIEW
             )
             
-            # Calculate released amounts
-            released_to_landlord = float(deposit_transaction.released_amount or 0)
-            refunded_to_tenant = float(deposit_transaction.refunded_amount or 0)
+            # Calculate released amounts based on actual claim statuses
+            # Released to landlord = accepted claims + resolved claims (using approved amounts)
+            released_to_landlord = accepted_amount + resolved_amount
             
-            # Calculate remaining in escrow
-            remaining_in_escrow = total_deposit - released_to_landlord - refunded_to_tenant
+            # Refunded to tenant = undisputed balance (already calculated and released)
+            refunded_to_tenant = total_deposit - total_claimed
+            
+            # Calculate remaining in escrow = disputed + mediation amounts
+            remaining_in_escrow = disputed_amount + mediation_amount
             
             return {
                 'total_deposit': total_deposit,
