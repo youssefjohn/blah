@@ -41,9 +41,8 @@ try:
         new_end_date = date.today() - timedelta(days=1)
         agreement.lease_end_date = new_end_date
 
-        # Also update the lease start date to be in the past if needed
-        if agreement.lease_start_date and agreement.lease_start_date > new_end_date:
-            agreement.lease_start_date = new_end_date - timedelta(days=365)  # 1 year ago
+        # Set lease start date to one day before the end date
+        agreement.lease_start_date = new_end_date - timedelta(days=1)
 
         # Commit the changes
         db.session.commit()
@@ -54,13 +53,15 @@ try:
         print(f"   👤 Tenant: {agreement.tenant_full_name}")
         print(f"   👤 Landlord: {agreement.landlord_full_name}")
         print(f"   📅 Original End Date: {original_end_date}")
+        print(f"   📅 New Start Date: {agreement.lease_start_date}")
         print(f"   📅 New End Date: {agreement.lease_end_date} (ENDED YESTERDAY)")
+        print(f"   📅 Lease Duration: 1 day (for testing)")
         print(f"   💰 Security Deposit: RM {agreement.security_deposit}")
         print()
         print("🎯 READY FOR DEPOSIT TESTING:")
         print("   1. Log in as landlord or tenant")
         print("   2. Navigate to deposit management")
-        print("   3. Tenancy ended yesterday - deposit release should be available!")
+        print("   3. 1-day lease ended yesterday - deposit release should be available!")
         print("   4. Test the deposit release/claim workflow")
         print()
         print("=== UPDATE COMPLETE ===")
