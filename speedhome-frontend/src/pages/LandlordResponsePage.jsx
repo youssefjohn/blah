@@ -91,11 +91,12 @@ const LandlordResponsePage = () => {
         body: JSON.stringify(responseData)
       });
 
-      if (response.ok) {
+      // Handle both successful responses and redirects (302)
+      if (response.ok || response.status === 302) {
         alert('Response submitted successfully!');
         navigate(`/deposit/${depositId}/manage`);
       } else {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
         alert(`Error: ${errorData.message || 'Failed to submit response'}`);
       }
     } catch (error) {
