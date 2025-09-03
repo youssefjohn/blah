@@ -130,6 +130,15 @@ def landlord_respond_to_disputes(deposit_id):
         
         print(f"DEBUG: Deposit status updated to {deposit.status}")
         
+        # Trigger fund release for resolved claims
+        try:
+            print(f"DEBUG: Triggering fund release for resolved claims...")
+            fund_release_service.process_resolved_claims(deposit_id)
+            print(f"DEBUG: Fund release processing completed")
+        except Exception as fund_error:
+            print(f"WARNING: Fund release failed: {fund_error}")
+            # Don't fail the whole request if fund release fails
+        
         return jsonify({
             'message': 'Landlord response submitted successfully',
             'deposit_status': deposit.status,
