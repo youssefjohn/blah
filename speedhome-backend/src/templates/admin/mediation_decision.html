@@ -1,0 +1,122 @@
+{% extends 'admin/master.html' %}
+
+{% block body %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <h2>Mediation Decision: {{ claim.title }}</h2>
+            
+            <!-- Case Overview -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h4>Case Overview</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Claim ID:</strong> {{ claim.id }}</p>
+                            <p><strong>Property:</strong> {{ deposit.property.title if deposit.property else 'N/A' }}</p>
+                            <p><strong>Landlord:</strong> {{ landlord.first_name }} {{ landlord.last_name }} ({{ landlord.username }})</p>
+                            <p><strong>Tenant:</strong> {{ tenant.first_name }} {{ tenant.last_name }} ({{ tenant.username }})</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Claimed Amount:</strong> RM {{ "%.2f"|format(claim.claimed_amount) }}</p>
+                            <p><strong>Tenant Counter-Offer:</strong> RM {{ "%.2f"|format(claim.tenant_counter_amount) if claim.tenant_counter_amount else 'N/A' }}</p>
+                            <p><strong>Status:</strong> {{ claim.status.value }}</p>
+                            <p><strong>Created:</strong> {{ claim.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dispute Details -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h4>Dispute Details</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5>Landlord's Claim</h5>
+                            <p><strong>Description:</strong> {{ claim.description or 'No description provided' }}</p>
+                            <p><strong>Comments:</strong> {{ claim.landlord_comments or 'No comments provided' }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h5>Tenant's Response</h5>
+                            <p><strong>Response Type:</strong> {{ claim.tenant_response or 'No response' }}</p>
+                            <p><strong>Explanation:</strong> {{ claim.tenant_explanation or 'No explanation provided' }}</p>
+                            {% if claim.tenant_counter_amount %}
+                            <p><strong>Counter-Offer:</strong> RM {{ "%.2f"|format(claim.tenant_counter_amount) }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Decision Form -->
+            <div class="card">
+                <div class="card-header">
+                    <h4>Make Mediation Decision</h4>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('admin_mediation.process_mediation_decision', id=claim.id) }}">
+                        <div class="form-group">
+                            <label><strong>Decision:</strong></label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="decision" value="award_full" id="award_full">
+                                <label class="form-check-label" for="award_full">
+                                    Award Full Amount to Landlord (RM {{ "%.2f"|format(claim.claimed_amount) }})
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="decision" value="award_partial" id="award_partial">
+                                <label class="form-check-label" for="award_partial">
+                                    Award Partial Amount to Landlord
+                                </label>
+                                <div class="mt-2" id="partial_amount_input" style="display: none;">
+                                    <input type="number" class="form-control" name="custom_amount" placeholder="Enter amount (RM)" step="0.01" min="0" max="{{ claim.claimed_amount }}">
+                                </div>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="decision" value="reject_claim" id="reject_claim">
+                                <label class="form-check-label" for="reject_claim">
+                                    Reject Claim - Refund Full Amount to Tenant (RM {{ "%.2f"|format(claim.claimed_amount) }})
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="admin_notes"><strong>Admin Notes/Reasoning:</strong></label>
+                            <textarea class="form-control" name="admin_notes" id="admin_notes" rows="4" placeholder="Explain the reasoning for this decision..."></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <button type="submit" class="btn btn-primary">Submit Decision</button>
+                            <a href="{{ url_for('admin_mediation.index_view') }}" class="btn btn-secondary">Cancel</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Show/hide partial amount input
+document.addEventListener('DOMContentLoaded', function() {
+    const partialRadio = document.getElementById('award_partial');
+    const partialInput = document.getElementById('partial_amount_input');
+    
+    document.querySelectorAll('input[name="decision"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            if (partialRadio.checked) {
+                partialInput.style.display = 'block';
+            } else {
+                partialInput.style.display = 'none';
+            }
+        });
+    });
+});
+</script>
+{% endblock %}
+

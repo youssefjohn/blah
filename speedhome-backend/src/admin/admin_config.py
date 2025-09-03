@@ -120,6 +120,11 @@ class MediationClaimsAdminView(AdminAuthMixin, ModelView):
         'tenant_counter_amount': 'Tenant Counter-Offer'
     }
     
+    # Add custom action buttons for mediation decisions
+    column_extra_row_actions = [
+        ('mediation_decision', 'Mediate', 'Are you sure you want to review this case?')
+    ]
+    
     def get_query(self):
         """Only show claims that are in mediation (under_review status)"""
         from ..models.deposit_claim import DepositClaimStatus
@@ -133,6 +138,67 @@ class MediationClaimsAdminView(AdminAuthMixin, ModelView):
         return super(MediationClaimsAdminView, self).get_count_query().filter(
             self.model.status == DepositClaimStatus.UNDER_REVIEW
         )
+    
+    @expose('/mediation/<int:id>')
+    def mediation_decision_view(self, id):
+        """Custom view for making mediation decisions"""
+        from ..models.deposit_claim import DepositClaim
+        from ..models.deposit_transaction import DepositTransaction
+        
+        claim = DepositClaim.query.get_or_404(id)
+        deposit = DepositTransaction.query.get(claim.deposit_transaction_id)
+        
+        # Get tenant and landlord info
+        from ..models.user import User
+        tenant = User.query.get(deposit.tenant_id)
+        landlord = User.query.get(deposit.landlord_id)
+        
+        return self.render('admin/mediation_decision.html', 
+                         claim=claim, 
+                         deposit=deposit,
+                         tenant=tenant,
+                         landlord=landlord)
+    
+    @expose('/mediation/<int:id>/decide', methods=['POST'])
+    def process_mediation_decision(self, id):
+        """Process admin mediation decision"""
+        from flask import request, flash, redirect, url_for
+        from ..models.deposit_claim import DepositClaim, DepositClaimStatus
+        from ..models.user import db
+        from datetime import datetime
+        
+        claim = DepositClaim.query.get_or_404(id)
+        
+        decision = request.form.get('decision')
+        admin_notes = request.form.get('admin_notes', '')
+        custom_amount = request.form.get('custom_amount')
+        
+        try:
+            if decision == 'award_full':
+                claim.approved_amount = claim.claimed_amount
+                claim.status = DepositClaimStatus.RESOLVED
+                claim.resolution_notes = f"Admin Decision: Full amount awarded to landlord. {admin_notes}".strip()
+                
+            elif decision == 'award_partial':
+                claim.approved_amount = float(custom_amount) if custom_amount else 0
+                claim.status = DepositClaimStatus.RESOLVED
+                claim.resolution_notes = f"Admin Decision: Partial amount (RM {claim.approved_amount}) awarded to landlord. {admin_notes}".strip()
+                
+            elif decision == 'reject_claim':
+                claim.approved_amount = 0
+                claim.status = DepositClaimStatus.RESOLVED
+                claim.resolution_notes = f"Admin Decision: Claim rejected, full amount refunded to tenant. {admin_notes}".strip()
+            
+            claim.updated_at = datetime.utcnow()
+            db.session.commit()
+            
+            flash(f'Mediation decision processed successfully for claim: {claim.title}', 'success')
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error processing decision: {str(e)}', 'error')
+        
+        return redirect(url_for('admin_mediation.index_view'))
 
 class DepositClaimAdminView(AdminAuthMixin, ModelView):
     """Admin view for all Deposit Claims"""

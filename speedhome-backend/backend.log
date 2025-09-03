@@ -274,3 +274,245 @@ INFO:src.services.background_jobs:Starting background job scheduler...
 INFO:src.services.background_jobs:Background job scheduler started successfully
 WARNING:werkzeug: * Debugger is active!
 INFO:werkzeug: * Debugger PIN: 101-490-343
+INFO:werkzeug: * Detected change in '/home/ubuntu/blah/speedhome-backend/src/routes/deposit.py', reloading
+Startup: No agreements to expire
+Initializing property lifecycle background scheduler...
+✅ Background scheduler started successfully
+Starting deposit background jobs...
+✅ Deposit background jobs started successfully
+INFO:werkzeug: * Restarting with stat
+Failed to connect to S3: An error occurred (403) when calling the HeadBucket operation: Forbidden
+INFO:src.services.background_scheduler:🚀 Starting background job scheduler...
+INFO:src.services.background_scheduler:🔄 Scheduler loop started
+INFO:src.services.background_scheduler:✅ Background scheduler started successfully
+INFO:src.services.background_jobs:Starting background job scheduler...
+INFO:src.services.background_jobs:Background job scheduler started successfully
+WARNING:werkzeug: * Debugger is active!
+INFO:werkzeug: * Debugger PIN: 101-490-343
+INFO:werkzeug: * Detected change in '/home/ubuntu/blah/speedhome-backend/src/routes/deposit.py', reloading
+Startup: No agreements to expire
+Initializing property lifecycle background scheduler...
+✅ Background scheduler started successfully
+Starting deposit background jobs...
+✅ Deposit background jobs started successfully
+INFO:werkzeug: * Restarting with stat
+Failed to connect to S3: An error occurred (403) when calling the HeadBucket operation: Forbidden
+INFO:src.services.background_scheduler:🚀 Starting background job scheduler...
+INFO:src.services.background_scheduler:🔄 Scheduler loop started
+INFO:src.services.background_scheduler:✅ Background scheduler started successfully
+INFO:src.services.background_jobs:Starting background job scheduler...
+INFO:src.services.background_jobs:Background job scheduler started successfully
+WARNING:werkzeug: * Debugger is active!
+INFO:werkzeug: * Debugger PIN: 101-490-343
+INFO:werkzeug:127.0.0.1 - - [03/Sep/2025 13:21:40] "[31m[1mPOST /api/deposits/test HTTP/1.1[0m" 405 -
+INFO:werkzeug: * Detected change in '/home/ubuntu/blah/speedhome-backend/src/routes/deposit.py', reloading
+Startup: No agreements to expire
+Initializing property lifecycle background scheduler...
+✅ Background scheduler started successfully
+Starting deposit background jobs...
+✅ Deposit background jobs started successfully
+INFO:werkzeug: * Restarting with stat
+Failed to connect to S3: An error occurred (403) when calling the HeadBucket operation: Forbidden
+INFO:src.services.background_scheduler:🚀 Starting background job scheduler...
+INFO:src.services.background_scheduler:🔄 Scheduler loop started
+INFO:src.services.background_scheduler:✅ Background scheduler started successfully
+INFO:src.services.background_jobs:Starting background job scheduler...
+INFO:src.services.background_jobs:Background job scheduler started successfully
+WARNING:werkzeug: * Debugger is active!
+INFO:werkzeug: * Debugger PIN: 101-490-343
+INFO:werkzeug: * Detected change in '/home/ubuntu/blah/speedhome-backend/src/routes/deposit.py', reloading
+Startup: No agreements to expire
+Initializing property lifecycle background scheduler...
+✅ Background scheduler started successfully
+Starting deposit background jobs...
+✅ Deposit background jobs started successfully
+INFO:werkzeug: * Restarting with stat
+Failed to connect to S3: An error occurred (403) when calling the HeadBucket operation: Forbidden
+INFO:src.services.background_scheduler:🚀 Starting background job scheduler...
+INFO:src.services.background_scheduler:🔄 Scheduler loop started
+INFO:src.services.background_scheduler:✅ Background scheduler started successfully
+INFO:src.services.background_jobs:Starting background job scheduler...
+INFO:src.services.background_jobs:Background job scheduler started successfully
+WARNING:werkzeug: * Debugger is active!
+INFO:werkzeug: * Debugger PIN: 101-490-343
+INFO:werkzeug:127.0.0.1 - - [03/Sep/2025 13:25:13] "POST /api/deposits/test HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [03/Sep/2025 13:25:18] "[31m[1mPOST /api/deposits/1/landlord-respond HTTP/1.1[0m" 401 -
+INFO:werkzeug: * Detected change in '/home/ubuntu/blah/speedhome-backend/src/routes/deposit.py', reloading
+Startup: No agreements to expire
+Initializing property lifecycle background scheduler...
+✅ Background scheduler started successfully
+Starting deposit background jobs...
+✅ Deposit background jobs started successfully
+INFO:werkzeug: * Restarting with stat
+Failed to connect to S3: An error occurred (403) when calling the HeadBucket operation: Forbidden
+INFO:src.services.background_scheduler:🚀 Starting background job scheduler...
+INFO:src.services.background_scheduler:🔄 Scheduler loop started
+INFO:src.services.background_scheduler:✅ Background scheduler started successfully
+INFO:src.services.background_jobs:Starting background job scheduler...
+INFO:src.services.background_jobs:Background job scheduler started successfully
+WARNING:werkzeug: * Debugger is active!
+INFO:werkzeug: * Debugger PIN: 101-490-343
+INFO:werkzeug: * Detected change in '/home/ubuntu/blah/speedhome-backend/src/routes/deposit.py', reloading
+Startup: No agreements to expire
+Initializing property lifecycle background scheduler...
+✅ Background scheduler started successfully
+Starting deposit background jobs...
+✅ Deposit background jobs started successfully
+INFO:werkzeug: * Restarting with stat
+Failed to connect to S3: An error occurred (403) when calling the HeadBucket operation: Forbidden
+INFO:src.services.background_scheduler:🚀 Starting background job scheduler...
+INFO:src.services.background_scheduler:🔄 Scheduler loop started
+INFO:src.services.background_scheduler:✅ Background scheduler started successfully
+INFO:src.services.background_jobs:Starting background job scheduler...
+INFO:src.services.background_jobs:Background job scheduler started successfully
+WARNING:werkzeug: * Debugger is active!
+INFO:werkzeug: * Debugger PIN: 101-490-343
+INFO:werkzeug: * Detected change in '/home/ubuntu/blah/speedhome-backend/src/routes/deposit.py', reloading
+Startup: No agreements to expire
+Initializing property lifecycle background scheduler...
+✅ Background scheduler started successfully
+Starting deposit background jobs...
+✅ Deposit background jobs started successfully
+INFO:werkzeug: * Restarting with stat
+Failed to connect to S3: An error occurred (403) when calling the HeadBucket operation: Forbidden
+INFO:src.services.background_scheduler:🚀 Starting background job scheduler...
+INFO:src.services.background_scheduler:🔄 Scheduler loop started
+INFO:src.services.background_scheduler:✅ Background scheduler started successfully
+INFO:src.services.background_jobs:Starting background job scheduler...
+INFO:src.services.background_jobs:Background job scheduler started successfully
+WARNING:werkzeug: * Debugger is active!
+INFO:werkzeug: * Debugger PIN: 101-490-343
+INFO:werkzeug:127.0.0.1 - - [03/Sep/2025 13:36:41] "POST /api/deposits/test HTTP/1.1" 200 -
+INFO:werkzeug: * Detected change in '/home/ubuntu/blah/speedhome-backend/src/routes/deposit.py', reloading
+Startup: No agreements to expire
+Initializing property lifecycle background scheduler...
+✅ Background scheduler started successfully
+Starting deposit background jobs...
+✅ Deposit background jobs started successfully
+INFO:werkzeug: * Restarting with stat
+Failed to connect to S3: An error occurred (403) when calling the HeadBucket operation: Forbidden
+INFO:src.services.background_scheduler:🚀 Starting background job scheduler...
+INFO:src.services.background_scheduler:🔄 Scheduler loop started
+INFO:src.services.background_scheduler:✅ Background scheduler started successfully
+INFO:src.services.background_jobs:Starting background job scheduler...
+INFO:src.services.background_jobs:Background job scheduler started successfully
+WARNING:werkzeug: * Debugger is active!
+INFO:werkzeug: * Debugger PIN: 101-490-343
+INFO:src.services.background_scheduler:⏰ Running hourly property lifecycle and deposit checks...
+INFO:src.services.background_scheduler:⏰ Running hourly property lifecycle and deposit checks...
+INFO:services.property_lifecycle_service:🔄 Starting future availability check...
+INFO:services.property_lifecycle_service:🔄 Starting future availability check...
+ERROR:services.property_lifecycle_service:❌ Error in future availability check: The current Flask app is not registered with this 'SQLAlchemy' instance. Did you forget to call 'init_app', or did you create multiple 'SQLAlchemy' instances?
+ERROR:services.property_lifecycle_service:❌ Error in future availability check: The current Flask app is not registered with this 'SQLAlchemy' instance. Did you forget to call 'init_app', or did you create multiple 'SQLAlchemy' instances?
+INFO:services.property_lifecycle_service:🔄 Checking deposit claim deadlines...
+INFO:services.property_lifecycle_service:🔄 Checking deposit claim deadlines...
+ERROR:services.property_lifecycle_service:❌ Error in deposit claim deadlines check: The current Flask app is not registered with this 'SQLAlchemy' instance. Did you forget to call 'init_app', or did you create multiple 'SQLAlchemy' instances?
+ERROR:services.property_lifecycle_service:❌ Error in deposit claim deadlines check: The current Flask app is not registered with this 'SQLAlchemy' instance. Did you forget to call 'init_app', or did you create multiple 'SQLAlchemy' instances?
+INFO:services.property_lifecycle_service:🔄 Checking deposit dispute deadlines...
+INFO:services.property_lifecycle_service:🔄 Checking deposit dispute deadlines...
+ERROR:services.property_lifecycle_service:❌ Error in deposit dispute deadlines check: The current Flask app is not registered with this 'SQLAlchemy' instance. Did you forget to call 'init_app', or did you create multiple 'SQLAlchemy' instances?
+ERROR:services.property_lifecycle_service:❌ Error in deposit dispute deadlines check: The current Flask app is not registered with this 'SQLAlchemy' instance. Did you forget to call 'init_app', or did you create multiple 'SQLAlchemy' instances?
+INFO:src.services.background_jobs:Starting expired deposit processing...
+INFO:src.services.background_jobs:Starting expired deposit processing...
+ERROR:src.services.deposit_deadline_service:Error checking expired deposits: Working outside of application context.
+
+This typically means that you attempted to use functionality that needed
+the current application. To solve this, set up an application context
+with app.app_context(). See the documentation for more information.
+ERROR:src.services.deposit_deadline_service:Error checking expired deposits: Working outside of application context.
+
+This typically means that you attempted to use functionality that needed
+the current application. To solve this, set up an application context
+with app.app_context(). See the documentation for more information.
+INFO:werkzeug: * Detected change in '/home/ubuntu/blah/speedhome-backend/src/routes/deposit.py', reloading
+Startup: No agreements to expire
+Initializing property lifecycle background scheduler...
+✅ Background scheduler started successfully
+Starting deposit background jobs...
+✅ Deposit background jobs started successfully
+INFO:werkzeug: * Restarting with stat
+Failed to connect to S3: An error occurred (403) when calling the HeadBucket operation: Forbidden
+INFO:src.services.background_scheduler:🚀 Starting background job scheduler...
+INFO:src.services.background_scheduler:🔄 Scheduler loop started
+INFO:src.services.background_scheduler:✅ Background scheduler started successfully
+INFO:src.services.background_jobs:Starting background job scheduler...
+INFO:src.services.background_jobs:Background job scheduler started successfully
+WARNING:werkzeug: * Debugger is active!
+INFO:werkzeug: * Debugger PIN: 101-490-343
+INFO:werkzeug: * Detected change in '/home/ubuntu/blah/speedhome-backend/src/services/fund_release_service.py', reloading
+Startup: No agreements to expire
+Initializing property lifecycle background scheduler...
+✅ Background scheduler started successfully
+Starting deposit background jobs...
+✅ Deposit background jobs started successfully
+INFO:werkzeug: * Restarting with stat
+Failed to connect to S3: An error occurred (403) when calling the HeadBucket operation: Forbidden
+INFO:src.services.background_scheduler:🚀 Starting background job scheduler...
+INFO:src.services.background_scheduler:🔄 Scheduler loop started
+INFO:src.services.background_scheduler:✅ Background scheduler started successfully
+INFO:src.services.background_jobs:Starting background job scheduler...
+INFO:src.services.background_jobs:Background job scheduler started successfully
+WARNING:werkzeug: * Debugger is active!
+INFO:werkzeug: * Debugger PIN: 101-490-343
+INFO:werkzeug: * Detected change in '/home/ubuntu/blah/speedhome-backend/src/services/fund_release_service.py', reloading
+Startup: No agreements to expire
+Initializing property lifecycle background scheduler...
+✅ Background scheduler started successfully
+Starting deposit background jobs...
+✅ Deposit background jobs started successfully
+INFO:werkzeug: * Restarting with stat
+Failed to connect to S3: An error occurred (403) when calling the HeadBucket operation: Forbidden
+INFO:src.services.background_scheduler:🚀 Starting background job scheduler...
+INFO:src.services.background_scheduler:🔄 Scheduler loop started
+INFO:src.services.background_scheduler:✅ Background scheduler started successfully
+INFO:src.services.background_jobs:Starting background job scheduler...
+INFO:src.services.background_jobs:Background job scheduler started successfully
+WARNING:werkzeug: * Debugger is active!
+INFO:werkzeug: * Debugger PIN: 101-490-343
+INFO:werkzeug: * Detected change in '/home/ubuntu/blah/speedhome-backend/src/admin/admin_config.py', reloading
+Startup: No agreements to expire
+Initializing property lifecycle background scheduler...
+✅ Background scheduler started successfully
+Starting deposit background jobs...
+✅ Deposit background jobs started successfully
+INFO:werkzeug: * Restarting with stat
+Failed to connect to S3: An error occurred (403) when calling the HeadBucket operation: Forbidden
+INFO:src.services.background_scheduler:🚀 Starting background job scheduler...
+INFO:src.services.background_scheduler:🔄 Scheduler loop started
+INFO:src.services.background_scheduler:✅ Background scheduler started successfully
+INFO:src.services.background_jobs:Starting background job scheduler...
+INFO:src.services.background_jobs:Background job scheduler started successfully
+WARNING:werkzeug: * Debugger is active!
+INFO:werkzeug: * Debugger PIN: 101-490-343
+INFO:werkzeug: * Detected change in '/home/ubuntu/blah/speedhome-backend/src/admin/admin_config.py', reloading
+Startup: No agreements to expire
+Initializing property lifecycle background scheduler...
+✅ Background scheduler started successfully
+Starting deposit background jobs...
+✅ Deposit background jobs started successfully
+INFO:werkzeug: * Restarting with stat
+Failed to connect to S3: An error occurred (403) when calling the HeadBucket operation: Forbidden
+Traceback (most recent call last):
+  File "/home/ubuntu/blah/speedhome-backend/src/main.py", line 91, in <module>
+    admin = init_admin(app)
+            ^^^^^^^^^^^^^^^
+  File "/home/ubuntu/blah/speedhome-backend/src/admin/admin_config.py", line 156, in init_admin
+    return setup_admin(app, db)
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/blah/speedhome-backend/src/admin/admin_config.py", line 168, in setup_admin
+    admin.add_view(NotificationAdminView(Notification, db.session, name='Notifications', category='System', endpoint='admin_notifications'))
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/dist-packages/flask_admin/contrib/sqla/view.py", line 342, in __init__
+    super(ModelView, self).__init__(model, name, category, endpoint, url, static_folder,
+  File "/usr/local/lib/python3.11/dist-packages/flask_admin/model/base.py", line 818, in __init__
+    self._refresh_cache()
+  File "/usr/local/lib/python3.11/dist-packages/flask_admin/model/base.py", line 913, in _refresh_cache
+    self._search_supported = self.init_search()
+                             ^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/dist-packages/flask_admin/contrib/sqla/view.py", line 591, in init_search
+    attr, joins = tools.get_field_with_path(self.model, name)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/dist-packages/flask_admin/contrib/sqla/tools.py", line 160, in get_field_with_path
+    value = getattr(current_model, attribute)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: type object 'Notification' has no attribute 'title'
