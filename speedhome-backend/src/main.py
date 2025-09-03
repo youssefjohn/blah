@@ -93,13 +93,18 @@ admin = init_admin(app)
 # ✅ The db.create_all() call has been removed to let Flask-Migrate handle the schema.
 
 # --- SERVE STATIC FILES (FOR PRODUCTION) ---
+@app.route('/uploads/<path:filename>')
+def uploaded_file(filename):
+    """Serve uploaded files"""
+    uploads_dir = os.path.join(app.root_path, '..', 'uploads')
+    return send_from_directory(uploads_dir, filename)
+
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
-def serve(path):
+def serve_react_app(path):
     static_folder_path = app.static_folder
     if static_folder_path is None:
         return "Static folder not configured", 404
-
     if path != "" and os.path.exists(os.path.join(static_folder_path, path)):
         return send_from_directory(static_folder_path, path)
     else:
