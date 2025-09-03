@@ -97,8 +97,16 @@ const DepositDisputePage = () => {
           return;
         }
 
-        // Filter claims to only show those that need tenant responses
-        const pendingClaims = data.claims.filter(claim => 
+        // Filter claims based on mode:
+        // - If all claims are responded to (read-only mode), show all claims
+        // - If some claims need responses, show only pending ones
+        const allClaims = data.claims || [];
+        const allResponded = allClaims.every(claim => 
+          claim.tenant_response && 
+          !['submitted', 'tenant_notified', 'pending_response'].includes(claim.status?.toLowerCase())
+        );
+        
+        const claimsToShow = allResponded ? allClaims : allClaims.filter(claim => 
           !claim.tenant_response || 
           claim.status === 'submitted' || 
           claim.status === 'tenant_notified' ||
@@ -106,15 +114,18 @@ const DepositDisputePage = () => {
         );
         
         // --- FIX: Set the new state variables from the API response ---
-        setClaims(pendingClaims);
+        setClaims(claimsToShow);
         setPageData({
           property_address: data.property_address,
           landlord_name: data.landlord_name,
           deposit_amount: data.deposit_amount,
           created_at: data.claims[0]?.created_at, // Use first claim for general dates
           response_deadline: data.claims[0]?.tenant_response_deadline,
-          total_claims: data.claims.length,
-          pending_claims: pendingClaims.length,
+          total_claims: allClaims.length,
+          pending_claims: allClaims.filter(claim => 
+            !claim.tenant_response || 
+            ['submitted', 'tenant_notified', 'pending_response'].includes(claim.status?.toLowerCase())
+          ).length,
           inspection_status: data.inspection_status
         });
       } else {
@@ -145,6 +156,17 @@ const DepositDisputePage = () => {
 
   const calculateTotalAccepted = () => {
     return claims.reduce((total, item) => {
+      // In read-only mode, use actual claim status
+      if (isReadOnlyMode()) {
+        if (item.status?.toLowerCase() === 'accepted') {
+          return total + item.claimed_amount;
+        } else if (item.tenant_response === 'partial_accept' && item.tenant_counter_amount) {
+          return total + parseFloat(item.tenant_counter_amount);
+        }
+        return total;
+      }
+      
+      // In editable mode, use current responses
       const response = responses[item.id];
       if (response?.response === 'accept') {
         return total + item.claimed_amount;
@@ -157,6 +179,21 @@ const DepositDisputePage = () => {
 
   const calculateTotalDisputed = () => {
     return claims.reduce((total, item) => {
+      // In read-only mode, use actual claim status
+      if (isReadOnlyMode()) {
+        if (item.status?.toLowerCase() === 'disputed') {
+          if (item.tenant_response === 'partial_accept' && item.tenant_counter_amount) {
+            // For partial accepts, disputed amount is the difference
+            return total + (item.claimed_amount - parseFloat(item.tenant_counter_amount));
+          } else {
+            // For full disputes, the entire amount is disputed
+            return total + item.claimed_amount;
+          }
+        }
+        return total;
+      }
+      
+      // In editable mode, use current responses
       const response = responses[item.id];
       if (response?.response === 'reject') {
         return total + item.claimed_amount;
