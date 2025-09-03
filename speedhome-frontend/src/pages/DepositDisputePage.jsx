@@ -714,7 +714,6 @@ const DepositDisputePage = () => {
               </div>
             )}
           </div>
-          </div>
         )}
       </div>
     </div>
