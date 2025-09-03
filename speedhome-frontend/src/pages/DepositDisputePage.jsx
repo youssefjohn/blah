@@ -656,8 +656,7 @@ const DepositDisputePage = () => {
                   </div>
                 )}
               </div>
-            )}
-          </div>
+            </div>
 
             {isTenant() && (
               <div className="bg-white shadow rounded-lg p-6">
@@ -713,7 +712,6 @@ const DepositDisputePage = () => {
                 </div>
               </div>
             )}
-          </div>
           </div>
         )}
       </div>

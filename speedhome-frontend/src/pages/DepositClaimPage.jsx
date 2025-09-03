@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import DepositAPI from '../services/DepositAPI';
 
 const DepositClaimPage = () => {
   const { depositId } = useParams();
@@ -77,9 +78,32 @@ const DepositClaimPage = () => {
     ));
   };
 
-  const handleFileUpload = async (id, field, files) => {
-    const fileNames = Array.from(files).map(file => file.name);
-    updateClaimItem(id, field, fileNames);
+  const handleEvidenceUploadSuccess = (claimItemId, evidenceType, fileData) => {
+    setClaimItems(claimItems.map(item => 
+      item.id === claimItemId ? { 
+        ...item, 
+        [evidenceType === 'photo' ? 'evidence_photos' : 'evidence_documents']: [
+          ...(item[evidenceType === 'photo' ? 'evidence_photos' : 'evidence_documents'] || []),
+          fileData
+        ]
+      } : item
+    ));
+  };
+
+  const handleEvidenceUploadError = (claimItemId, evidenceType, error) => {
+    console.error(`Evidence upload error for ${evidenceType}:`, error);
+    // You could show a toast notification here
+  };
+
+  const handleEvidenceDelete = (claimItemId, evidenceType, fileId) => {
+    setClaimItems(claimItems.map(item => 
+      item.id === claimItemId ? { 
+        ...item, 
+        [evidenceType === 'photo' ? 'evidence_photos' : 'evidence_documents']: 
+          (item[evidenceType === 'photo' ? 'evidence_photos' : 'evidence_documents'] || [])
+            .filter(file => file.id !== fileId)
+      } : item
+    ));
   };
 
   const calculateTotalClaimed = () => {
@@ -305,37 +329,33 @@ const DepositClaimPage = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Upload Photos
+                          Upload Photos (Temporarily Disabled for Testing)
                         </label>
                         <input
                           type="file"
                           multiple
                           accept="image/*"
-                          onChange={(e) => handleFileUpload(item.id, 'evidence_photos', e.target.files)}
-                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                          disabled
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm opacity-50"
                         />
-                        {item.evidence_photos.length > 0 && (
-                          <p className="text-xs text-gray-500 mt-1">
-                            {item.evidence_photos.length} photo(s) selected
-                          </p>
-                        )}
+                        <p className="text-xs text-gray-500 mt-1">
+                          File upload functionality being implemented
+                        </p>
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Upload Documents
+                          Upload Documents (Temporarily Disabled for Testing)
                         </label>
                         <input
                           type="file"
                           multiple
                           accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                          onChange={(e) => handleFileUpload(item.id, 'evidence_documents', e.target.files)}
-                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                          disabled
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm opacity-50"
                         />
-                        {item.evidence_documents.length > 0 && (
-                          <p className="text-xs text-gray-500 mt-1">
-                            {item.evidence_documents.length} document(s) selected
-                          </p>
-                        )}
+                        <p className="text-xs text-gray-500 mt-1">
+                          File upload functionality being implemented
+                        </p>
                       </div>
                     </div>
                   </div>
