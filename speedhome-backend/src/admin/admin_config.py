@@ -102,7 +102,7 @@ class NotificationAdminView(AdminAuthMixin, ModelView):
 class DepositTransactionAdminView(AdminAuthMixin, ModelView):
     """Admin view for Deposit Transactions"""
     column_list = ['id', 'property_id', 'tenant_id', 'landlord_id', 'amount', 'status', 'created_at']
-    column_searchable_list = ['property.address', 'tenant.username', 'landlord.username']
+    column_searchable_list = []  # Remove searchable fields that reference relationships
     column_filters = ['status', 'created_at']
     column_labels = {
         'property_id': 'Property',
@@ -112,14 +112,12 @@ class DepositTransactionAdminView(AdminAuthMixin, ModelView):
 
 class MediationClaimsAdminView(AdminAuthMixin, ModelView):
     """Admin view for Claims requiring mediation"""
-    column_list = ['id', 'title', 'claimed_amount', 'tenant_counter_amount', 'status', 'created_at', 'tenant_response', 'landlord_response']
+    column_list = ['id', 'title', 'claimed_amount', 'tenant_counter_amount', 'status', 'created_at']
     column_searchable_list = ['title', 'description']
     column_filters = ['status', 'claim_type', 'created_at']
     column_labels = {
         'claimed_amount': 'Claimed Amount',
-        'tenant_counter_amount': 'Tenant Counter-Offer',
-        'tenant_response': 'Tenant Response',
-        'landlord_response': 'Landlord Response'
+        'tenant_counter_amount': 'Tenant Counter-Offer'
     }
     
     def get_query(self):
