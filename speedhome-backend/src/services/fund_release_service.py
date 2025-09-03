@@ -239,12 +239,20 @@ class FundReleaseService:
                 if claim.status == DepositClaimStatus.UNDER_REVIEW
             )
             
+            # Calculate claim reductions (difference between claimed and approved amounts)
+            claim_reductions = sum(
+                float(claim.claimed_amount) - float(claim.approved_amount or claim.claimed_amount)
+                for claim in claims 
+                if claim.status == DepositClaimStatus.RESOLVED and claim.approved_amount is not None
+            )
+            
             # Calculate released amounts based on actual claim statuses
             # Released to landlord = accepted claims + resolved claims (using approved amounts)
             released_to_landlord = accepted_amount + resolved_amount
             
-            # Refunded to tenant = undisputed balance (already calculated and released)
-            refunded_to_tenant = total_deposit - total_claimed
+            # Refunded to tenant = undisputed balance + claim reductions
+            # Claim reductions = money saved when landlord accepts lower counter-offers
+            refunded_to_tenant = (total_deposit - total_claimed) + claim_reductions
             
             # Calculate remaining in escrow = disputed + mediation amounts
             remaining_in_escrow = disputed_amount + mediation_amount
