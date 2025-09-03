@@ -32,7 +32,8 @@ class BackgroundJobsService:
         logger.info("Starting background job scheduler...")
         
         # Schedule deposit expiry checks every hour
-        schedule.every().hour.do(self._process_expired_deposits)
+        # TEMPORARILY DISABLED FOR TESTING EVIDENCE UPLOAD
+        # schedule.every().hour.do(self._process_expired_deposits)
         
         # Schedule daily cleanup at 2 AM
         schedule.every().day.at("02:00").do(self._daily_cleanup)
