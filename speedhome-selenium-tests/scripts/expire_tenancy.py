@@ -37,9 +37,9 @@ try:
         # Store original dates for reference
         original_end_date = agreement.lease_end_date
 
-        # Set lease end date to a random day in the next 1-5 days
-        days_in_future = random.randint(1, 5)
-        new_end_date = date.today() + timedelta(days=days_in_future)
+        # Set lease end date to a random day in the past 1-5 days (for deposit testing)
+        days_in_past = random.randint(1, 5)
+        new_end_date = date.today() - timedelta(days=days_in_past)
         agreement.lease_end_date = new_end_date
 
         # Also update the lease start date to be in the past if needed
@@ -55,13 +55,13 @@ try:
         print(f"   👤 Tenant: {agreement.tenant_full_name}")
         print(f"   👤 Landlord: {agreement.landlord_full_name}")
         print(f"   📅 Original End Date: {original_end_date}")
-        print(f"   📅 New End Date: {agreement.lease_end_date} (ENDING SOON)")
+        print(f"   📅 New End Date: {agreement.lease_end_date} (TENANCY ENDED)")
         print(f"   💰 Security Deposit: RM {agreement.security_deposit}")
         print()
         print("🎯 READY FOR DEPOSIT TESTING:")
         print("   1. Log in as landlord or tenant")
         print("   2. Navigate to deposit management")
-        print("   3. You should now see deposit release options!")
+        print("   3. Tenancy has ended - deposit release should be available!")
         print("   4. Test the deposit release/claim workflow")
         print()
         print("=== UPDATE COMPLETE ===")
