@@ -147,21 +147,8 @@ if __name__ == '__main__':
         print("✅ Deposit background jobs started successfully")
     except Exception as e:
         print(f"❌️ Failed to start deposit background jobs: {str(e)}")
-        print("Application will continue without deposit background procif __name__ == '__main__':
-    # Initialize and start background scheduler
-    try:
-        from src.services.background_scheduler import init_scheduler, start_scheduler
-        print("Initializing property lifecycle background scheduler...")
-        init_scheduler(app)
-        start_scheduler()
-        print("✅ Background scheduler started successfully")
-    except Exception as e:
-        print(f"❌️ Failed to start background scheduler: {str(e)}")
-        print("Application will continue without background jobs")
+        print("Application will continue without deposit background processing")
 
-    app.run(host='0.0.0.0', port=5001, debug=True)outes.file import file_bp
-app.register_blueprint(file_bp, url_prefix=
-'/api/files')
-api/files')
+    app.run(host='0.0.0.0', port=5001, debug=True)
 
 

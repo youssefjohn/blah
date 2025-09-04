@@ -77,7 +77,7 @@ const DepositClaimPage = () => {
     ));
   };
 
-import FileUploadService from "../services/FileUploadService";
+
 
   const handleFileUpload = async (id, field, files) => {
     const uploadedFiles = await Promise.all(
@@ -428,3 +428,6 @@ import FileUploadService from "../services/FileUploadService";
 };
 
 export default DepositClaimPage;
+
+import FileUploadService from "../services/FileUploadService";
+
