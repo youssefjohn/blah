@@ -67,7 +67,8 @@ try:
         print(f"\n📝 UPDATING Agreement {agreement.id}:")
         print(f"   Original Status: {original_status} → New Status: {agreement.status}")
         print(f"   New Start: {agreement.lease_start_date}")
-        print(f"   New End: {agreement.lease_end_date} (yesterday)")Commit the changes
+        print(f"   New End: {agreement.lease_end_date} (yesterday)")
+        # Commit the changes
         db.session.commit()
         print("✅ Database changes committed!")
 
