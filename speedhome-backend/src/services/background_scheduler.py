@@ -13,8 +13,8 @@ import time
 import threading
 from datetime import datetime, timedelta
 # Use full property lifecycle service now that deposit models are working
-from services.property_lifecycle_service import PropertyLifecycleService
-from models.user import db
+from src.services.property_lifecycle_service import PropertyLifecycleService
+from src.models.user import db
 import logging
 
 # Set up logging

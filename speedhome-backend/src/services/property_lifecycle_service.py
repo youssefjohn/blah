@@ -11,7 +11,7 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from datetime import datetime, date, timedelta
 from sqlalchemy import and_, or_
 from flask import current_app
-from src.models.user import db
+from src.models.user import db, User
 from src.models.property import Property, PropertyStatus
 from src.models.tenancy_agreement import TenancyAgreement
 from src.models.notification import Notification
