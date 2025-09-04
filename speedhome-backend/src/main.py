@@ -90,6 +90,17 @@ migrate = Migrate(app, db)
 # Initialize Flask-Admin
 admin = init_admin(app)
 
+# Initialize and start background scheduler for property lifecycle management
+try:
+    from src.services.background_scheduler import init_scheduler, start_scheduler
+    print("Initializing property lifecycle background scheduler...")
+    init_scheduler(app)
+    start_scheduler()
+    print("✅ Background scheduler started successfully")
+except Exception as e:
+    print(f"❌️ Failed to start background scheduler: {str(e)}")
+    print("Application will continue without background jobs")
+
 # ✅ The db.create_all() call has been removed to let Flask-Migrate handle the schema.
 
 # --- SERVE STATIC FILES (FOR PRODUCTION) ---
@@ -127,17 +138,6 @@ if __name__ == '__main__':
                 print("Startup: No agreements to expire")
     except Exception as e:
         print(f"Startup expiry check failed: {str(e)}")
-    
-    # Initialize and start background scheduler for property lifecycle management
-    try:
-        from src.services.background_scheduler import init_scheduler, start_scheduler
-        print("Initializing property lifecycle background scheduler...")
-        init_scheduler(app)
-        start_scheduler()
-        print("✅ Background scheduler started successfully")
-    except Exception as e:
-        print(f"❌️ Failed to start background scheduler: {str(e)}")
-        print("Application will continue without background jobs")
     
     # Initialize and start deposit background jobs
     try:
