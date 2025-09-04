@@ -321,10 +321,6 @@ class FundReleaseService:
             logger.error(f"Error getting deposit breakdown: {e}")
             return None
 
-# Create service instance
-fund_release_service = FundReleaseService()
-
-
     @staticmethod
     def process_resolved_claims(deposit_transaction):
         """
