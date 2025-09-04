@@ -218,6 +218,23 @@ class FundReleaseService:
             total_deposit = float(deposit_transaction.amount)
             total_claimed = sum(float(claim.claimed_amount) for claim in claims)
             
+            # If no claims have been submitted yet, entire deposit should be held in escrow
+            if not claims:
+                return {
+                    'total_deposit': total_deposit,
+                    'total_claimed': 0,
+                    'undisputed_balance': 0,
+                    'accepted_amount': 0,
+                    'resolved_amount': 0,
+                    'disputed_amount': 0,
+                    'mediation_amount': 0,
+                    'released_to_landlord': 0,
+                    'refunded_to_tenant': 0,
+                    'remaining_in_escrow': total_deposit,  # All held in escrow until claims are submitted
+                    'claims': [],
+                    'status': 'awaiting_claims'  # Indicate we're waiting for landlord to submit claims
+                }
+            
             # Calculate amounts by status
             accepted_amount = sum(
                 float(claim.claimed_amount) for claim in claims 
@@ -268,7 +285,8 @@ class FundReleaseService:
                 'released_to_landlord': released_to_landlord,
                 'refunded_to_tenant': refunded_to_tenant,
                 'remaining_in_escrow': max(remaining_in_escrow, 0),
-                'claims': [claim.to_dict() for claim in claims]
+                'claims': [claim.to_dict() for claim in claims],
+                'status': 'claims_submitted'
             }
             
         except Exception as e:
