@@ -23,6 +23,11 @@ try:
     from src.models.tenancy_agreement import TenancyAgreement
     from src.models.deposit_transaction import DepositTransaction
     from src.models.deposit_claim import DepositClaim
+    from src.models.notification import Notification
+    from src.models.conversation import Conversation
+    from src.models.message import Message
+    from src.models.booking import Booking
+    from src.models.viewing_slot import ViewingSlot
 
     with app.app_context():
         print("=== SIMPLE SEED SCRIPT ===")
@@ -31,22 +36,47 @@ try:
         # --- FIX: Create all tables first to ensure they exist ---
         db.create_all()
 
-        print("Creating test data for agreement stage...")
+        print("🧹 COMPLETE DATABASE CLEANUP - Deleting ALL records...")
 
-        # Clear existing data in correct order (child tables first)
-        print("Clearing existing deposit claims...")
+        # Delete ALL records from ALL tables in correct order (child tables first)
+        print("Clearing all messages...")
+        db.session.query(Message).delete()
+        
+        print("Clearing all conversations...")
+        db.session.query(Conversation).delete()
+        
+        print("Clearing all notifications...")
+        db.session.query(Notification).delete()
+        
+        print("Clearing all viewing slots...")
+        db.session.query(ViewingSlot).delete()
+        
+        print("Clearing all bookings...")
+        db.session.query(Booking).delete()
+        
+        print("Clearing all deposit claims...")
         db.session.query(DepositClaim).delete()
-        print("Clearing existing deposit transactions...")
+        
+        print("Clearing all deposit transactions...")
         db.session.query(DepositTransaction).delete()
-        print("Clearing existing tenancy agreements...")
+        
+        print("Clearing all tenancy agreements...")
         db.session.query(TenancyAgreement).delete()
-        print("Clearing existing applications...")
+        
+        print("Clearing all applications...")
         db.session.query(Application).delete()
-        print("Clearing existing properties...")
+        
+        print("Clearing all properties...")
         db.session.query(Property).delete()
-        print("Clearing existing test users...")
-        db.session.query(User).filter(User.email.in_(['landlord@test.com', 'tenant@test.com'])).delete()
+        
+        print("Clearing all users...")
+        db.session.query(User).delete()
+        
+        # Commit the cleanup
         db.session.commit()
+        print("✅ Database completely wiped clean!")
+
+        print("\n🏗️ Creating fresh test data...")
 
         # ... (rest of your script is the same)
         # Create landlord
@@ -138,7 +168,8 @@ try:
         db.session.add(agreement)
         db.session.commit()
 
-        print(f"✅ SUCCESS! Created test data:")
+        print(f"✅ SUCCESS! Created fresh test data from scratch:")
+        print(f"   🧹 Database completely wiped and reset")
         print(f"   👤 Landlord: {landlord.email} (ID: {landlord.id})")
         print(f"   👤 Tenant: {tenant.email} (ID: {tenant.id})")
         print(f"   🏠 Property: {property_obj.title} (ID: {property_obj.id})")
@@ -154,6 +185,9 @@ try:
         print("   4. Pay website fee")
         print("   5. Pay security deposit")
         print("   6. Test deposit management system")
+        print()
+        print(f"📝 NOTE: Agreement ID will always be 1 (fresh database)")
+        print(f"📝 Deposit management URL: /deposit/1/manage")
         print()
         print("=== SEED COMPLETE ===")
 
