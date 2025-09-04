@@ -276,16 +276,30 @@ class FundReleaseService:
             # Calculate what should be held in escrow = disputed + mediation + pending claims
             total_in_escrow = disputed_amount + mediation_amount + pending_amount
             
-            # Refunded to tenant = only the truly undisputed amount (after all claims are resolved)
-            # If there are pending claims, don't refund anything yet - wait for tenant response
-            if pending_amount > 0:
-                # If there are pending claims, don't refund undisputed balance yet
-                refunded_to_tenant = 0
-                remaining_in_escrow = total_in_escrow + (total_deposit - total_claimed)  # Include undisputed balance in escrow
+            # IMPORTANT: Use actual refunded_amount from deposit transaction if it exists
+            # This accounts for automatic releases that happened during finalization
+            actual_refunded_amount = float(deposit_transaction.refunded_amount or 0)
+            actual_released_amount = float(deposit_transaction.released_amount or 0)
+            
+            # If funds have been actually released/refunded, use those amounts
+            if actual_refunded_amount > 0 or actual_released_amount > 0:
+                # Use actual amounts from database
+                refunded_to_tenant = actual_refunded_amount
+                released_to_landlord = actual_released_amount
+                
+                # Calculate remaining in escrow = total - what's been released
+                remaining_in_escrow = total_deposit - refunded_to_tenant - released_to_landlord
             else:
-                # Only refund undisputed balance if no pending claims
-                refunded_to_tenant = (total_deposit - total_claimed) + claim_reductions
-                remaining_in_escrow = total_in_escrow
+                # Refunded to tenant = only the truly undisputed amount (after all claims are resolved)
+                # If there are pending claims, don't refund anything yet - wait for tenant response
+                if pending_amount > 0:
+                    # If there are pending claims, don't refund undisputed balance yet
+                    refunded_to_tenant = 0
+                    remaining_in_escrow = total_in_escrow + (total_deposit - total_claimed)  # Include undisputed balance in escrow
+                else:
+                    # Only refund undisputed balance if no pending claims
+                    refunded_to_tenant = (total_deposit - total_claimed) + claim_reductions
+                    remaining_in_escrow = total_in_escrow
             
             return {
                 'total_deposit': total_deposit,
