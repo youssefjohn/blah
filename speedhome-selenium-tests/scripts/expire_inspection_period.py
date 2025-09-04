@@ -68,7 +68,7 @@ try:
         print(f"   Saved Start: {agreement.lease_start_date}")
         print(f"   Saved End: {agreement.lease_end_date}")
 
-        # Check if deposit transaction exists
+        # Check if deposit transaction exists and trigger finalization
         deposit_transaction = DepositTransaction.query.filter_by(
             tenancy_agreement_id=agreement.id
         ).first()
@@ -92,9 +92,35 @@ try:
             
             if not inspection_period_active:
                 print("✅ SUCCESS: 7-day inspection period has EXPIRED!")
-                print("   - Claims should now be finalized")
-                print("   - Tenant should be able to see and respond to claims")
-                print("   - System should handle automatic fund release")
+                
+                # Import the deadline service to trigger finalization
+                try:
+                    from src.services.deposit_deadline_service import DepositDeadlineService
+                    
+                    print("\n🔄 TRIGGERING AUTOMATIC FINALIZATION...")
+                    finalization_result = DepositDeadlineService.finalize_claims_and_release_funds(deposit_transaction)
+                    
+                    if finalization_result.get('success', False):
+                        print(f"✅ Auto-finalization successful:")
+                        print(f"   - Finalized {finalization_result.get('claims_count', 0)} claims")
+                        print(f"   - Released undisputed balance: RM {finalization_result.get('undisputed_release', 0)}")
+                        print(f"   - Remaining in escrow: RM {finalization_result.get('remaining_escrow', 0)}")
+                    else:
+                        print(f"❌ Auto-finalization failed: {finalization_result.get('error', 'Unknown error')}")
+                        print("   This might be expected if no claims were submitted")
+                        
+                except ImportError as e:
+                    print(f"⚠️  Could not import DepositDeadlineService: {e}")
+                    print("   Manual finalization may be required")
+                except Exception as e:
+                    print(f"❌ Error during finalization: {e}")
+                    print("   You may need to check the finalization logic")
+                
+                print("\n📋 EXPECTED RESULTS:")
+                print("   - Claims should now be finalized and visible to tenant")
+                print("   - Undisputed balance should be released to tenant")
+                print("   - Only disputed amounts should remain in escrow")
+                print("   - Landlord buttons should be disabled/hidden")
             else:
                 print("❌ WARNING: Inspection period is still active")
                 print(f"   - Need to set lease end date to {7 + 1} days ago or more")
