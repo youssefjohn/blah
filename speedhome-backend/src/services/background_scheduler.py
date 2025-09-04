@@ -41,11 +41,10 @@ class BackgroundScheduler:
             
         logger.info("🚀 Starting background job scheduler...")
         
-        # Schedule daily maintenance at 2 AM
-        schedule.every().day.at("02:00").do(self._run_daily_maintenance)
+
         
         # Schedule hourly checks for immediate needs (optional)
-        schedule.every().hour.do(self._run_hourly_checks)
+        schedule.every(10).minutes.do(self._run_hourly_checks)
         
         self.running = True
         self.scheduler_thread = threading.Thread(target=self._run_scheduler, daemon=True)
@@ -114,6 +113,9 @@ class BackgroundScheduler:
             logger.info("⏰ Running hourly property lifecycle and deposit checks...")
             
             try:
+                # Check for expired agreements (moved from daily to hourly)
+                expiry_result = PropertyLifecycleService.check_expired_agreements()
+
                 # Check future availability (existing functionality)
                 availability_result = PropertyLifecycleService.check_future_availability()
                 
