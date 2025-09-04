@@ -151,3 +151,11 @@ if __name__ == '__main__':
     
     app.run(host='0.0.0.0', port=5001, debug=True)
 
+
+
+from src.routes.file import file_bp
+app.register_blueprint(file_bp, url_prefix=
+'/api/files')
+api/files')
+
+

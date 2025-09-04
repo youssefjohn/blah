@@ -77,9 +77,24 @@ const DepositClaimPage = () => {
     ));
   };
 
+import FileUploadService from "../services/FileUploadService";
+
   const handleFileUpload = async (id, field, files) => {
-    const fileNames = Array.from(files).map(file => file.name);
-    updateClaimItem(id, field, fileNames);
+    const uploadedFiles = await Promise.all(
+      Array.from(files).map(async (file) => {
+        try {
+          const response = await FileUploadService.upload(file);
+          return response.file_path; // Assuming the API returns the file path
+        } catch (error) {
+          console.error("Error uploading file:", error);
+          return null;
+        }
+      })
+    );
+
+    const validFiles = uploadedFiles.filter((file) => file !== null);
+
+    updateClaimItem(id, field, [...claimItems.find(item => item.id === id)[field], ...validFiles]);
   };
 
   const calculateTotalClaimed = () => {
