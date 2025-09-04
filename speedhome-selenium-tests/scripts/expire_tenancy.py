@@ -59,12 +59,15 @@ try:
 
         # Set lease start date to one day before the end date
         agreement.lease_start_date = new_end_date - timedelta(days=1)
+        
+        # Update status to reflect that tenancy has ended
+        original_status = agreement.status
+        agreement.status = 'ended'  # Mark as ended since lease date is in the past
 
         print(f"\n📝 UPDATING Agreement {agreement.id}:")
+        print(f"   Original Status: {original_status} → New Status: {agreement.status}")
         print(f"   New Start: {agreement.lease_start_date}")
-        print(f"   New End: {agreement.lease_end_date}")
-
-        # Commit the changes
+        print(f"   New End: {agreement.lease_end_date} (yesterday)")Commit the changes
         db.session.commit()
         print("✅ Database changes committed!")
 
