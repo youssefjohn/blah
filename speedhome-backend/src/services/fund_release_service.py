@@ -256,6 +256,12 @@ class FundReleaseService:
                 if claim.status == DepositClaimStatus.UNDER_REVIEW
             )
             
+            # IMPORTANT: Pending claims should also be held in escrow until tenant responds
+            pending_amount = sum(
+                float(claim.claimed_amount) for claim in claims 
+                if claim.status in [DepositClaimStatus.SUBMITTED, DepositClaimStatus.TENANT_NOTIFIED]
+            )
+            
             # Calculate claim reductions (difference between claimed and approved amounts)
             claim_reductions = sum(
                 float(claim.claimed_amount) - float(claim.approved_amount or claim.claimed_amount)
@@ -267,12 +273,19 @@ class FundReleaseService:
             # Released to landlord = accepted claims + resolved claims (using approved amounts)
             released_to_landlord = accepted_amount + resolved_amount
             
-            # Refunded to tenant = undisputed balance + claim reductions
-            # Claim reductions = money saved when landlord accepts lower counter-offers
-            refunded_to_tenant = (total_deposit - total_claimed) + claim_reductions
+            # Calculate what should be held in escrow = disputed + mediation + pending claims
+            total_in_escrow = disputed_amount + mediation_amount + pending_amount
             
-            # Calculate remaining in escrow = disputed + mediation amounts
-            remaining_in_escrow = disputed_amount + mediation_amount
+            # Refunded to tenant = only the truly undisputed amount (after all claims are resolved)
+            # If there are pending claims, don't refund anything yet - wait for tenant response
+            if pending_amount > 0:
+                # If there are pending claims, don't refund undisputed balance yet
+                refunded_to_tenant = 0
+                remaining_in_escrow = total_in_escrow + (total_deposit - total_claimed)  # Include undisputed balance in escrow
+            else:
+                # Only refund undisputed balance if no pending claims
+                refunded_to_tenant = (total_deposit - total_claimed) + claim_reductions
+                remaining_in_escrow = total_in_escrow
             
             return {
                 'total_deposit': total_deposit,
@@ -282,6 +295,7 @@ class FundReleaseService:
                 'resolved_amount': resolved_amount,
                 'disputed_amount': disputed_amount,
                 'mediation_amount': mediation_amount,
+                'pending_amount': pending_amount,  # Add pending amount to breakdown
                 'released_to_landlord': released_to_landlord,
                 'refunded_to_tenant': refunded_to_tenant,
                 'remaining_in_escrow': max(remaining_in_escrow, 0),
