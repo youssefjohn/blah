@@ -30,25 +30,24 @@ try:
         for i, ag in enumerate(all_agreements):
             print(f"  {i+1}. Agreement {ag.id}: Status={ag.status}, Start={ag.lease_start_date}, End={ag.lease_end_date}")
 
-        # Find the most recent active tenancy agreement
-        agreement = TenancyAgreement.query.filter(
-            TenancyAgreement.status.in_(['active', 'pending_signatures', 'signed'])
-        ).order_by(TenancyAgreement.created_at.desc()).first()
+        # Always target the MOST RECENT agreement regardless of status
+        agreement = TenancyAgreement.query.order_by(TenancyAgreement.created_at.desc()).first()
 
         if not agreement:
-            print("❌ No tenancy agreement found with active/pending_signatures/signed status!")
-            print("   Trying to find ANY agreement...")
-            agreement = TenancyAgreement.query.order_by(TenancyAgreement.created_at.desc()).first()
-            if not agreement:
-                print("   No agreements found at all!")
-                exit(1)
-            else:
-                print(f"   Found agreement {agreement.id} with status: {agreement.status}")
+            print("❌ No tenancy agreements found at all!")
+            exit(1)
 
-        print(f"\n🎯 TARGETING Agreement {agreement.id}:")
+        print(f"\n🎯 TARGETING MOST RECENT Agreement {agreement.id}:")
         print(f"   Current Status: {agreement.status}")
         print(f"   Current Start: {agreement.lease_start_date}")
         print(f"   Current End: {agreement.lease_end_date}")
+        print(f"   Created At: {agreement.created_at}")
+
+        # Warn if this might not be the expected agreement
+        if agreement.id != 1:
+            print(f"⚠️  WARNING: Expected agreement ID 1, but found ID {agreement.id}")
+            print(f"   This suggests multiple agreements exist in the database")
+            print(f"   The seed script may not have wiped the database completely")
 
         # Store original dates for reference
         original_start_date = agreement.lease_start_date
@@ -76,7 +75,7 @@ try:
         print(f"   Saved End: {agreement.lease_end_date}")
 
         print(f"\n✅ SUCCESS! Tenancy agreement updated:")
-        print(f"   📄 Agreement ID: {agreement.id}")
+        print(f"   📄 Agreement ID: {agreement.id} ⭐ (USE THIS ID)")
         print(f"   🏠 Property: {agreement.property_address}")
         print(f"   👤 Tenant: {agreement.tenant_full_name}")
         print(f"   👤 Landlord: {agreement.landlord_full_name}")
@@ -92,6 +91,8 @@ try:
         print("   2. Navigate to deposit management")
         print("   3. 1-day lease ended yesterday - deposit release should be available!")
         print("   4. Test the deposit release/claim workflow")
+        print()
+        print(f"🔗 DEPOSIT MANAGEMENT URL: http://localhost:5173/deposit/{agreement.id}/manage")
         print()
         print("=== UPDATE COMPLETE ===")
 
