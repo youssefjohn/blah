@@ -99,19 +99,22 @@ const LandlordResponsePage = () => {
 
       // Handle both successful responses and redirects (302)
       if (response.ok || response.status === 302) {
-        console.log('Response successful, reloading data...');
-        alert('Response submitted successfully!');
+        console.log('Response successful, processing result...');
+        const result = await response.json();
         
-        // Reload the deposit data to refresh the disputed claims list
-        setLoading(true);
-        await fetchDepositDetails();
-        
-        // Check if there are still disputed claims after reload
-        if (disputedClaims.length === 0) {
-          console.log('No more disputed claims, navigating back...');
-          navigate(`/deposit/${depositId}/manage`);
+        if (result.success) {
+          alert('Response submitted successfully!');
+          
+          // Use the redirect URL provided by the backend
+          if (result.redirect_url) {
+            console.log('Redirecting to:', result.redirect_url);
+            navigate(result.redirect_url);
+          } else {
+            // Fallback to deposit management
+            navigate(`/deposit/${depositId}/manage`);
+          }
         } else {
-          console.log('Still have disputed claims:', disputedClaims.length);
+          alert(`Error: ${result.message || 'Failed to submit response'}`);
         }
       } else {
         console.error('Response failed with status:', response.status);

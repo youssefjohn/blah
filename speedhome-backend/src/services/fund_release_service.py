@@ -324,3 +324,74 @@ class FundReleaseService:
 # Create service instance
 fund_release_service = FundReleaseService()
 
+
+    @staticmethod
+    def process_resolved_claims(deposit_transaction):
+        """
+        Process fund release for resolved claims.
+        This releases funds to landlord for accepted claims and to tenant for rejected claims.
+        """
+        try:
+            from ..models.deposit_claim import DepositClaim, DepositClaimStatus
+            
+            # Get all resolved claims for this deposit
+            resolved_claims = DepositClaim.query.filter_by(
+                deposit_transaction_id=deposit_transaction.id,
+                status=DepositClaimStatus.RESOLVED
+            ).all()
+            
+            if not resolved_claims:
+                return {'success': True, 'message': 'No resolved claims to process'}
+            
+            total_to_landlord = 0
+            total_to_tenant = 0
+            
+            # Calculate amounts to release based on approved amounts
+            for claim in resolved_claims:
+                approved_amount = float(claim.approved_amount or 0)
+                claimed_amount = float(claim.claimed_amount)
+                
+                # Amount going to landlord = approved amount
+                total_to_landlord += approved_amount
+                
+                # Amount going back to tenant = claimed - approved (the disputed portion that was rejected)
+                disputed_portion = claimed_amount - approved_amount
+                total_to_tenant += disputed_portion
+            
+            logger.info(f"Processing resolved claims for deposit {deposit_transaction.id}: "
+                       f"${total_to_landlord} to landlord, ${total_to_tenant} back to tenant")
+            
+            # Update deposit transaction amounts
+            current_released = float(deposit_transaction.released_amount or 0)
+            current_refunded = float(deposit_transaction.refunded_amount or 0)
+            
+            deposit_transaction.released_amount = current_released + total_to_landlord
+            deposit_transaction.refunded_amount = current_refunded + total_to_tenant
+            deposit_transaction.updated_at = datetime.utcnow()
+            
+            # Update status if appropriate
+            total_processed = deposit_transaction.released_amount + deposit_transaction.refunded_amount
+            if total_processed >= float(deposit_transaction.amount):
+                deposit_transaction.status = DepositTransactionStatus.RELEASED
+            else:
+                deposit_transaction.status = DepositTransactionStatus.PARTIALLY_RELEASED
+            
+            # Commit the changes
+            from ..models.user import db
+            db.session.commit()
+            
+            return {
+                'success': True,
+                'message': f'Processed {len(resolved_claims)} resolved claims',
+                'landlord_amount': total_to_landlord,
+                'tenant_amount': total_to_tenant,
+                'total_processed': total_processed
+            }
+            
+        except Exception as e:
+            logger.error(f"Error processing resolved claims: {e}")
+            return {'success': False, 'error': str(e)}
+
+# Create service instance
+fund_release_service = FundReleaseService()
+

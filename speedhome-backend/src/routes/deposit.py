@@ -130,16 +130,35 @@ def landlord_respond_to_disputes(deposit_id):
         
         print(f"DEBUG: Deposit status updated to {deposit.status}")
         
-        # TODO: Implement fund release for resolved claims
-        # The fund release service needs a process_resolved_claims method
-        print(f"DEBUG: Fund release will be implemented separately")
+        # Process fund release for resolved claims
+        if resolved_count > 0:
+            print(f"DEBUG: Processing fund release for {resolved_count} resolved claims")
+            try:
+                from ..services.fund_release_service import fund_release_service
+                release_result = fund_release_service.process_resolved_claims(deposit)
+                print(f"DEBUG: Fund release result: {release_result}")
+            except Exception as fund_error:
+                print(f"WARNING: Fund release failed: {fund_error}")
+                # Don't fail the whole request if fund release fails
+        
+        # Determine next action for frontend
+        next_action = "view_summary"  # Default to viewing summary
+        if mediation_count > 0:
+            next_action = "awaiting_mediation"
+        elif disputed_count > 0:
+            next_action = "awaiting_tenant_response"
+        elif resolved_count == len(all_claims):
+            next_action = "all_resolved"
         
         return jsonify({
+            'success': True,
             'message': 'Landlord response submitted successfully',
-            'deposit_status': deposit.status.value,  # Convert enum to string
+            'deposit_status': deposit.status.value,
             'resolved_claims': resolved_count,
             'mediation_claims': mediation_count,
-            'disputed_claims': disputed_count
+            'disputed_claims': disputed_count,
+            'next_action': next_action,
+            'redirect_url': f'/deposit/{deposit_id}/manage'  # Always redirect to deposit management
         }), 200
         
     except Exception as e:
