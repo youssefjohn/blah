@@ -74,7 +74,36 @@ try:
         
         # Commit the cleanup
         db.session.commit()
-        print("✅ Database completely wiped clean!")
+        
+        # Reset auto-increment counters (PostgreSQL/SQLite compatible)
+        print("Resetting auto-increment counters...")
+        try:
+            # For PostgreSQL
+            db.session.execute(db.text("ALTER SEQUENCE users_id_seq RESTART WITH 1"))
+            db.session.execute(db.text("ALTER SEQUENCE properties_id_seq RESTART WITH 1"))
+            db.session.execute(db.text("ALTER SEQUENCE applications_id_seq RESTART WITH 1"))
+            db.session.execute(db.text("ALTER SEQUENCE tenancy_agreements_id_seq RESTART WITH 1"))
+            db.session.execute(db.text("ALTER SEQUENCE deposit_transactions_id_seq RESTART WITH 1"))
+            db.session.execute(db.text("ALTER SEQUENCE deposit_claims_id_seq RESTART WITH 1"))
+            db.session.execute(db.text("ALTER SEQUENCE notifications_id_seq RESTART WITH 1"))
+            db.session.execute(db.text("ALTER SEQUENCE conversations_id_seq RESTART WITH 1"))
+            db.session.execute(db.text("ALTER SEQUENCE messages_id_seq RESTART WITH 1"))
+            db.session.execute(db.text("ALTER SEQUENCE bookings_id_seq RESTART WITH 1"))
+            db.session.execute(db.text("ALTER SEQUENCE viewing_slots_id_seq RESTART WITH 1"))
+            db.session.commit()
+            print("✅ PostgreSQL auto-increment counters reset!")
+        except Exception as pg_error:
+            print(f"PostgreSQL reset failed (might be SQLite): {pg_error}")
+            try:
+                # For SQLite
+                db.session.execute(db.text("DELETE FROM sqlite_sequence"))
+                db.session.commit()
+                print("✅ SQLite auto-increment counters reset!")
+            except Exception as sqlite_error:
+                print(f"SQLite reset also failed: {sqlite_error}")
+                print("⚠️ Auto-increment counters may not be reset - IDs might not start at 1")
+        
+        print("✅ Database completely wiped clean with reset counters!")
 
         print("\n🏗️ Creating fresh test data...")
 
