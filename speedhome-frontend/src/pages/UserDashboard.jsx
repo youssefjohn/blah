@@ -5,6 +5,7 @@ import BookingAPI from '../services/BookingAPI';
 import PropertyAPI from '../services/PropertyAPI';
 import ApplicationAPI from '../services/ApplicationAPI';
 import TenancyAgreementAPI from '../services/TenancyAgreementAPI';
+import DepositAPI from '../services/DepositAPI';
 import { formatDate, formatTime } from '../utils/dateUtils';
 import TenantBookingCalendar from '../components/TenantBookingCalendar';
 import MessagingCenter from '../components/MessagingCenter';
@@ -23,6 +24,7 @@ const UserDashboard = ({ favorites, toggleFavorite }) => {
   const [applications, setApplications] = useState([]);
   const [agreements, setAgreements] = useState([]);
   const [favoritedProperties, setFavoritedProperties] = useState([]);
+  const [deposits, setDeposits] = useState([]);
 
   // State for profile editing
   const [isEditing, setIsEditing] = useState(false);
@@ -187,6 +189,54 @@ const UserDashboard = ({ favorites, toggleFavorite }) => {
     }
   };
 
+  const loadDeposits = async () => {
+    if (!isAuthenticated || !user) return;
+    try {
+      const result = await DepositAPI.getTenantDepositDashboard();
+      if (result.success) {
+        setDeposits(result.dashboard.active_agreements || []);
+      }
+    } catch (error) {
+      console.error('Error loading deposits:', error);
+    }
+  };
+
+  const loadDepositDetails = async (agreementId) => {
+    try {
+      // First get the agreement to check if tenancy is ending soon
+      const agreement = agreements.find(a => a.id === agreementId);
+      
+      // If tenancy is ending soon and deposit is held in escrow, navigate to deposit management
+      if (agreement?.deposit_transaction && 
+          agreement.deposit_transaction.status === 'held_in_escrow' && 
+          agreement.deposit_transaction.tenancy_ending_soon) {
+        navigate(`/deposit/${agreement.deposit_transaction.id}/manage`);
+        return;
+      }
+      
+      // Otherwise, show the simple alert popup
+      const result = await DepositAPI.getDepositForAgreement(agreementId);
+      if (result.success && result.has_deposit) {
+        alert(`Deposit Details:\n\nTotal Amount: ${DepositAPI.formatMYR(result.deposit.amount)}\nStatus: ${DepositAPI.getDepositStatusText(result.deposit.status)}\nCreated: ${new Date(result.deposit.created_at).toLocaleDateString()}`);
+      } else {
+        alert('Deposit information is being processed. Please check back in a few minutes.');
+      }
+    } catch (error) {
+      console.error('Error loading deposit details:', error);
+      alert('Unable to load deposit details at this time.');
+    }
+  };
+
+  const handleDepositPayment = async (agreementId) => {
+    try {
+      // Navigate to deposit payment page
+      navigate(`/deposit-payment/${agreementId}`);
+    } catch (error) {
+      console.error('Error initiating deposit payment:', error);
+      alert('Unable to initiate deposit payment at this time.');
+    }
+  };
+
   const loadFavoritedProperties = async () => {
     if (!favorites || favorites.length === 0) {
       setFavoritedProperties([]);
@@ -208,6 +258,7 @@ const UserDashboard = ({ favorites, toggleFavorite }) => {
         loadBookings();
         loadApplications();
         loadAgreements();
+        loadDeposits();
     }
   }, [isAuthenticated, user]);
 
@@ -820,6 +871,104 @@ const hasNewMessages = conversations.some(convo => convo.unread_count > 0);
                         </div>
                       </div>
 
+                      {/* 🏠 DEPOSIT INFORMATION SECTION */}
+                      {agreement.status === 'active' && (
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="font-semibold text-blue-900">🏠 Security Deposit</h4>
+                            <span className="text-sm text-blue-600">Malaysian Standard (2 months)</span>
+                          </div>
+                          
+                          {/* Fund Breakdown for Active Deposits */}
+                          {agreement.deposit_transaction && agreement.deposit_transaction.fund_breakdown ? (
+                            <div className="space-y-3">
+                              <div className="grid grid-cols-2 gap-4 text-sm">
+                                <div>
+                                  <div className="text-gray-600">Total Deposit</div>
+                                  <div className="font-semibold text-blue-800">
+                                    RM {agreement.deposit_transaction.amount}
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="text-gray-600">Status</div>
+                                  <div className="font-semibold text-blue-800">
+                                    {agreement.deposit_transaction.status.replace('_', ' ').toUpperCase()}
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              {/* Fund Breakdown Cards */}
+                              <div className="grid grid-cols-3 gap-2 mt-3">
+                                {agreement.deposit_transaction.fund_breakdown.refunded_to_tenant > 0 && (
+                                  <div className="bg-green-100 p-2 rounded text-center">
+                                    <div className="text-xs text-green-600">Refunded to You</div>
+                                    <div className="font-bold text-green-700 text-sm">
+                                      RM {agreement.deposit_transaction.fund_breakdown.refunded_to_tenant.toFixed(2)}
+                                    </div>
+                                  </div>
+                                )}
+                                
+                                {agreement.deposit_transaction.fund_breakdown.released_to_landlord > 0 && (
+                                  <div className="bg-blue-100 p-2 rounded text-center">
+                                    <div className="text-xs text-blue-600">To Landlord</div>
+                                    <div className="font-bold text-blue-700 text-sm">
+                                      RM {agreement.deposit_transaction.fund_breakdown.released_to_landlord.toFixed(2)}
+                                    </div>
+                                  </div>
+                                )}
+                                
+                                {agreement.deposit_transaction.fund_breakdown.remaining_in_escrow > 0 && (
+                                  <div className="bg-yellow-100 p-2 rounded text-center">
+                                    <div className="text-xs text-yellow-600">In Escrow</div>
+                                    <div className="font-bold text-yellow-700 text-sm">
+                                      RM {agreement.deposit_transaction.fund_breakdown.remaining_in_escrow.toFixed(2)}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                              
+                              <div className="text-xs text-blue-600 mt-2">
+                                ✓ Fair Release System: Only disputed amounts held in escrow
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                              <div>
+                                <div className="text-gray-600">Security Deposit</div>
+                                <div className="font-semibold text-blue-800">
+                                  {DepositAPI.formatMYR((agreement.monthly_rent || 0) * 2)}
+                                </div>
+                              </div>
+                              <div>
+                                <div className="text-gray-600">Utility Deposit</div>
+                                <div className="font-semibold text-blue-800">
+                                  {DepositAPI.formatMYR((agreement.monthly_rent || 0) * 0.5)}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          
+                          <div className="mt-3 pt-3 border-t border-blue-200">
+                            <div className="flex justify-between items-center">
+                              <span className="font-semibold text-blue-900">
+                                {agreement.deposit_transaction ? 'Deposit Status:' : 'Total Deposit:'}
+                              </span>
+                              <span className="font-bold text-lg text-blue-900">
+                                {agreement.deposit_transaction 
+                                  ? `RM ${agreement.deposit_transaction.amount}`
+                                  : DepositAPI.formatMYR((agreement.monthly_rent || 0) * 2.5)
+                                }
+                              </span>
+                            </div>
+                            <div className="mt-2">
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                ✓ Held in Escrow
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       <div className="flex gap-3">
                         <Link 
                           to={`/agreement/${agreement.id}`}
@@ -842,7 +991,38 @@ const hasNewMessages = conversations.some(convo => convo.unread_count > 0);
                             to={`/payment/${agreement.id}`}
                             className="bg-yellow-500 text-white px-4 py-2 rounded-lg hover:bg-yellow-600 transition-colors"
                           >
-                            Pay Agreement Fee
+                            Pay Website Fee
+                          </Link>
+                        )}
+                        
+                        {agreement.status === 'website_fee_paid' && (
+                          <div className="flex flex-col gap-2">
+                            {/* Step 2: Pay Deposit - This activates the agreement */}
+                            <button 
+                              onClick={() => handleDepositPayment(agreement.id)}
+                              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-semibold"
+                            >
+                              💰 Pay Security Deposit ({DepositAPI.formatMYR((agreement.monthly_rent || 0) * 2.5)})
+                            </button>
+                            <p className="text-sm text-gray-600">
+                              ⚠️ Security deposit payment will activate your tenancy agreement
+                            </p>
+                          </div>
+                        )}
+                        
+                        {/* Deposit Management Button - Show when tenancy has ended and deposit needs managing */}
+                        {agreement.deposit_transaction && 
+                         (agreement.deposit_transaction.status === 'held_in_escrow' || 
+                          agreement.deposit_transaction.status === 'partially_released' ||
+                          agreement.deposit_transaction.status === 'disputed') && 
+                         agreement.deposit_transaction.tenancy_has_ended && (
+                          <Link
+                            to={`/deposit/${agreement.deposit_transaction.id}/manage`}
+                            className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg transition-colors"
+                          >
+                            {agreement.deposit_transaction.claims?.some(claim => claim.tenant_response_status === 'pending') 
+                              ? 'Respond to Deposit Claims' 
+                              : 'Manage Deposit'}
                           </Link>
                         )}
                       </div>

@@ -65,11 +65,11 @@ const PaymentSuccessPage = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">🎉 Congratulations!</h1>
-          <p className="text-xl text-gray-600">Your tenancy agreement is now complete and active!</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">🎉 Payment Successful!</h1>
+          <p className="text-xl text-gray-600">Website fee paid! Next step: Pay your security deposit to activate the agreement.</p>
         </div>
 
-        {/* Progress Indicator - All Complete */}
+        {/* Progress Indicator - Website Fee Paid, Deposit Next */}
         <div className="mb-8">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
@@ -87,18 +87,18 @@ const PaymentSuccessPage = () => {
               <div className="flex items-center justify-center w-8 h-8 bg-green-500 text-white rounded-full text-sm font-medium">
                 ✓
               </div>
-              <span className="ml-2 text-sm font-medium text-green-600">Payment Complete</span>
+              <span className="ml-2 text-sm font-medium text-green-600">Website Fee Paid</span>
             </div>
             
             <div className="flex-1 mx-4">
-              <div className="h-1 bg-green-500 rounded"></div>
+              <div className="h-1 bg-gray-300 rounded"></div>
             </div>
             
             <div className="flex items-center">
-              <div className="flex items-center justify-center w-8 h-8 bg-green-500 text-white rounded-full text-sm font-medium">
-                ✓
+              <div className="flex items-center justify-center w-8 h-8 bg-yellow-500 text-white rounded-full text-sm font-medium">
+                2
               </div>
-              <span className="ml-2 text-sm font-medium text-green-600">Complete</span>
+              <span className="ml-2 text-sm font-medium text-yellow-600">Pay Security Deposit</span>
             </div>
           </div>
         </div>
@@ -137,8 +137,8 @@ const PaymentSuccessPage = () => {
                   
                   <div>
                     <p className="text-sm text-gray-600">Agreement Status</p>
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                      Active
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                      Website Fee Paid
                     </span>
                   </div>
                 </div>
@@ -152,37 +152,37 @@ const PaymentSuccessPage = () => {
               <div className="space-y-4">
                 <div className="flex items-start">
                   <div className="flex-shrink-0">
-                    <div className="flex items-center justify-center h-6 w-6 rounded-full bg-blue-100 text-blue-600 text-sm font-medium">
+                    <div className="flex items-center justify-center h-6 w-6 rounded-full bg-yellow-500 text-white text-sm font-medium">
                       1
                     </div>
                   </div>
                   <div className="ml-3">
-                    <p className="text-sm font-medium text-gray-900">Download Your Agreement</p>
-                    <p className="text-sm text-gray-600">Keep a copy of your signed tenancy agreement for your records.</p>
+                    <p className="text-sm font-medium text-gray-900">Pay Security Deposit</p>
+                    <p className="text-sm text-gray-600">Complete your security deposit payment to activate your tenancy agreement.</p>
                   </div>
                 </div>
                 
                 <div className="flex items-start">
                   <div className="flex-shrink-0">
-                    <div className="flex items-center justify-center h-6 w-6 rounded-full bg-blue-100 text-blue-600 text-sm font-medium">
+                    <div className="flex items-center justify-center h-6 w-6 rounded-full bg-gray-300 text-gray-600 text-sm font-medium">
                       2
                     </div>
                   </div>
                   <div className="ml-3">
-                    <p className="text-sm font-medium text-gray-900">Prepare for Move-in</p>
-                    <p className="text-sm text-gray-600">Contact your landlord to arrange key collection and move-in details.</p>
+                    <p className="text-sm font-medium text-gray-500">Download Your Agreement</p>
+                    <p className="text-sm text-gray-400">Available after deposit payment is complete.</p>
                   </div>
                 </div>
                 
                 <div className="flex items-start">
                   <div className="flex-shrink-0">
-                    <div className="flex items-center justify-center h-6 w-6 rounded-full bg-blue-100 text-blue-600 text-sm font-medium">
+                    <div className="flex items-center justify-center h-6 w-6 rounded-full bg-gray-300 text-gray-600 text-sm font-medium">
                       3
                     </div>
                   </div>
                   <div className="ml-3">
-                    <p className="text-sm font-medium text-gray-900">Set Up Utilities</p>
-                    <p className="text-sm text-gray-600">Arrange for electricity, water, internet, and other utilities as needed.</p>
+                    <p className="text-sm font-medium text-gray-500">Prepare for Move-in</p>
+                    <p className="text-sm text-gray-400">Contact your landlord after agreement is fully active.</p>
                   </div>
                 </div>
               </div>
@@ -193,13 +193,13 @@ const PaymentSuccessPage = () => {
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <button
-            onClick={downloadFinalAgreement}
-            className="bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 flex items-center justify-center"
+            onClick={() => navigate(`/deposit-payment/${id}`)}
+            className="bg-orange-600 text-white px-6 py-3 rounded-md hover:bg-orange-700 focus:ring-2 focus:ring-orange-500 flex items-center justify-center"
           >
             <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
             </svg>
-            Download Agreement
+            Pay Security Deposit (RM {agreement?.security_deposit || '0'})
           </button>
           
           <button

@@ -10,6 +10,7 @@ from ..models.user import User
 from ..models import db
 from ..services.pdf_service import pdf_service
 from ..services.workflow_coordinator import workflow_coordinator
+from ..services.deposit_service import DepositService
 from datetime import datetime, timedelta
 import os
 import logging
@@ -38,9 +39,49 @@ def get_agreements():
         (TenancyAgreement.landlord_id == user_id)
     ).order_by(TenancyAgreement.created_at.desc()).all()
     
+    # Import DepositTransaction here to avoid circular imports
+    from ..models.deposit_transaction import DepositTransaction
+    from ..models.deposit_claim import DepositClaim
+    
+    agreements_data = []
+    for agreement in agreements:
+        agreement_dict = agreement.to_dict()
+        
+        # Add deposit transaction data if it exists
+        deposit = DepositTransaction.query.filter_by(tenancy_agreement_id=agreement.id).first()
+        if deposit:
+            # Check tenancy status
+            tenancy_ending_soon = False
+            tenancy_has_ended = False
+            if agreement.lease_end_date:
+                days_until_end = (agreement.lease_end_date - datetime.now().date()).days
+                tenancy_ending_soon = days_until_end <= 7 and days_until_end >= 0
+                tenancy_has_ended = days_until_end < 0  # Tenancy has actually ended
+            
+            # Get claims for this deposit
+            claims = DepositClaim.query.filter_by(deposit_transaction_id=deposit.id).all()
+            
+            # Get fund breakdown using the fund release service
+            from ..services.fund_release_service import fund_release_service
+            fund_breakdown = fund_release_service.get_deposit_breakdown(deposit)
+            
+            agreement_dict['deposit_transaction'] = {
+                'id': deposit.id,
+                'status': deposit.status.value if hasattr(deposit.status, 'value') else str(deposit.status),
+                'amount': float(deposit.amount) if deposit.amount else None,
+                'tenancy_ending_soon': tenancy_ending_soon,
+                'tenancy_has_ended': tenancy_has_ended,  # Add this field
+                'fund_breakdown': fund_breakdown,  # Add fund breakdown
+                'claims': [claim.to_dict() for claim in claims]
+            }
+        else:
+            agreement_dict['deposit_transaction'] = None
+            
+        agreements_data.append(agreement_dict)
+    
     return jsonify({
         'success': True,
-        'agreements': [agreement.to_dict() for agreement in agreements]
+        'agreements': agreements_data
     })
 
 
@@ -79,9 +120,49 @@ def get_tenant_agreements():
         TenancyAgreement.tenant_id == user_id
     ).order_by(TenancyAgreement.created_at.desc()).all()
     
+    # Import DepositTransaction here to avoid circular imports
+    from ..models.deposit_transaction import DepositTransaction
+    from ..models.deposit_claim import DepositClaim
+    
+    agreements_data = []
+    for agreement in agreements:
+        agreement_dict = agreement.to_dict()
+        
+        # Add deposit transaction data if it exists
+        deposit = DepositTransaction.query.filter_by(tenancy_agreement_id=agreement.id).first()
+        if deposit:
+            # Check tenancy status
+            tenancy_ending_soon = False
+            tenancy_has_ended = False
+            if agreement.lease_end_date:
+                days_until_end = (agreement.lease_end_date - datetime.now().date()).days
+                tenancy_ending_soon = days_until_end <= 7 and days_until_end >= 0
+                tenancy_has_ended = days_until_end < 0  # Tenancy has actually ended
+            
+            # Get claims for this deposit
+            claims = DepositClaim.query.filter_by(deposit_transaction_id=deposit.id).all()
+            
+            # Get fund breakdown using the fund release service
+            from ..services.fund_release_service import fund_release_service
+            fund_breakdown = fund_release_service.get_deposit_breakdown(deposit)
+            
+            agreement_dict['deposit_transaction'] = {
+                'id': deposit.id,
+                'status': deposit.status.value if hasattr(deposit.status, 'value') else str(deposit.status),
+                'amount': float(deposit.amount) if deposit.amount else None,
+                'tenancy_ending_soon': tenancy_ending_soon,
+                'tenancy_has_ended': tenancy_has_ended,  # Add this field
+                'fund_breakdown': fund_breakdown,  # Add fund breakdown
+                'claims': [claim.to_dict() for claim in claims]
+            }
+        else:
+            agreement_dict['deposit_transaction'] = None
+            
+        agreements_data.append(agreement_dict)
+    
     return jsonify({
         'success': True,
-        'agreements': [agreement.to_dict() for agreement in agreements]
+        'agreements': agreements_data
     })
 
 
@@ -295,27 +376,48 @@ def record_payment(agreement_id):
         agreement.payment_intent_id = payment_intent_id
         agreement.payment_method = payment_method
         
-        # Activate the agreement
-        agreement.status = 'active'
+        # Update agreement status to website_fee_paid (not active yet - deposit payment will activate it)
+        agreement.status = 'website_fee_paid'
+        agreement.payment_completed_at = datetime.utcnow()
         agreement.updated_at = now
         
-        # Transition property from Pending to Rented when agreement becomes active
-        property_obj = Property.query.get(agreement.property_id)
-        if property_obj:
-            if property_obj.transition_to_rented():
-                logger.info(f"Property {property_obj.id} transitioned to Rented status after agreement activation")
+        # Note: Property will transition to rented when deposit is paid and agreement becomes active
+        
+        # 🏠 CREATE DEPOSIT TRANSACTION AUTOMATICALLY (but don't activate agreement yet)
+        try:
+            deposit_service = DepositService()
+            deposit_result = deposit_service.create_deposit_for_agreement(agreement.id)
+            
+            if deposit_result['success']:
+                logger.info(f"Deposit transaction created for agreement {agreement_id}: {deposit_result['deposit']['id']}")
+                deposit_info = {
+                    'deposit_id': deposit_result['deposit']['id'],
+                    'deposit_amount': deposit_result['deposit']['total_amount'],
+                    'deposit_status': deposit_result['deposit']['status']
+                }
             else:
-                logger.warning(f"Failed to transition property {property_obj.id} to Rented status")
+                logger.warning(f"Failed to create deposit for agreement {agreement_id}: {deposit_result['error']}")
+                deposit_info = None
+        except Exception as e:
+            logger.error(f"Error creating deposit for agreement {agreement_id}: {str(e)}")
+            deposit_info = None
         
         db.session.commit()
         
         logger.info(f"Payment completed for agreement {agreement_id}, agreement activated")
         
-        return jsonify({
+        # Include deposit information in response
+        response_data = {
             'success': True,
             'agreement': agreement.to_dict(),
             'message': 'Payment recorded and agreement activated'
-        })
+        }
+        
+        if deposit_info:
+            response_data['deposit'] = deposit_info
+            response_data['message'] += ' - Deposit system initialized'
+        
+        return jsonify(response_data)
         
     except Exception as e:
         db.session.rollback()

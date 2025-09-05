@@ -32,6 +32,10 @@ from src.routes.documents import documents_bp
 from src.routes.webhooks import webhooks_bp
 from src.routes.stripe_config import stripe_config_bp
 from src.routes.admin_testing import admin_testing_bp
+from src.routes.deposit import deposit_bp
+from src.routes.tenant_deposit import tenant_deposit_bp
+from src.routes.deposit_payment import deposit_payment_bp
+from src.routes.admin_deposit import admin_deposit_bp
 
 # Import admin components
 from src.admin.admin_config import init_admin
@@ -43,7 +47,11 @@ app = Flask(__name__, static_folder=os.path.join(os.path.dirname(__file__), 'sta
 app.config['SECRET_KEY'] = 'asdf#FGSgvasgf$5$WGT'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
 
-CORS(app, origins=['http://localhost:5173', 'http://localhost:5174'], supports_credentials=True)
+# Stripe configuration (from environment variables)
+app.config['STRIPE_SECRET_KEY'] = os.environ.get('STRIPE_SECRET_KEY', 'sk_test_default')
+app.config['STRIPE_PUBLISHABLE_KEY'] = os.environ.get('STRIPE_PUBLISHABLE_KEY', 'pk_test_default')
+
+CORS(app, origins=['http://localhost:5173', 'http://localhost:5174', 'http://127.0.0.1:5173', 'http://127.0.0.1:5174'], supports_credentials=True)
 
 # --- BLUEPRINT REGISTRATION ---
 app.register_blueprint(property_bp, url_prefix='/api')
@@ -59,12 +67,21 @@ app.register_blueprint(documents_bp)
 app.register_blueprint(webhooks_bp, url_prefix='/api/webhooks')
 app.register_blueprint(stripe_config_bp, url_prefix='/api/stripe')
 app.register_blueprint(admin_testing_bp)
+app.register_blueprint(deposit_bp)
+app.register_blueprint(tenant_deposit_bp)
+app.register_blueprint(deposit_payment_bp)
+app.register_blueprint(admin_deposit_bp)
 
 # Register admin authentication blueprint
 app.register_blueprint(admin_auth_bp)
 
 # --- DATABASE CONFIGURATION ---
-app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{os.path.join(os.path.dirname(__file__), 'database', 'app.db')}"
+# Use PostgreSQL from environment variable (no SQLite fallback)
+database_url = os.environ.get('DATABASE_URL')
+if not database_url:
+    raise RuntimeError("DATABASE_URL environment variable is required")
+
+app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
 
@@ -73,16 +90,32 @@ migrate = Migrate(app, db)
 # Initialize Flask-Admin
 admin = init_admin(app)
 
+# Initialize and start background scheduler for property lifecycle management
+try:
+    from src.services.background_scheduler import init_scheduler, start_scheduler
+    print("Initializing property lifecycle background scheduler...")
+    init_scheduler(app)
+    start_scheduler()
+    print("✅ Background scheduler started successfully")
+except Exception as e:
+    print(f"❌️ Failed to start background scheduler: {str(e)}")
+    print("Application will continue without background jobs")
+
 # ✅ The db.create_all() call has been removed to let Flask-Migrate handle the schema.
 
 # --- SERVE STATIC FILES (FOR PRODUCTION) ---
+@app.route('/uploads/<path:filename>')
+def uploaded_file(filename):
+    """Serve uploaded files"""
+    uploads_dir = os.path.join(app.root_path, '..', 'uploads')
+    return send_from_directory(uploads_dir, filename)
+
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
-def serve(path):
+def serve_react_app(path):
     static_folder_path = app.static_folder
     if static_folder_path is None:
         return "Static folder not configured", 404
-
     if path != "" and os.path.exists(os.path.join(static_folder_path, path)):
         return send_from_directory(static_folder_path, path)
     else:
@@ -106,16 +139,16 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"Startup expiry check failed: {str(e)}")
     
-    # Initialize and start background scheduler for property lifecycle management
+    # Initialize and start deposit background jobs
     try:
-        from src.services.background_scheduler import init_scheduler, start_scheduler
-        print("Initializing property lifecycle background scheduler...")
-        init_scheduler(app)
-        start_scheduler()
-        print("✅ Background scheduler started successfully")
+        from src.services.background_jobs import start_background_jobs
+        print("Starting deposit background jobs...")
+        start_background_jobs()
+        print("✅ Deposit background jobs started successfully")
     except Exception as e:
-        print(f"❌️ Failed to start background scheduler: {str(e)}")
-        print("Application will continue without background jobs")
-    
+        print(f"❌️ Failed to start deposit background jobs: {str(e)}")
+        print("Application will continue without deposit background processing")
+
     app.run(host='0.0.0.0', port=5001, debug=True)
+
 

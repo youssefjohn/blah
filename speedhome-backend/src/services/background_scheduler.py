@@ -12,8 +12,9 @@ import schedule
 import time
 import threading
 from datetime import datetime, timedelta
-from property_lifecycle_service import PropertyLifecycleService
-from models.user import db
+# Use full property lifecycle service now that deposit models are working
+from src.services.property_lifecycle_service import PropertyLifecycleService
+from src.models.user import db
 import logging
 
 # Set up logging
@@ -40,11 +41,10 @@ class BackgroundScheduler:
             
         logger.info("🚀 Starting background job scheduler...")
         
-        # Schedule daily maintenance at 2 AM
-        schedule.every().day.at("02:00").do(self._run_daily_maintenance)
+
         
         # Schedule hourly checks for immediate needs (optional)
-        schedule.every().hour.do(self._run_hourly_checks)
+        schedule.every(10).minutes.do(self._run_hourly_checks)
         
         self.running = True
         self.scheduler_thread = threading.Thread(target=self._run_scheduler, daemon=True)
@@ -104,20 +104,41 @@ class BackgroundScheduler:
                 logger.error(f"❌ Exception during daily maintenance: {str(e)}")
                 
     def _run_hourly_checks(self):
-        """Run hourly checks for time-sensitive tasks"""
+        """Run hourly checks for time-sensitive tasks including deposit deadlines"""
         if not self.app:
             logger.error("❌ No Flask app context available for hourly checks")
             return
             
         with self.app.app_context():
-            logger.info("⏰ Running hourly property lifecycle checks...")
+            logger.info("⏰ Running hourly property lifecycle and deposit checks...")
             
             try:
-                # Only run future availability checks hourly (more time-sensitive)
-                result = PropertyLifecycleService.check_future_availability()
+                # Check for expired agreements (moved from daily to hourly)
+                expiry_result = PropertyLifecycleService.check_expired_agreements()
+
+                # Check future availability (existing functionality)
+                availability_result = PropertyLifecycleService.check_future_availability()
                 
-                if result["success"] and result["properties_activated"] > 0:
-                    logger.info(f"✅ Hourly check: {result['properties_activated']} properties activated")
+                if availability_result["success"] and availability_result["properties_activated"] > 0:
+                    logger.info(f"✅ Hourly check: {availability_result['properties_activated']} properties activated")
+                
+                # Check deposit claim deadlines (new functionality)
+                claim_result = PropertyLifecycleService.check_deposit_claim_deadlines()
+                
+                if claim_result["success"]:
+                    if claim_result.get("claims_auto_approved", 0) > 0:
+                        logger.info(f"✅ Hourly check: {claim_result['claims_auto_approved']} claims auto-approved")
+                    if claim_result.get("deadline_reminders_sent", 0) > 0:
+                        logger.info(f"✅ Hourly check: {claim_result['deadline_reminders_sent']} deadline reminders sent")
+                
+                # Check deposit dispute deadlines (new functionality)
+                dispute_result = PropertyLifecycleService.check_deposit_dispute_deadlines()
+                
+                if dispute_result["success"]:
+                    if dispute_result.get("disputes_escalated", 0) > 0:
+                        logger.info(f"✅ Hourly check: {dispute_result['disputes_escalated']} disputes escalated")
+                    if dispute_result.get("mediation_reminders_sent", 0) > 0:
+                        logger.info(f"✅ Hourly check: {dispute_result['mediation_reminders_sent']} mediation reminders sent")
                     
             except Exception as e:
                 logger.error(f"❌ Exception during hourly checks: {str(e)}")

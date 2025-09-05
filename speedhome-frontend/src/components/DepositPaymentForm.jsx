@@ -11,7 +11,7 @@ import TenancyAgreementAPI from '../services/TenancyAgreementAPI';
 // Initialize Stripe (will be loaded with publishable key from backend)
 let stripePromise = null;
 
-const PaymentForm = ({ agreement, onPaymentSuccess, onPaymentError }) => {
+const DepositPaymentForm = ({ agreement, onPaymentSuccess, onPaymentError }) => {
   const [stripeKey, setStripeKey] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -43,7 +43,7 @@ const PaymentForm = ({ agreement, onPaymentSuccess, onPaymentError }) => {
   if (loading) {
     return (
       <div className="flex justify-center items-center py-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
         <span className="ml-2 text-gray-600">Loading payment form...</span>
       </div>
     );
@@ -59,7 +59,7 @@ const PaymentForm = ({ agreement, onPaymentSuccess, onPaymentError }) => {
 
   return (
     <Elements stripe={stripePromise}>
-      <PaymentFormContent
+      <DepositPaymentFormContent
         agreement={agreement}
         onPaymentSuccess={onPaymentSuccess}
         onPaymentError={onPaymentError}
@@ -68,7 +68,7 @@ const PaymentForm = ({ agreement, onPaymentSuccess, onPaymentError }) => {
   );
 };
 
-const PaymentFormContent = ({ agreement, onPaymentSuccess, onPaymentError }) => {
+const DepositPaymentFormContent = ({ agreement, onPaymentSuccess, onPaymentError }) => {
   const stripe = useStripe();
   const elements = useElements();
   const [processing, setProcessing] = useState(false);
@@ -76,22 +76,31 @@ const PaymentFormContent = ({ agreement, onPaymentSuccess, onPaymentError }) => 
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    // Create payment intent when component mounts
-    const createPaymentIntent = async () => {
+    // Create payment intent for deposit payment
+    const createDepositPaymentIntent = async () => {
       try {
-        const result = await TenancyAgreementAPI.initiatePayment(agreement.id);
+        const response = await fetch(`/api/deposit-payment/initiate/${agreement.id}`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+
+        const result = await response.json();
 
         if (result.success) {
           setPaymentIntent(result);
         } else {
-          setError(result.error);
+          setError(result.error || 'Failed to initialize deposit payment');
         }
       } catch (error) {
-        setError('Failed to initialize payment');
+        console.error('Error creating deposit payment intent:', error);
+        setError('Failed to initialize deposit payment');
       }
     };
 
-    createPaymentIntent();
+    createDepositPaymentIntent();
   }, [agreement.id]);
 
   const handleSubmit = async (event) => {
@@ -124,11 +133,13 @@ const PaymentFormContent = ({ agreement, onPaymentSuccess, onPaymentError }) => 
         setError(error.message);
         onPaymentError(error.message);
       } else if (confirmedPaymentIntent.status === 'succeeded') {
+        // Payment succeeded, let the parent component handle completion
         onPaymentSuccess(confirmedPaymentIntent);
       }
     } catch (error) {
-      setError('Payment processing failed');
-      onPaymentError('Payment processing failed');
+      console.error('Deposit payment processing failed:', error);
+      setError('Deposit payment processing failed');
+      onPaymentError('Deposit payment processing failed');
     } finally {
       setProcessing(false);
     }
@@ -154,58 +165,30 @@ const PaymentFormContent = ({ agreement, onPaymentSuccess, onPaymentError }) => 
     <div className="bg-white rounded-lg shadow-lg p-6">
       <div className="mb-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-2">
-          {agreement.payment_type === 'deposit' ? 'Security Deposit Payment' : 'Complete Your Tenancy Agreement'}
+          Security Deposit Payment
         </h3>
         <p className="text-gray-600">
-          {agreement.payment_type === 'deposit' 
-            ? 'Complete your security deposit payment to activate your tenancy agreement.'
-            : 'Pay the agreement processing fee to finalize your tenancy agreement.'
-          }
+          Complete your security deposit payment to activate your tenancy agreement.
         </p>
       </div>
 
-      {/* Payment Summary - Different for deposit vs agreement fee */}
+      {/* Payment Summary - Deposit Only */}
       <div className="bg-gray-50 rounded-lg p-4 mb-6">
         <div className="flex justify-between items-center mb-2">
           <span className="text-gray-600">Property:</span>
           <span className="font-medium">{agreement.property_address}</span>
         </div>
-        
-        {agreement.payment_type !== 'deposit' && (
-          <>
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-gray-600">Monthly Rent:</span>
-              <span className="font-medium">RM {agreement.monthly_rent}</span>
-            </div>
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-gray-600">Security Deposit:</span>
-              <span className="font-medium">RM {agreement.security_deposit}</span>
-            </div>
-            <hr className="my-3" />
-            <div className="flex justify-between items-center">
-              <span className="text-lg font-semibold text-gray-900">Agreement Fee:</span>
-              <span className="text-lg font-bold text-blue-600">
-                RM {paymentIntent?.amount || agreement.agreement_fee}
-              </span>
-            </div>
-          </>
-        )}
-        
-        {agreement.payment_type === 'deposit' && (
-          <>
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-gray-600">Security Deposit:</span>
-              <span className="font-medium">RM {agreement.security_deposit}</span>
-            </div>
-            <hr className="my-3" />
-            <div className="flex justify-between items-center">
-              <span className="text-lg font-semibold text-gray-900">Total Deposit:</span>
-              <span className="text-lg font-bold text-orange-600">
-                RM {agreement.payment_required}
-              </span>
-            </div>
-          </>
-        )}
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-gray-600">Security Deposit:</span>
+          <span className="font-medium">RM {agreement.security_deposit}</span>
+        </div>
+        <hr className="my-3" />
+        <div className="flex justify-between items-center">
+          <span className="text-lg font-semibold text-gray-900">Total Deposit:</span>
+          <span className="text-lg font-bold text-orange-600">
+            RM {agreement.payment_required}
+          </span>
+        </div>
       </div>
 
       {/* Payment Form */}
@@ -231,11 +214,11 @@ const PaymentFormContent = ({ agreement, onPaymentSuccess, onPaymentError }) => 
               type="checkbox"
               id="terms"
               required
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
             />
             <label htmlFor="terms" className="ml-2 block text-sm text-gray-700">
               I agree to the{' '}
-              <a href="#" className="text-blue-600 hover:text-blue-500">
+              <a href="#" className="text-orange-600 hover:text-orange-500">
                 terms and conditions
               </a>{' '}
               and authorize this payment.
@@ -249,9 +232,7 @@ const PaymentFormContent = ({ agreement, onPaymentSuccess, onPaymentError }) => 
           className={`w-full py-3 px-4 rounded-md text-white font-medium ${
             processing || !stripe || !paymentIntent
               ? 'bg-gray-400 cursor-not-allowed'
-              : agreement.payment_type === 'deposit' 
-                ? 'bg-orange-600 hover:bg-orange-700 focus:ring-2 focus:ring-orange-500'
-                : 'bg-blue-600 hover:bg-blue-700 focus:ring-2 focus:ring-blue-500'
+              : 'bg-orange-600 hover:bg-orange-700 focus:ring-2 focus:ring-orange-500'
           }`}
         >
           {processing ? (
@@ -260,7 +241,7 @@ const PaymentFormContent = ({ agreement, onPaymentSuccess, onPaymentError }) => 
               Processing Payment...
             </div>
           ) : (
-            `Pay RM ${agreement.payment_required || paymentIntent?.amount || agreement.agreement_fee}`
+            `Pay RM ${agreement.payment_required}`
           )}
         </button>
       </form>
@@ -274,5 +255,5 @@ const PaymentFormContent = ({ agreement, onPaymentSuccess, onPaymentError }) => 
   );
 };
 
-export default PaymentForm;
+export default DepositPaymentForm;
 
