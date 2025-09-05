@@ -197,3 +197,54 @@ class DepositClaim(db.Model):
 
         # Auto-approve if tenant hasn't responded within deadline
         return self.is_response_overdue()
+
+    def auto_approve_claim(self):
+        """
+        Auto-approve the claim when tenant doesn't respond within deadline
+        Returns True if successfully auto-approved, False otherwise
+        """
+        if not self.can_auto_approve():
+            return False
+        
+        try:
+            # Update claim status and resolution details
+            self.status = DepositClaimStatus.RESOLVED
+            self.approved_amount = self.claimed_amount  # Approve full amount
+            self.resolved_at = datetime.utcnow()
+            self.resolution_notes = "Auto-approved due to no tenant response within 7-day deadline"
+            self.resolved_by = None  # System auto-approval
+            
+            # Update the deposit transaction to reflect the approved claim
+            if self.deposit_transaction:
+                # Deduct the approved amount from tenant's refund
+                current_tenant_amount = self.deposit_transaction.tenant_refund_amount or 0
+                current_landlord_amount = self.deposit_transaction.landlord_claim_amount or 0
+                
+                # Add approved amount to landlord's portion
+                self.deposit_transaction.landlord_claim_amount = current_landlord_amount + float(self.approved_amount)
+                
+                # Reduce tenant's refund by the approved amount
+                new_tenant_amount = max(0, current_tenant_amount - float(self.approved_amount))
+                self.deposit_transaction.tenant_refund_amount = new_tenant_amount
+                
+                # Update transaction status if this was the last pending claim
+                from src.models.deposit_claim import DepositClaim
+                pending_claims = DepositClaim.query.filter(
+                    DepositClaim.deposit_transaction_id == self.deposit_transaction_id,
+                    DepositClaim.status.in_([DepositClaimStatus.SUBMITTED, DepositClaimStatus.TENANT_NOTIFIED])
+                ).count()
+                
+                if pending_claims <= 1:  # This claim will be resolved, so check if it's the last one
+                    self.deposit_transaction.status = 'resolved'
+                    self.deposit_transaction.resolved_at = datetime.utcnow()
+                    self.deposit_transaction.is_fully_resolved = True
+            
+            # Commit the changes
+            db.session.commit()
+            
+            return True
+            
+        except Exception as e:
+            db.session.rollback()
+            raise e
+
