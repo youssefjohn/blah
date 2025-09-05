@@ -58,11 +58,25 @@ class PropertyLifecycleService:
             
             logger.info(f"🔍 Found {len(expired_agreements)} expired agreements matching criteria")
             
+            # Also check for agreements that are already 'ended' but properties are still 'rented'
+            ended_agreements_with_rented_properties = TenancyAgreement.query.join(Property).filter(
+                and_(
+                    TenancyAgreement.status == 'ended',
+                    Property.status == PropertyStatus.RENTED,
+                    Property.id == TenancyAgreement.property_id
+                )
+            ).all()
+            
+            logger.info(f"🔍 Found {len(ended_agreements_with_rented_properties)} ended agreements with rented properties")
+            
+            # Combine both lists for processing
+            all_agreements_to_process = expired_agreements + ended_agreements_with_rented_properties
+            
             properties_updated = 0
             notifications_created = 0
             deposit_resolutions_started = 0
             
-            for agreement in expired_agreements:
+            for agreement in all_agreements_to_process:
                 try:
                     # Get the associated property
                     property_obj = Property.query.get(agreement.property_id)
@@ -73,10 +87,17 @@ class PropertyLifecycleService:
                             tenancy_agreement_id=agreement.id
                         ).first()
                         
+                        # If agreement is already ended, don't change its status again
+                        if agreement.status != 'ended':
+                            agreement.status = 'expired'
+                        
                         if deposit_transaction:
                             # Start deposit resolution process
                             property_obj.status = PropertyStatus.INACTIVE  # Will be reactivated after deposit resolution
-                            agreement.status = 'expired'
+                            
+                            # Only update agreement status if it's not already ended
+                            if agreement.status != 'ended':
+                                agreement.status = 'expired'
                             
                             # Create notification for landlord about deposit claim window
                             landlord_notification = Notification(
@@ -113,7 +134,10 @@ class PropertyLifecycleService:
                         else:
                             # No deposit - proceed with normal expiry process
                             property_obj.status = PropertyStatus.INACTIVE
-                            agreement.status = 'expired'
+                            
+                            # Only update agreement status if it's not already ended
+                            if agreement.status != 'ended':
+                                agreement.status = 'expired'
                             
                             # Create standard notification for landlord
                             notification = Notification(
