@@ -17,7 +17,7 @@ from src.models.tenancy_agreement import TenancyAgreement
 from src.models.notification import Notification
 # Now that deposit models are working, restore these imports
 from src.models.deposit_transaction import DepositTransaction
-from src.models.deposit_claim import DepositClaim
+from src.models.deposit_claim import DepositClaim, DepositClaimStatus
 from src.models.deposit_dispute import DepositDispute, DepositDisputeStatus
 from src.services.deposit_notification_service import DepositNotificationService
 import logging
@@ -40,12 +40,23 @@ class PropertyLifecycleService:
         try:
             # Find all agreements that have expired (lease_end_date < today)
             today = date.today()
+            logger.info(f"🔍 Checking for agreements with lease_end_date < {today}")
+            
+            # First, let's see all agreements for debugging
+            all_agreements = TenancyAgreement.query.all()
+            logger.info(f"🔍 Found {len(all_agreements)} total agreements in database")
+            
+            for agreement in all_agreements:
+                logger.info(f"🔍 Agreement {agreement.id}: status='{agreement.status}', lease_end_date={agreement.lease_end_date}, property_id={agreement.property_id}")
+            
             expired_agreements = TenancyAgreement.query.filter(
                 and_(
                     TenancyAgreement.lease_end_date < today,
                     TenancyAgreement.status.in_(['active', 'signed'])  # Only active agreements
                 )
             ).all()
+            
+            logger.info(f"🔍 Found {len(expired_agreements)} expired agreements matching criteria")
             
             properties_updated = 0
             notifications_created = 0
@@ -216,7 +227,7 @@ class PropertyLifecycleService:
             # Auto-approve overdue claims
             overdue_claims = DepositClaim.query.filter(
                 and_(
-                    DepositClaim.status.in_(['submitted', 'tenant_notified']),
+                    DepositClaim.status.in_([DepositClaimStatus.SUBMITTED, DepositClaimStatus.TENANT_NOTIFIED]),
                     DepositClaim.auto_approve_at < datetime.utcnow()
                 )
             ).all()
@@ -239,7 +250,7 @@ class PropertyLifecycleService:
             
             approaching_claims = DepositClaim.query.filter(
                 and_(
-                    DepositClaim.status.in_(['submitted', 'tenant_notified']),
+                    DepositClaim.status.in_([DepositClaimStatus.SUBMITTED, DepositClaimStatus.TENANT_NOTIFIED]),
                     DepositClaim.tenant_response_deadline <= upcoming_deadline,
                     DepositClaim.tenant_response_deadline > datetime.utcnow()
                 )
