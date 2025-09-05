@@ -218,7 +218,24 @@ class FundReleaseService:
             total_deposit = float(deposit_transaction.amount)
             total_claimed = sum(float(claim.claimed_amount) for claim in claims)
             
-            # If no claims have been submitted yet, entire deposit should be held in escrow
+            # Check if deposit has been refunded (inspection period expired with no claims)
+            if deposit_transaction.status == DepositTransactionStatus.REFUNDED and not claims:
+                return {
+                    'total_deposit': total_deposit,
+                    'total_claimed': 0,
+                    'undisputed_balance': 0,
+                    'accepted_amount': 0,
+                    'resolved_amount': 0,
+                    'disputed_amount': 0,
+                    'mediation_amount': 0,
+                    'released_to_landlord': 0,
+                    'refunded_to_tenant': float(deposit_transaction.refunded_amount or total_deposit),
+                    'remaining_in_escrow': 0,  # Nothing held in escrow - fully refunded
+                    'claims': [],
+                    'status': 'refunded'  # Indicate deposit has been refunded
+                }
+            
+            # If no claims have been submitted yet and not refunded, entire deposit should be held in escrow
             if not claims:
                 return {
                     'total_deposit': total_deposit,
