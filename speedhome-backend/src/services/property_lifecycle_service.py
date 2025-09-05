@@ -567,7 +567,8 @@ class PropertyLifecycleService:
     def check_future_availability():
         """
         Check for properties with future availability dates that have arrived
-        and make them publicly visible
+        and make them publicly visible. Also check for rented properties
+        whose tenancies have ended and make them available again.
         """
         logger.info("🔄 Starting future availability check...")
         
@@ -583,9 +584,19 @@ class PropertyLifecycleService:
                 )
             ).all()
             
+            # Find rented properties whose tenancies have ended
+            rented_properties_to_free = Property.query.join(TenancyAgreement).filter(
+                and_(
+                    Property.status == PropertyStatus.RENTED,
+                    TenancyAgreement.property_id == Property.id,
+                    TenancyAgreement.status == 'ended'
+                )
+            ).all()
+            
             properties_activated = 0
             notifications_created = 0
             
+            # Handle future availability dates
             for property_obj in properties_to_activate:
                 try:
                     # Clear the future availability date (property is now immediately available)
@@ -605,6 +616,28 @@ class PropertyLifecycleService:
                     
                 except Exception as e:
                     logger.error(f"❌ Error processing future availability for property {property_obj.id}: {str(e)}")
+                    continue
+            
+            # Handle rented properties whose tenancies have ended
+            for property_obj in rented_properties_to_free:
+                try:
+                    # Change status from RENTED to AVAILABLE
+                    property_obj.status = PropertyStatus.AVAILABLE
+                    
+                    # Create notification for landlord
+                    notification = Notification(
+                        recipient_id=property_obj.owner_id,
+                        message=f"Your property '{property_obj.title}' is now available for new tenants after the previous tenancy ended."
+                    )
+                    
+                    db.session.add(notification)
+                    properties_activated += 1
+                    notifications_created += 1
+                    
+                    logger.info(f"✅ Made property {property_obj.id} ({property_obj.title}) available - tenancy ended")
+                    
+                except Exception as e:
+                    logger.error(f"❌ Error processing ended tenancy for property {property_obj.id}: {str(e)}")
                     continue
             
             # Commit all changes
