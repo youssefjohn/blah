@@ -207,19 +207,6 @@ const DepositManagementPage = () => {
                         <div className="text-xl font-bold text-green-700">
                           RM {deposit.fund_breakdown.refunded_to_tenant.toFixed(2)}
                         </div>
-                        <div className="text-xs text-green-600 mt-1">Undisputed balance</div>
-                      </div>
-                    )}
-
-                    {/* Refunded to Tenant */}
-                    {deposit.fund_breakdown.refunded_to_tenant > 0 && (
-                      <div className="bg-green-50 p-4 rounded-lg">
-                        <div className="text-sm font-medium text-green-600 mb-1">
-                          Refunded to {deposit.tenant_name} (Tenant)
-                        </div>
-                        <div className="text-xl font-bold text-green-700">
-                          RM {deposit.fund_breakdown.refunded_to_tenant.toFixed(2)}
-                        </div>
                         <div className="text-xs text-green-600 mt-1">
                           {deposit.fund_breakdown.status === 'refunded' ? 'Inspection period ended - No claims' : 'Refunded amount'}
                         </div>
