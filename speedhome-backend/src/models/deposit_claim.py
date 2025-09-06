@@ -216,28 +216,38 @@ class DepositClaim(db.Model):
             
             # Update the deposit transaction to reflect the approved claim
             if self.deposit_transaction:
-                # Deduct the approved amount from tenant's refund
-                current_tenant_amount = self.deposit_transaction.tenant_refund_amount or 0
-                current_landlord_amount = self.deposit_transaction.landlord_claim_amount or 0
+                # Use the fund release service to properly handle the approved claim
+                from src.services.fund_release_service import FundReleaseService
                 
-                # Add approved amount to landlord's portion
-                self.deposit_transaction.landlord_claim_amount = current_landlord_amount + float(self.approved_amount)
-                
-                # Reduce tenant's refund by the approved amount
-                new_tenant_amount = max(0, current_tenant_amount - float(self.approved_amount))
-                self.deposit_transaction.tenant_refund_amount = new_tenant_amount
-                
-                # Update transaction status if this was the last pending claim
-                from src.models.deposit_claim import DepositClaim
-                pending_claims = DepositClaim.query.filter(
-                    DepositClaim.deposit_transaction_id == self.deposit_transaction_id,
-                    DepositClaim.status.in_([DepositClaimStatus.SUBMITTED, DepositClaimStatus.TENANT_NOTIFIED])
-                ).count()
-                
-                if pending_claims <= 1:  # This claim will be resolved, so check if it's the last one
-                    self.deposit_transaction.status = 'resolved'
-                    self.deposit_transaction.resolved_at = datetime.utcnow()
-                    self.deposit_transaction.is_fully_resolved = True
+                try:
+                    # Release the approved amount to landlord
+                    release_result = FundReleaseService.release_accepted_claim(self.deposit_transaction, self)
+                    
+                    if not release_result['success']:
+                        raise Exception(f"Failed to release funds: {release_result.get('error', 'Unknown error')}")
+                    
+                    # Update transaction status if this was the last pending claim
+                    from src.models.deposit_claim import DepositClaim
+                    pending_claims = DepositClaim.query.filter(
+                        DepositClaim.deposit_transaction_id == self.deposit_transaction_id,
+                        DepositClaim.status.in_([DepositClaimStatus.SUBMITTED, DepositClaimStatus.TENANT_NOTIFIED])
+                    ).count()
+                    
+                    if pending_claims <= 1:  # This claim will be resolved, so check if it's the last one
+                        # Check if all funds have been processed
+                        total_processed = (self.deposit_transaction.released_amount or 0) + (self.deposit_transaction.refunded_amount or 0)
+                        if total_processed >= self.deposit_transaction.amount:
+                            self.deposit_transaction.status = 'released'
+                        else:
+                            self.deposit_transaction.status = 'partially_released'
+                        
+                        self.deposit_transaction.resolved_at = datetime.utcnow()
+                        self.deposit_transaction.is_fully_resolved = True
+                        
+                except Exception as fund_error:
+                    # If fund release fails, still mark claim as resolved but log the error
+                    print(f"Warning: Fund release failed for auto-approved claim {self.id}: {str(fund_error)}")
+                    # Continue with basic status update
             
             # Commit the changes
             db.session.commit()

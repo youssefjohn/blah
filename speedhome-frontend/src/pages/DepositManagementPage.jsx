@@ -307,6 +307,41 @@ const DepositManagementPage = () => {
               </div>
             )}
 
+            {/* Response Deadline Status */}
+            {deposit.claims?.length > 0 && (() => {
+              // Check if any claims have expired response deadlines
+              const claimsWithExpiredDeadlines = deposit.claims.filter(claim => {
+                if (!claim.tenant_response_deadline) return false;
+                const deadline = new Date(claim.tenant_response_deadline);
+                const now = new Date();
+                return now > deadline && claim.status === 'submitted';
+              });
+
+              if (claimsWithExpiredDeadlines.length > 0) {
+                return (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                    <h4 className="font-medium text-red-800 mb-2">
+                      ⏰ Tenant Response Deadline Expired
+                    </h4>
+                    <p className="text-sm text-red-700 mb-4">
+                      The 7-day deadline for tenant responses has passed. Claims are being auto-approved for the landlord.
+                    </p>
+                    {isLandlord() && (
+                      <p className="text-sm text-red-600">
+                        Claims that received no tenant response will be automatically approved in your favor. Funds will be released accordingly.
+                      </p>
+                    )}
+                    {isTenant() && (
+                      <p className="text-sm text-red-600">
+                        You did not respond to the deposit claims within the 7-day deadline. Claims have been auto-approved for the landlord.
+                      </p>
+                    )}
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
             {/* Current Claims */}
             {canViewClaims && (
               <div className="bg-white shadow rounded-lg p-6 mb-6">
