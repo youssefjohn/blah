@@ -62,8 +62,12 @@ def get_agreements():
             claims = DepositClaim.query.filter_by(deposit_transaction_id=deposit.id).all()
             
             # Get fund breakdown using the fund release service
-            from ..services.fund_release_service import fund_release_service
-            fund_breakdown = fund_release_service.get_deposit_breakdown(deposit)
+            from ..services.fund_release_service import FundReleaseService
+            try:
+                fund_breakdown = FundReleaseService.get_deposit_breakdown(deposit)
+            except Exception as e:
+                print(f"Error getting fund breakdown for deposit {deposit.id}: {str(e)}")
+                fund_breakdown = None
             
             agreement_dict['deposit_transaction'] = {
                 'id': deposit.id,
@@ -143,8 +147,12 @@ def get_tenant_agreements():
             claims = DepositClaim.query.filter_by(deposit_transaction_id=deposit.id).all()
             
             # Get fund breakdown using the fund release service
-            from ..services.fund_release_service import fund_release_service
-            fund_breakdown = fund_release_service.get_deposit_breakdown(deposit)
+            from ..services.fund_release_service import FundReleaseService
+            try:
+                fund_breakdown = FundReleaseService.get_deposit_breakdown(deposit)
+            except Exception as e:
+                print(f"Error getting fund breakdown for deposit {deposit.id}: {str(e)}")
+                fund_breakdown = None
             
             agreement_dict['deposit_transaction'] = {
                 'id': deposit.id,

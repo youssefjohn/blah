@@ -78,13 +78,13 @@ try:
             print(f"   Targeting the most recent one (ID {claim.id})")
 
         # Set the response deadline and auto-approve time to the past
-        past_time = datetime.utcnow() - timedelta(hours=1)  # 1 hour ago
+        yesterday_time = datetime.utcnow() - timedelta(days=1)  # 1 day ago
         
-        print(f"\n🔄 Setting response deadline to past time: {past_time}")
+        print(f"\n🔄 Setting response deadline to past time: {yesterday_time}")
         
         # Update the claim deadlines
-        claim.tenant_response_deadline = past_time
-        claim.auto_approve_at = past_time
+        claim.tenant_response_deadline = yesterday_time
+        claim.auto_approve_at = yesterday_time
         
         # Commit the changes
         db.session.commit()
