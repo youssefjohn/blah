@@ -235,11 +235,12 @@ class DepositClaim(db.Model):
                     
                     if pending_claims <= 1:  # This claim will be resolved, so check if it's the last one
                         # Check if all funds have been processed
+                        from src.models.deposit_transaction import DepositTransactionStatus
                         total_processed = (self.deposit_transaction.released_amount or 0) + (self.deposit_transaction.refunded_amount or 0)
                         if total_processed >= self.deposit_transaction.amount:
-                            self.deposit_transaction.status = 'released'
+                            self.deposit_transaction.status = DepositTransactionStatus.RELEASED
                         else:
-                            self.deposit_transaction.status = 'partially_released'
+                            self.deposit_transaction.status = DepositTransactionStatus.PARTIALLY_RELEASED
                         
                         self.deposit_transaction.resolved_at = datetime.utcnow()
                         self.deposit_transaction.is_fully_resolved = True

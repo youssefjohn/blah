@@ -231,5 +231,34 @@ class TenancyAgreement(db.Model):
             # Cancellation info
             'cancelled_at': self.cancelled_at.isoformat() if self.cancelled_at else None,
             'cancellation_reason': self.cancellation_reason,
+            
+            # Deposit transaction info with enhanced data
+            'deposit_transaction': self._get_enhanced_deposit_data() if hasattr(self, 'deposit_transaction') and self.deposit_transaction else None,
         }
+
+    def _get_enhanced_deposit_data(self):
+        """Get deposit transaction data with additional calculated fields like fund_breakdown"""
+        if not self.deposit_transaction:
+            return None
+            
+        deposit = self.deposit_transaction[0]
+        deposit_data = deposit.to_dict()
+        
+        # Add tenancy status
+        from datetime import datetime
+        tenancy_has_ended = False
+        if self.lease_end_date:
+            tenancy_has_ended = datetime.now().date() > self.lease_end_date
+        deposit_data['tenancy_has_ended'] = tenancy_has_ended
+        
+        # Add fund breakdown if available
+        try:
+            from src.services.fund_release_service import fund_release_service
+            fund_breakdown = fund_release_service.get_deposit_breakdown(deposit)
+            deposit_data['fund_breakdown'] = fund_breakdown
+        except Exception as e:
+            # If fund breakdown service fails, continue without it
+            pass
+            
+        return deposit_data
 

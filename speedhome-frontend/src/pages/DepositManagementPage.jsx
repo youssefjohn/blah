@@ -309,31 +309,60 @@ const DepositManagementPage = () => {
 
             {/* Response Deadline Status */}
             {deposit.claims?.length > 0 && (() => {
-              // Check if any claims have expired response deadlines
-              const claimsWithExpiredDeadlines = deposit.claims.filter(claim => {
+              // Check if tenant response period has ended (either by deadline expiry OR by tenant responding)
+              const claimsWithEndedResponsePeriod = deposit.claims.filter(claim => {
                 if (!claim.tenant_response_deadline) return false;
                 const deadline = new Date(claim.tenant_response_deadline);
                 const now = new Date();
-                return now > deadline && claim.status === 'submitted';
+                
+                // Response period ends if:
+                // 1. Deadline has passed (with no response - auto-approved)
+                const deadlineExpired = now > deadline && (claim.status === 'submitted' || 
+                  (claim.status === 'resolved' && claim.resolution_notes && 
+                   claim.resolution_notes.includes('Auto-approved due to no tenant response')));
+                
+                // 2. Tenant has responded (response period immediately ends)
+                const tenantResponded = claim.tenant_response && claim.tenant_responded_at;
+                
+                return deadlineExpired || tenantResponded;
               });
 
-              if (claimsWithExpiredDeadlines.length > 0) {
+              if (claimsWithEndedResponsePeriod.length > 0) {
+                // Check if any claims have tenant responses
+                const hasResponses = claimsWithEndedResponsePeriod.some(claim => claim.tenant_response && claim.tenant_responded_at);
+                const hasExpiredDeadlines = claimsWithEndedResponsePeriod.some(claim => {
+                  const deadline = new Date(claim.tenant_response_deadline);
+                  const now = new Date();
+                  return now > deadline && !claim.tenant_response;
+                });
+
                 return (
                   <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
                     <h4 className="font-medium text-red-800 mb-2">
-                      ⏰ Tenant Response Deadline Expired
+                      ⏰ Tenant Response Period Ended
                     </h4>
                     <p className="text-sm text-red-700 mb-4">
-                      The 7-day deadline for tenant responses has passed. Claims are being auto-approved for the landlord.
+                      {hasResponses && hasExpiredDeadlines
+                        ? 'The tenant response period has ended. Some claims received responses while others were auto-approved due to no response.'
+                        : hasResponses
+                          ? 'The tenant has responded to the claims. The response period is now closed.'
+                          : 'The 7-day deadline for tenant responses has passed. Claims have been auto-approved for the landlord.'
+                      }
                     </p>
                     {isLandlord() && (
                       <p className="text-sm text-red-600">
-                        Claims that received no tenant response will be automatically approved in your favor. Funds will be released accordingly.
+                        {hasResponses
+                          ? 'You can now review and respond to the tenant\'s responses. Claims without tenant responses have been automatically approved.'
+                          : 'Claims that received no tenant response have been automatically approved in your favor. Funds have been released accordingly.'
+                        }
                       </p>
                     )}
                     {isTenant() && (
                       <p className="text-sm text-red-600">
-                        You did not respond to the deposit claims within the 7-day deadline. Claims have been auto-approved for the landlord.
+                        {hasResponses
+                          ? 'Your responses have been submitted. The landlord will now review and respond to your responses.'
+                          : 'You did not respond to the deposit claims within the 7-day deadline. Claims have been auto-approved for the landlord.'
+                        }
                       </p>
                     )}
                   </div>
@@ -543,6 +572,10 @@ const getStatusColor = (status) => {
       return 'bg-red-100 text-red-800';
     case 'released':
       return 'bg-green-100 text-green-800';
+    case 'partially_released':
+      return 'bg-orange-100 text-orange-800';
+    case 'refunded':
+      return 'bg-green-100 text-green-800';
     default:
       return 'bg-gray-100 text-gray-800';
   }
@@ -558,6 +591,10 @@ const getStatusText = (status) => {
       return 'Under Dispute';
     case 'released':
       return 'Released';
+    case 'partially_released':
+      return 'Partially Released';
+    case 'refunded':
+      return 'Refunded';
     default:
       return status;
   }
@@ -574,7 +611,11 @@ const getStatusDescription = (status, isLandlord) => {
     case 'disputed':
       return 'There are disputed claims that need to be resolved before the deposit can be released.';
     case 'released':
-      return 'The deposit has been released to the tenant.';
+      return 'The deposit has been fully processed and released to the appropriate parties.';
+    case 'partially_released':
+      return 'Some funds have been released while others remain in escrow pending resolution.';
+    case 'refunded':
+      return 'The deposit has been fully refunded to the tenant.';
     default:
       return 'Status information not available.';
   }
