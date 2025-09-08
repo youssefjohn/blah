@@ -11,6 +11,7 @@ const LandlordResponsePage = () => {
   const [responses, setResponses] = useState({});
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [viewingEvidence, setViewingEvidence] = useState(null); // For evidence modal
 
   useEffect(() => {
     fetchDepositDetails();
@@ -133,6 +134,14 @@ const LandlordResponsePage = () => {
     return Object.values(responses).every(response => response.response !== '');
   };
 
+  const handleViewEvidence = (claim) => {
+    setViewingEvidence(claim);
+  };
+
+  const closeEvidenceModal = () => {
+    setViewingEvidence(null);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -151,7 +160,7 @@ const LandlordResponsePage = () => {
           <h2 className="text-2xl font-bold text-gray-900 mb-4">No Disputes Found</h2>
           <p className="text-gray-600 mb-6">There are no disputed claims to respond to.</p>
           <button
-            onClick={() => navigate(`/deposit/${depositId}`)}
+            onClick={() => navigate(`/deposit/${depositId}/manage`)}
             className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-md"
           >
             Back to Deposit Management
@@ -167,7 +176,7 @@ const LandlordResponsePage = () => {
         {/* Header */}
         <div className="mb-8">
           <button
-            onClick={() => navigate(`/deposit/${depositId}`)}
+            onClick={() => navigate(`/deposit/${depositId}/manage`)}
             className="text-blue-600 hover:text-blue-800 mb-4 flex items-center"
           >
             ← Back to Deposit Management
@@ -245,6 +254,27 @@ const LandlordResponsePage = () => {
                 </div>
               </div>
 
+              {/* Tenant Counter-Evidence Section */}
+              {(claim.tenant_evidence_photos?.length > 0 || claim.tenant_evidence_documents?.length > 0) && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                  <h4 className="font-medium text-yellow-800 mb-2">Tenant's Counter-Evidence:</h4>
+                  <div className="space-y-1">
+                    {claim.tenant_evidence_photos?.length > 0 && (
+                      <p className="text-sm text-yellow-700">📷 {claim.tenant_evidence_photos.length} photo(s)</p>
+                    )}
+                    {claim.tenant_evidence_documents?.length > 0 && (
+                      <p className="text-sm text-yellow-700">📄 {claim.tenant_evidence_documents.length} document(s)</p>
+                    )}
+                    <button 
+                      onClick={() => handleViewEvidence(claim)}
+                      className="text-blue-600 hover:text-blue-800 text-sm font-medium mt-1 cursor-pointer"
+                    >
+                      View Tenant's Evidence →
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Landlord Response Options */}
               <div className="space-y-4">
                 <h4 className="font-medium text-gray-900">Your Response:</h4>
@@ -320,6 +350,109 @@ const LandlordResponsePage = () => {
           </button>
         </div>
       </div>
+
+      {/* Evidence Viewing Modal */}
+      {viewingEvidence && (
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-4xl max-h-[90vh] w-full flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="text-lg font-semibold">
+                Tenant's Counter-Evidence: {formatClaimType(viewingEvidence.title)}
+              </h3>
+              <button
+                onClick={closeEvidenceModal}
+                className="h-8 w-8 flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="flex-1 p-4 overflow-auto">
+              {/* Photos Section */}
+              {viewingEvidence.tenant_evidence_photos && viewingEvidence.tenant_evidence_photos.length > 0 && (
+                <div className="mb-6">
+                  <h4 className="font-medium text-gray-900 mb-3">📷 Photos ({viewingEvidence.tenant_evidence_photos.length})</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {viewingEvidence.tenant_evidence_photos.map((photo, index) => (
+                      <div key={index} className="border rounded-lg overflow-hidden">
+                        <img
+                          src={`/api/deposits/evidence/view/${photo.split('/').pop()}`}
+                          alt={`Tenant evidence photo ${index + 1}`}
+                          className="w-full h-48 object-cover cursor-pointer hover:opacity-90"
+                          onClick={() => window.open(`/api/deposits/evidence/view/${photo.split('/').pop()}`, '_blank')}
+                        />
+                        <div className="p-2 bg-gray-50">
+                          <p className="text-xs text-gray-600 truncate">{photo.split('/').pop()}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Documents Section */}
+              {viewingEvidence.tenant_evidence_documents && viewingEvidence.tenant_evidence_documents.length > 0 && (
+                <div className="mb-6">
+                  <h4 className="font-medium text-gray-900 mb-3">📄 Documents ({viewingEvidence.tenant_evidence_documents.length})</h4>
+                  <div className="space-y-2">
+                    {viewingEvidence.tenant_evidence_documents.map((document, index) => (
+                      <div key={index} className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50">
+                        <div className="flex items-center space-x-3">
+                          <div className="text-red-500">📄</div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">{document.split('/').pop()}</p>
+                            <p className="text-xs text-gray-500">PDF Document</p>
+                          </div>
+                        </div>
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => window.open(`/api/deposits/evidence/view/${document.split('/').pop()}`, '_blank')}
+                            className="px-3 py-1 text-sm bg-blue-100 text-blue-700 hover:bg-blue-200 rounded"
+                          >
+                            View
+                          </button>
+                          <button
+                            onClick={() => {
+                              const link = document.createElement('a');
+                              link.href = `/api/deposits/evidence/download/${document.split('/').pop()}`;
+                              link.download = document.split('/').pop();
+                              link.click();
+                            }}
+                            className="px-3 py-1 text-sm bg-gray-100 text-gray-700 hover:bg-gray-200 rounded"
+                          >
+                            Download
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* No Evidence Message */}
+              {(!viewingEvidence.tenant_evidence_photos || viewingEvidence.tenant_evidence_photos.length === 0) &&
+               (!viewingEvidence.tenant_evidence_documents || viewingEvidence.tenant_evidence_documents.length === 0) && (
+                <div className="text-center py-8 text-gray-500">
+                  <div className="text-4xl mb-2">📁</div>
+                  <p>The tenant did not upload any counter-evidence for this claim.</p>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex justify-end p-4 border-t">
+              <button
+                onClick={closeEvidenceModal}
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -93,7 +93,7 @@ const DepositManagementPage = () => {
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Error Loading Deposit</h2>
           <p className="text-gray-600 mb-4">{error}</p>
           <button
-            onClick={() => navigate(-1)}
+            onClick={() => navigate(isLandlord() ? '/landlord' : '/dashboard')}
             className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-md"
           >
             Go Back
@@ -111,7 +111,7 @@ const DepositManagementPage = () => {
           <h2 className="text-2xl font-bold text-gray-900 mb-2">No Deposit Found</h2>
           <p className="text-gray-600 mb-4">No deposit transaction found for this agreement.</p>
           <button
-            onClick={() => navigate(-1)}
+            onClick={() => navigate(isLandlord() ? '/landlord' : '/dashboard')}
             className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-md"
           >
             Go Back
@@ -138,7 +138,7 @@ const DepositManagementPage = () => {
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center">
               <button
-                onClick={() => navigate(-1)}
+                onClick={() => navigate(isLandlord() ? '/landlord' : '/dashboard')}
                 className="mr-4 text-gray-500 hover:text-gray-700"
               >
                 ← Back

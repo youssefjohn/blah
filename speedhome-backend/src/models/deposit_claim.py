@@ -55,6 +55,10 @@ class DepositClaim(db.Model):
     evidence_photos = db.Column(db.JSON, default=list)  # List of S3 URLs
     evidence_documents = db.Column(db.JSON, default=list)  # Receipts, invoices, etc.
     evidence_description = db.Column(db.Text, nullable=True)
+    
+    # Tenant counter-evidence
+    tenant_evidence_photos = db.Column(db.JSON, default=list)  # Tenant's photo evidence
+    tenant_evidence_documents = db.Column(db.JSON, default=list)  # Tenant's document evidence
 
     # Timeline and deadlines
     submitted_at = db.Column(db.DateTime, nullable=True)
@@ -107,6 +111,8 @@ class DepositClaim(db.Model):
             'evidence_photos': self.evidence_photos or [],
             'evidence_documents': self.evidence_documents or [],
             'evidence_description': self.evidence_description,
+            'tenant_evidence_photos': self.tenant_evidence_photos or [],
+            'tenant_evidence_documents': self.tenant_evidence_documents or [],
             'submitted_at': self.submitted_at.isoformat() if self.submitted_at else None,
             'tenant_response_deadline': self.tenant_response_deadline.isoformat() if self.tenant_response_deadline else None,
             'auto_approve_at': self.auto_approve_at.isoformat() if self.auto_approve_at else None,
