@@ -2,9 +2,13 @@
 Deposit Management Routes
 Handles all deposit-related API endpoints including payments, claims, disputes, and status tracking
 """
-from flask import Blueprint, request, jsonify, session
+from flask import Blueprint, request, jsonify, session, send_file
 from datetime import datetime, timedelta
 import logging
+import os
+import uuid
+from werkzeug.utils import secure_filename
+from werkzeug.exceptions import RequestEntityTooLarge
 from ..models.user import db
 from ..models.deposit_transaction import DepositTransaction, DepositTransactionStatus
 from ..models.deposit_claim import DepositClaim, DepositClaimStatus, DepositClaimType
@@ -20,6 +24,368 @@ from ..services.deposit_deadline_service import deposit_deadline_service
 
 # Create blueprint
 deposit_bp = Blueprint('deposit', __name__, url_prefix='/api/deposits')
+
+# ============================================================================
+# DEPOSIT EVIDENCE SERVICE 
+# ============================================================================
+
+class DepositEvidenceService:
+    """Service for handling deposit evidence file uploads and management."""
+    
+    ALLOWED_EXTENSIONS = {
+        'pdf': 'application/pdf',
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'png': 'image/png'
+    }
+    
+    MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
+    
+    EVIDENCE_TYPES = ['evidence_photos', 'evidence_documents']
+    
+    def __init__(self):
+        from flask import current_app
+        self.upload_folder = os.path.join(current_app.root_path, '..', 'uploads', 'deposits')
+        self.ensure_upload_directory()
+    
+    def ensure_upload_directory(self):
+        """Ensure the upload directory exists."""
+        if not os.path.exists(self.upload_folder):
+            os.makedirs(self.upload_folder, exist_ok=True)
+    
+    def validate_file(self, file):
+        """Validate uploaded file for type and size."""
+        from flask import current_app
+        
+        if not file or not file.filename:
+            return False, "No file provided"
+        
+        # Check file size
+        file.seek(0, os.SEEK_END)
+        file_size = file.tell()
+        file.seek(0)  # Reset file pointer
+        
+        if file_size > self.MAX_FILE_SIZE:
+            return False, f"File size exceeds maximum limit of {self.MAX_FILE_SIZE // (1024*1024)}MB"
+        
+        if file_size == 0:
+            return False, "File is empty"
+        
+        # Check file extension
+        filename = secure_filename(file.filename.lower())
+        if '.' not in filename:
+            return False, "File must have an extension"
+        
+        extension = filename.rsplit('.', 1)[1]
+        if extension not in self.ALLOWED_EXTENSIONS:
+            return False, f"File type not allowed. Allowed types: {', '.join(self.ALLOWED_EXTENSIONS.keys())}"
+        
+        return True, None
+    
+    def generate_filename(self, original_filename, claim_id, evidence_type):
+        """Generate a secure, unique filename for the evidence file."""
+        secure_name = secure_filename(original_filename)
+        extension = secure_name.rsplit('.', 1)[1].lower() if '.' in secure_name else 'bin'
+        
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        unique_id = str(uuid.uuid4())[:8]
+        
+        filename = f"{evidence_type}_{claim_id}_{timestamp}_{unique_id}.{extension}"
+        return filename
+    
+    def get_claim_folder(self, claim_id):
+        """Get the folder path for a specific claim."""
+        claim_folder = os.path.join(self.upload_folder, str(claim_id))
+        if not os.path.exists(claim_folder):
+            os.makedirs(claim_folder, exist_ok=True)
+        return claim_folder
+    
+    def save_file(self, file, claim_id, evidence_type):
+        """Save uploaded evidence file to the file system."""
+        from flask import current_app
+        
+        try:
+            # Validate file
+            is_valid, error_message = self.validate_file(file)
+            if not is_valid:
+                return False, error_message
+            
+            # Generate filename and path
+            filename = self.generate_filename(file.filename, claim_id, evidence_type)
+            claim_folder = self.get_claim_folder(claim_id)
+            file_path = os.path.join(claim_folder, filename)
+            
+            # Save file
+            file.save(file_path)
+            
+            # Return relative path for database storage
+            relative_path = os.path.join('uploads', 'deposits', str(claim_id), filename)
+            
+            current_app.logger.info(f"Evidence file saved successfully: {relative_path}")
+            return True, relative_path
+            
+        except Exception as e:
+            from flask import current_app
+            current_app.logger.error(f"Error saving evidence file: {str(e)}")
+            return False, f"Failed to save file: {str(e)}"
+    
+    def delete_file(self, file_path):
+        """Delete an evidence file from the file system."""
+        from flask import current_app
+        
+        try:
+            if not file_path:
+                return True, None
+            
+            abs_path = os.path.join(current_app.root_path, '..', file_path)
+            
+            if os.path.exists(abs_path):
+                os.remove(abs_path)
+                current_app.logger.info(f"Evidence file deleted successfully: {file_path}")
+            
+            return True, None
+            
+        except Exception as e:
+            from flask import current_app
+            current_app.logger.error(f"Error deleting evidence file: {str(e)}")
+            return False, f"Failed to delete file: {str(e)}"
+
+def get_evidence_service():
+    """Get DepositEvidenceService instance within application context."""
+    return DepositEvidenceService()
+
+# ============================================================================
+# DEPOSIT EVIDENCE UPLOAD ROUTES
+# ============================================================================
+
+@deposit_bp.route('/<int:deposit_id>/claims/<int:claim_id>/evidence', methods=['POST'])
+def upload_claim_evidence(deposit_id, claim_id):
+    """Upload evidence files for a deposit claim (landlord side)"""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Authentication required'}), 401
+
+    user_id = session['user_id']
+
+    try:
+        evidence_service = get_evidence_service()
+        
+        # Get the claim and verify permissions
+        claim = DepositClaim.query.get_or_404(claim_id)
+        
+        if claim.deposit_transaction_id != deposit_id:
+            return jsonify({'error': 'Claim does not belong to this deposit'}), 400
+            
+        if claim.landlord_id != user_id:
+            return jsonify({'error': 'Unauthorized to upload evidence for this claim'}), 403
+
+        # Check if files are provided
+        if 'files' not in request.files:
+            return jsonify({'error': 'No files provided'}), 400
+
+        evidence_type = request.form.get('evidence_type')
+        if evidence_type not in evidence_service.EVIDENCE_TYPES:
+            return jsonify({'error': f'Invalid evidence type. Allowed types: {", ".join(evidence_service.EVIDENCE_TYPES)}'}), 400
+
+        files = request.files.getlist('files')
+        if not files or all(f.filename == '' for f in files):
+            return jsonify({'error': 'No files selected'}), 400
+
+        uploaded_files = []
+        for file in files:
+            if file and file.filename:
+                success, result = evidence_service.save_file(file, claim_id, evidence_type)
+                if success:
+                    uploaded_files.append(result)
+                else:
+                    # Clean up any successful uploads if one fails
+                    for uploaded_file in uploaded_files:
+                        evidence_service.delete_file(uploaded_file)
+                    return jsonify({'error': result}), 400
+
+        # Update claim with new evidence file paths
+        current_evidence = getattr(claim, evidence_type) or []
+        updated_evidence = current_evidence + uploaded_files
+        setattr(claim, evidence_type, updated_evidence)
+        
+        try:
+            db.session.commit()
+            from flask import current_app
+            current_app.logger.info(f"Evidence uploaded successfully for claim {claim_id}: {evidence_type}")
+        except Exception as e:
+            db.session.rollback()
+            # Clean up uploaded files if database update fails
+            for uploaded_file in uploaded_files:
+                evidence_service.delete_file(uploaded_file)
+            from flask import current_app
+            current_app.logger.error(f"Database error during evidence upload: {str(e)}")
+            return jsonify({'error': 'Failed to update claim record'}), 500
+
+        return jsonify({
+            'message': f'{len(uploaded_files)} evidence file(s) uploaded successfully',
+            'files': uploaded_files,
+            'evidence_type': evidence_type
+        }), 200
+
+    except RequestEntityTooLarge:
+        return jsonify({'error': f'File too large. Maximum size is {evidence_service.MAX_FILE_SIZE // (1024*1024)}MB'}), 413
+    
+    except Exception as e:
+        from flask import current_app
+        current_app.logger.error(f"Error uploading claim evidence: {str(e)}")
+        return jsonify({'error': 'Internal server error during file upload'}), 500
+
+@deposit_bp.route('/claims/<int:claim_id>/response-evidence', methods=['POST'])
+def upload_response_evidence(claim_id):
+    """Upload counter-evidence files for a tenant response to a deposit claim"""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Authentication required'}), 401
+
+    user_id = session['user_id']
+
+    try:
+        evidence_service = get_evidence_service()
+        
+        # Get the claim and verify permissions
+        claim = DepositClaim.query.get_or_404(claim_id)
+        
+        if claim.tenant_id != user_id:
+            return jsonify({'error': 'Unauthorized to upload evidence for this claim'}), 403
+
+        # Check if files are provided
+        if 'files' not in request.files:
+            return jsonify({'error': 'No files provided'}), 400
+
+        evidence_type = request.form.get('evidence_type')
+        if evidence_type not in evidence_service.EVIDENCE_TYPES:
+            return jsonify({'error': f'Invalid evidence type. Allowed types: {", ".join(evidence_service.EVIDENCE_TYPES)}'}), 400
+
+        files = request.files.getlist('files')
+        if not files or all(f.filename == '' for f in files):
+            return jsonify({'error': 'No files selected'}), 400
+
+        uploaded_files = []
+        for file in files:
+            if file and file.filename:
+                success, result = evidence_service.save_file(file, claim_id, f"tenant_{evidence_type}")
+                if success:
+                    uploaded_files.append(result)
+                else:
+                    # Clean up any successful uploads if one fails
+                    for uploaded_file in uploaded_files:
+                        evidence_service.delete_file(uploaded_file)
+                    return jsonify({'error': result}), 400
+
+        # Store tenant evidence in separate fields
+        tenant_evidence_field = f"tenant_{evidence_type}"
+        current_evidence = getattr(claim, tenant_evidence_field, None) or []
+        updated_evidence = current_evidence + uploaded_files
+        setattr(claim, tenant_evidence_field, updated_evidence)
+        
+        try:
+            db.session.commit()
+            from flask import current_app
+            current_app.logger.info(f"Tenant evidence uploaded successfully for claim {claim_id}: {evidence_type}")
+        except Exception as e:
+            db.session.rollback()
+            # Clean up uploaded files if database update fails
+            for uploaded_file in uploaded_files:
+                evidence_service.delete_file(uploaded_file)
+            from flask import current_app
+            current_app.logger.error(f"Database error during tenant evidence upload: {str(e)}")
+            return jsonify({'error': 'Failed to update claim record'}), 500
+
+        return jsonify({
+            'message': f'{len(uploaded_files)} evidence file(s) uploaded successfully',
+            'files': uploaded_files,
+            'evidence_type': evidence_type
+        }), 200
+
+    except RequestEntityTooLarge:
+        return jsonify({'error': f'File too large. Maximum size is {evidence_service.MAX_FILE_SIZE // (1024*1024)}MB'}), 413
+    
+    except Exception as e:
+        from flask import current_app
+        current_app.logger.error(f"Error uploading tenant response evidence: {str(e)}")
+        return jsonify({'error': 'Internal server error during file upload'}), 500
+
+@deposit_bp.route('/evidence/view/<filename>', methods=['GET'])
+def view_evidence_file(filename):
+    """Serve evidence files for viewing in browser"""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Authentication required'}), 401
+
+    try:
+        from flask import current_app
+        
+        # Find the file in the deposits upload directory
+        uploads_dir = os.path.join(current_app.root_path, '..', 'uploads', 'deposits')
+        
+        # Search through all claim folders to find the file
+        file_path = None
+        for claim_folder in os.listdir(uploads_dir):
+            claim_path = os.path.join(uploads_dir, claim_folder)
+            if os.path.isdir(claim_path):
+                potential_file = os.path.join(claim_path, filename)
+                if os.path.exists(potential_file):
+                    file_path = potential_file
+                    break
+        
+        if not file_path or not os.path.exists(file_path):
+            return jsonify({'error': 'File not found'}), 404
+        
+        # Serve the file for inline viewing
+        return send_file(
+            file_path,
+            as_attachment=False,
+            mimetype=None  # Let Flask auto-detect
+        )
+        
+    except Exception as e:
+        from flask import current_app
+        current_app.logger.error(f"Error serving evidence file: {str(e)}")
+        return jsonify({'error': 'Error serving file'}), 500
+
+@deposit_bp.route('/evidence/download/<filename>', methods=['GET'])
+def download_evidence_file(filename):
+    """Serve evidence files for download"""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Authentication required'}), 401
+
+    try:
+        from flask import current_app
+        
+        # Find the file in the deposits upload directory
+        uploads_dir = os.path.join(current_app.root_path, '..', 'uploads', 'deposits')
+        
+        # Search through all claim folders to find the file
+        file_path = None
+        for claim_folder in os.listdir(uploads_dir):
+            claim_path = os.path.join(uploads_dir, claim_folder)
+            if os.path.isdir(claim_path):
+                potential_file = os.path.join(claim_path, filename)
+                if os.path.exists(potential_file):
+                    file_path = potential_file
+                    break
+        
+        if not file_path or not os.path.exists(file_path):
+            return jsonify({'error': 'File not found'}), 404
+        
+        # Serve the file as download
+        return send_file(
+            file_path,
+            as_attachment=True,
+            download_name=filename,
+            mimetype=None  # Let Flask auto-detect
+        )
+        
+    except Exception as e:
+        from flask import current_app
+        current_app.logger.error(f"Error downloading evidence file: {str(e)}")
+        return jsonify({'error': 'Error downloading file'}), 500
+
+# ============================================================================
+# EXISTING DEPOSIT ROUTES
+# ============================================================================
 
 @deposit_bp.route('/test', methods=['POST'])
 def test_endpoint():

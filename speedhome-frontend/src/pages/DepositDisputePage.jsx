@@ -13,7 +13,7 @@ const DepositDisputePage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-
+  const [viewingEvidence, setViewingEvidence] = useState(null); // For evidence modal
   const [responses, setResponses] = useState({});
 
   // Helper function to format claim types from snake_case to Title Case
@@ -151,8 +151,100 @@ const DepositDisputePage = () => {
   };
 
   const handleFileUpload = async (itemId, field, files) => {
-    const fileNames = Array.from(files).map(file => file.name);
-    updateResponse(itemId, field, fileNames);
+    try {
+      if (!files || files.length === 0) {
+        return;
+      }
+
+      // Prepare files for upload
+      const fileList = Array.from(files).map(file => ({
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        file: file // Store the actual file for upload during submission
+      }));
+
+      updateResponse(itemId, field, fileList);
+    } catch (error) {
+      console.error("Error preparing files for upload:", error);
+      alert("Failed to prepare files for upload. Please try again.");
+    }
+  };
+
+  const uploadTenantEvidenceFiles = async (responses) => {
+    try {
+      const uploadPromises = Object.entries(responses).map(async ([itemId, response]) => {
+        const photoUploads = [];
+        const documentUploads = [];
+
+        // Upload photos
+        if (response.evidence_photos && response.evidence_photos.length > 0) {
+          for (const fileInfo of response.evidence_photos) {
+            if (fileInfo.file) { // Only upload if we have the actual file
+              const formData = new FormData();
+              formData.append('files', fileInfo.file);
+              formData.append('evidence_type', 'evidence_photos');
+
+              const uploadResponse = await fetch(`/api/deposits/claims/${itemId}/response-evidence`, {
+                method: 'POST',
+                credentials: 'include',
+                body: formData
+              });
+
+              if (uploadResponse.ok) {
+                const result = await uploadResponse.json();
+                photoUploads.push(...result.files);
+              } else {
+                console.error('Failed to upload tenant photo:', await uploadResponse.text());
+              }
+            }
+          }
+        }
+
+        // Upload documents
+        if (response.evidence_documents && response.evidence_documents.length > 0) {
+          for (const fileInfo of response.evidence_documents) {
+            if (fileInfo.file) { // Only upload if we have the actual file
+              const formData = new FormData();
+              formData.append('files', fileInfo.file);
+              formData.append('evidence_type', 'evidence_documents');
+
+              const uploadResponse = await fetch(`/api/deposits/claims/${itemId}/response-evidence`, {
+                method: 'POST',
+                credentials: 'include',
+                body: formData
+              });
+
+              if (uploadResponse.ok) {
+                const result = await uploadResponse.json();
+                documentUploads.push(...result.files);
+              } else {
+                console.error('Failed to upload tenant document:', await uploadResponse.text());
+              }
+            }
+          }
+        }
+
+        return {
+          itemId,
+          uploadedPhotos: photoUploads,
+          uploadedDocuments: documentUploads
+        };
+      });
+
+      return await Promise.all(uploadPromises);
+    } catch (error) {
+      console.error('Error uploading tenant evidence files:', error);
+      throw error;
+    }
+  };
+
+  const handleViewEvidence = (item) => {
+    setViewingEvidence(item);
+  };
+
+  const closeEvidenceModal = () => {
+    setViewingEvidence(null);
   };
 
   const calculateTotalAccepted = () => {
@@ -232,6 +324,22 @@ const DepositDisputePage = () => {
     try {
       setSubmitting(true);
 
+      // First, upload evidence files for items that have files
+      let uploadedEvidenceMap = {};
+      try {
+        const evidenceResults = await uploadTenantEvidenceFiles(responses);
+        evidenceResults.forEach(result => {
+          uploadedEvidenceMap[result.itemId] = {
+            evidence_photos: result.uploadedPhotos,
+            evidence_documents: result.uploadedDocuments
+          };
+        });
+      } catch (uploadError) {
+        console.warn('Some evidence files failed to upload:', uploadError);
+        // Continue with submission even if file uploads fail
+      }
+
+      // Submit the response with uploaded file paths
       const response = await fetch(`/api/deposits/claims/${claimId}/respond`, {
         method: 'POST',
         credentials: 'include',
@@ -244,8 +352,8 @@ const DepositDisputePage = () => {
             response: response.response,
             counter_amount: response.response === 'partial_accept' ? parseFloat(response.counter_amount) : null,
             explanation: response.explanation,
-            evidence_photos: response.evidence_photos,
-            evidence_documents: response.evidence_documents
+            evidence_photos: uploadedEvidenceMap[itemId]?.evidence_photos || [],
+            evidence_documents: uploadedEvidenceMap[itemId]?.evidence_documents || []
           }))
         })
       });
@@ -435,7 +543,10 @@ const DepositDisputePage = () => {
                           {item.evidence_documents?.length > 0 && (
                             <p className="text-sm text-gray-600">📄 {item.evidence_documents.length} document(s)</p>
                           )}
-                          <button className="text-blue-600 hover:text-blue-800 text-sm font-medium mt-1">
+                          <button 
+                            onClick={() => handleViewEvidence(item)}
+                            className="text-blue-600 hover:text-blue-800 text-sm font-medium mt-1 cursor-pointer"
+                          >
                             View {isLandlord() ? 'Your' : 'Landlord\'s'} Evidence →
                           </button>
                         </div>
@@ -719,6 +830,117 @@ const DepositDisputePage = () => {
           </div>
         )}
       </div>
+
+      {/* Evidence Viewing Modal */}
+      {viewingEvidence && (
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-4xl max-h-[90vh] w-full flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="text-lg font-semibold">
+                {isLandlord() ? 'Your Evidence' : 'Landlord\'s Evidence'}: {formatClaimType(viewingEvidence.title)}
+              </h3>
+              <button
+                onClick={closeEvidenceModal}
+                className="h-8 w-8 flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="flex-1 p-4 overflow-auto">
+              {/* Photos Section */}
+              {viewingEvidence.evidence_photos && viewingEvidence.evidence_photos.length > 0 && (
+                <div className="mb-6">
+                  <h4 className="font-medium text-gray-900 mb-3">📷 Photos ({viewingEvidence.evidence_photos.length})</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {viewingEvidence.evidence_photos.map((photo, index) => (
+                      <div key={index} className="border rounded-lg overflow-hidden">
+                        <img
+                          src={`/api/deposits/evidence/view/${photo.split('/').pop()}`}
+                          alt={`Evidence photo ${index + 1}`}
+                          className="w-full h-48 object-cover cursor-pointer hover:opacity-90"
+                          onClick={() => window.open(`/api/deposits/evidence/view/${photo.split('/').pop()}`, '_blank')}
+                        />
+                        <div className="p-2 bg-gray-50">
+                          <p className="text-xs text-gray-600 truncate">{photo.split('/').pop()}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Documents Section */}
+              {viewingEvidence.evidence_documents && viewingEvidence.evidence_documents.length > 0 && (
+                <div className="mb-6">
+                  <h4 className="font-medium text-gray-900 mb-3">📄 Documents ({viewingEvidence.evidence_documents.length})</h4>
+                  <div className="space-y-2">
+                    {viewingEvidence.evidence_documents.map((document, index) => (
+                      <div key={index} className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50">
+                        <div className="flex items-center space-x-3">
+                          <div className="text-red-500">📄</div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">{document.split('/').pop()}</p>
+                            <p className="text-xs text-gray-500">PDF Document</p>
+                          </div>
+                        </div>
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => window.open(`/api/deposits/evidence/view/${document.split('/').pop()}`, '_blank')}
+                            className="px-3 py-1 text-sm bg-blue-100 text-blue-700 hover:bg-blue-200 rounded"
+                          >
+                            View
+                          </button>
+                          <button
+                            onClick={() => {
+                              const link = document.createElement('a');
+                              link.href = `/api/deposits/evidence/download/${document.split('/').pop()}`;
+                              link.download = document.split('/').pop();
+                              link.click();
+                            }}
+                            className="px-3 py-1 text-sm bg-gray-100 text-gray-700 hover:bg-gray-200 rounded"
+                          >
+                            Download
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Description */}
+              {viewingEvidence.evidence_description && (
+                <div className="mb-4">
+                  <h4 className="font-medium text-gray-900 mb-2">Description</h4>
+                  <p className="text-gray-600 bg-gray-50 p-3 rounded">{viewingEvidence.evidence_description}</p>
+                </div>
+              )}
+
+              {/* No Evidence Message */}
+              {(!viewingEvidence.evidence_photos || viewingEvidence.evidence_photos.length === 0) &&
+               (!viewingEvidence.evidence_documents || viewingEvidence.evidence_documents.length === 0) && (
+                <div className="text-center py-8 text-gray-500">
+                  <div className="text-4xl mb-2">📁</div>
+                  <p>No evidence files were uploaded for this claim.</p>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex justify-end p-4 border-t">
+              <button
+                onClick={closeEvidenceModal}
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

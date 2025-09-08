@@ -80,21 +80,97 @@ const DepositClaimPage = () => {
 
 
   const handleFileUpload = async (id, field, files) => {
-    const uploadedFiles = await Promise.all(
-      Array.from(files).map(async (file) => {
-        try {
-          const response = await FileUploadService.upload(file);
-          return response.file_path; // Assuming the API returns the file path
-        } catch (error) {
-          console.error("Error uploading file:", error);
-          return null;
+    try {
+      // Create FormData for the upload
+      const formData = new FormData();
+      Array.from(files).forEach(file => {
+        formData.append('files', file);
+      });
+      formData.append('evidence_type', field);
+
+      // Upload to the deposit evidence endpoint
+      // Note: We'll use a placeholder URL for now since claim_id isn't available yet
+      // The actual upload will happen when the claim is submitted
+      const fileList = Array.from(files).map(file => ({
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        file: file // Store the actual file for later upload
+      }));
+
+      updateClaimItem(id, field, [...claimItems.find(item => item.id === id)[field], ...fileList]);
+    } catch (error) {
+      console.error("Error preparing files for upload:", error);
+      alert("Failed to prepare files for upload. Please try again.");
+    }
+  };
+
+  const uploadEvidenceFiles = async (claimId, claimItems) => {
+    try {
+      const uploadPromises = claimItems.map(async (item) => {
+        const photoUploads = [];
+        const documentUploads = [];
+
+        // Upload photos
+        if (item.evidence_photos && item.evidence_photos.length > 0) {
+          for (const fileInfo of item.evidence_photos) {
+            if (fileInfo.file) { // Only upload if we have the actual file
+              const formData = new FormData();
+              formData.append('files', fileInfo.file);
+              formData.append('evidence_type', 'evidence_photos');
+
+              const response = await fetch(`/api/deposits/${depositId}/claims/${claimId}/evidence`, {
+                method: 'POST',
+                credentials: 'include',
+                body: formData
+              });
+
+              if (response.ok) {
+                const result = await response.json();
+                photoUploads.push(...result.files);
+              } else {
+                console.error('Failed to upload photo:', await response.text());
+              }
+            }
+          }
         }
-      })
-    );
 
-    const validFiles = uploadedFiles.filter((file) => file !== null);
+        // Upload documents
+        if (item.evidence_documents && item.evidence_documents.length > 0) {
+          for (const fileInfo of item.evidence_documents) {
+            if (fileInfo.file) { // Only upload if we have the actual file
+              const formData = new FormData();
+              formData.append('files', fileInfo.file);
+              formData.append('evidence_type', 'evidence_documents');
 
-    updateClaimItem(id, field, [...claimItems.find(item => item.id === id)[field], ...validFiles]);
+              const response = await fetch(`/api/deposits/${depositId}/claims/${claimId}/evidence`, {
+                method: 'POST',
+                credentials: 'include',
+                body: formData
+              });
+
+              if (response.ok) {
+                const result = await response.json();
+                documentUploads.push(...result.files);
+              } else {
+                console.error('Failed to upload document:', await response.text());
+              }
+            }
+          }
+        }
+
+        return {
+          ...item,
+          evidence_photos: photoUploads,
+          evidence_documents: documentUploads
+        };
+      });
+
+      return await Promise.all(uploadPromises);
+    } catch (error) {
+      console.error('Error uploading evidence files:', error);
+      throw error;
+    }
   };
 
   const calculateTotalClaimed = () => {
@@ -136,6 +212,7 @@ const DepositClaimPage = () => {
     try {
       setSubmitting(true);
 
+      // First, create the claims without evidence files
       const payload = {
         title: "Landlord Claim for Security Deposit",
         description: "Claim for deductions from the security deposit at the end of the tenancy.",
@@ -143,8 +220,8 @@ const DepositClaimPage = () => {
           title: item.reason,
           amount: parseFloat(item.amount),
           description: item.description,
-          evidence_photos: item.evidence_photos,
-          evidence_documents: item.evidence_documents
+          evidence_photos: [], // Upload files separately
+          evidence_documents: [] // Upload files separately
         }))
       };
 
@@ -159,6 +236,31 @@ const DepositClaimPage = () => {
 
       const result = await response.json();
       if (result.success) {
+        // Get the created claims to get their IDs for file uploads
+        const claimsResponse = await fetch(`/api/deposits/${depositId}/claims`, {
+          credentials: 'include'
+        });
+        
+        if (claimsResponse.ok) {
+          const claimsData = await claimsResponse.json();
+          const createdClaims = claimsData.claims || [];
+          
+          // Upload evidence files for each claim
+          if (createdClaims.length > 0) {
+            for (let i = 0; i < Math.min(claimItems.length, createdClaims.length); i++) {
+              const claimId = createdClaims[createdClaims.length - claimItems.length + i].id;
+              const item = claimItems[i];
+              
+              try {
+                await uploadEvidenceFiles(claimId, [item]);
+              } catch (uploadError) {
+                console.warn(`Failed to upload evidence for claim ${claimId}:`, uploadError);
+                // Continue with other uploads even if one fails
+              }
+            }
+          }
+        }
+        
         alert('Claim submitted successfully! The tenant will be notified.');
         navigate(`/deposit/${depositId}/manage`);
       } else {
