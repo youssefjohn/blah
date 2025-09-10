@@ -22,7 +22,18 @@ class AuthAPI {
         // Store user data in localStorage for persistence
         localStorage.setItem('speedhome_user', JSON.stringify(data.user));
         localStorage.setItem('speedhome_authenticated', 'true');
-        return { success: true, user: data.user, message: data.message };
+        
+        // Return all the data including KYC setup requirements
+        return { 
+          success: true, 
+          user: data.user, 
+          message: data.message,
+          setupRequired: data.setup_required || false,
+          setupMessage: data.setup_message,
+          nextSteps: data.next_steps,
+          kycEndpoint: data.kyc_endpoint,
+          setupPriority: data.setup_priority
+        };
       } else {
         return { success: false, error: data.error };
       }

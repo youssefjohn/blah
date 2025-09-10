@@ -35,6 +35,13 @@ services:
       - FLASK_APP=src/main.py
       # Database connection details
       - DATABASE_URL=postgresql://user:password@db:5432/speedhome_db
+      # Stripe Configuration
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - STRIPE_PUBLISHABLE_KEY=${STRIPE_PUBLISHABLE_KEY}
+      - STRIPE_WEBHOOK_SECRET=whsec_your_stripe_webhook_secret_here
+      # Application URLs
+      - BASE_URL=http://localhost:5001
+      - FRONTEND_URL=http://localhost:5173
     depends_on:
       - db
 

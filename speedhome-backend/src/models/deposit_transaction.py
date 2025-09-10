@@ -4,6 +4,7 @@ from enum import Enum
 
 class DepositTransactionStatus(Enum):
     PENDING = "pending"
+    PENDING_LANDLORD_VERIFICATION = "pending_landlord_verification"
     PAID = "paid"
     HELD_IN_ESCROW = "held_in_escrow"
     RELEASED = "released"
@@ -36,6 +37,11 @@ class DepositTransaction(db.Model):
     payment_intent_id = db.Column(db.String(255), nullable=True)  # Stripe payment intent
     payment_method = db.Column(db.String(50), nullable=True)
     paid_at = db.Column(db.DateTime, nullable=True)
+    
+    # Stripe Connect integration
+    landlord_stripe_account_id = db.Column(db.String(100), nullable=True)  # Connect account receiving funds
+    stripe_transfer_id = db.Column(db.String(255), nullable=True)  # Transfer to Connect account
+    stripe_payout_id = db.Column(db.String(255), nullable=True)  # Payout to landlord's bank
     
     # Escrow integration
     escrow_transaction_id = db.Column(db.String(255), nullable=True)

@@ -90,13 +90,36 @@ export const AuthProvider = ({ children }) => {
       if (result.success) {
         setUser(result.user);
         setIsAuthenticated(true);
-        return { success: true, user: result.user };
+        
+        // Return full registration result including KYC setup info
+        return { 
+          success: true, 
+          user: result.user,
+          setupRequired: result.setupRequired || false,
+          setupMessage: result.setupMessage,
+          nextSteps: result.nextSteps,
+          kycEndpoint: result.kycEndpoint,
+          setupPriority: result.setupPriority
+        };
       } else {
         return { success: false, error: result.error };
       }
     } catch (error) {
       console.error('Registration error:', error);
       return { success: false, error: 'An unexpected error occurred' };
+    }
+  };
+
+  const checkKYCStatus = async () => {
+    try {
+      const response = await fetch('/api/auth/kyc-status', {
+        credentials: 'include'
+      });
+      const data = await response.json();
+      return data.success ? data : { success: false, error: 'Failed to check KYC status' };
+    } catch (error) {
+      console.error('KYC status check error:', error);
+      return { success: false, error: 'Network error' };
     }
   };
 
@@ -268,6 +291,7 @@ export const AuthProvider = ({ children }) => {
     resetPassword,
     verifyEmail,
     requestEmailVerification,
+    checkKYCStatus,
     
     // Helper functions
     isLandlord,

@@ -104,12 +104,29 @@ def register():
         session['role'] = user.role
         session.permanent = True
         
-        return jsonify({
+        # For landlords, include KYC setup requirements
+        response_data = {
             'success': True,
             'message': 'User registered successfully',
             'user': user.to_dict(),
             'verification_token': verification_token  # In production, send via email
-        }), 201
+        }
+        
+        # Add KYC setup guidance for landlords
+        if user.role == 'landlord':
+            response_data.update({
+                'setup_required': True,
+                'setup_message': 'Complete your payment account setup to start receiving deposit payments',
+                'next_steps': {
+                    'step_1': 'Verify your identity and bank details',
+                    'step_2': 'Complete KYC verification (takes 2-3 minutes)',
+                    'step_3': 'Start listing properties and receiving payments'
+                },
+                'kyc_endpoint': '/api/stripe-connect/create-landlord-account',
+                'setup_priority': 'high'
+            })
+        
+        return jsonify(response_data), 201
         
     except Exception as e:
         db.session.rollback()
@@ -451,16 +468,38 @@ def change_password():
 
 @auth_bp.route('/check-session', methods=['GET'])
 def check_session():
-    """Check if user session is valid"""
+    """Check if user session is valid and return setup requirements"""
     try:
         if 'user_id' in session:
             user = User.query.get(session['user_id'])
             if user and user.is_active:
-                return jsonify({
+                response_data = {
                     'success': True,
                     'authenticated': True,
                     'user': user.to_dict()
-                }), 200
+                }
+                
+                # For landlords, check if they need KYC setup
+                if user.role == 'landlord':
+                    kyc_required = not (user.stripe_account_id and user.stripe_charges_enabled)
+                    
+                    response_data.update({
+                        'kyc_status': {
+                            'required': kyc_required,
+                            'account_exists': bool(user.stripe_account_id),
+                            'charges_enabled': bool(user.stripe_charges_enabled),
+                            'onboarding_completed': bool(user.stripe_onboarding_completed)
+                        }
+                    })
+                    
+                    if kyc_required:
+                        response_data.update({
+                            'setup_required': True,
+                            'setup_message': 'Complete your payment account setup to receive deposit payments',
+                            'setup_action': 'Complete KYC verification to activate your landlord account'
+                        })
+                
+                return jsonify(response_data), 200
         
         return jsonify({
             'success': True,
@@ -471,5 +510,72 @@ def check_session():
         return jsonify({
             'success': False,
             'error': f'Session check failed: {str(e)}'
+        }), 500
+
+@auth_bp.route('/kyc-status', methods=['GET'])
+def get_kyc_status():
+    """Get detailed KYC status for landlords"""
+    try:
+        if 'user_id' not in session:
+            return jsonify({
+                'success': False,
+                'error': 'Authentication required'
+            }), 401
+        
+        user = User.query.get(session['user_id'])
+        if not user or user.role != 'landlord':
+            return jsonify({
+                'success': False,
+                'error': 'Only landlords can check KYC status'
+            }), 403
+        
+        # Determine KYC status
+        has_account = bool(user.stripe_account_id)
+        is_verified = bool(user.stripe_charges_enabled)
+        onboarding_completed = bool(user.stripe_onboarding_completed)
+        
+        if is_verified:
+            status = 'completed'
+            message = 'Your payment account is fully verified and ready to receive deposits'
+            action_required = False
+        elif has_account and onboarding_completed:
+            status = 'pending_approval'
+            message = 'Your documents are being reviewed by our payment processor'
+            action_required = False
+        elif has_account:
+            status = 'incomplete'
+            message = 'Complete your onboarding process to start receiving payments'
+            action_required = True
+        else:
+            status = 'not_started'
+            message = 'Set up your payment account to receive deposit payments from tenants'
+            action_required = True
+        
+        return jsonify({
+            'success': True,
+            'kyc_status': {
+                'status': status,
+                'message': message,
+                'action_required': action_required,
+                'account_exists': has_account,
+                'charges_enabled': is_verified,
+                'onboarding_completed': onboarding_completed
+            },
+            'next_steps': {
+                'create_account': not has_account,
+                'complete_onboarding': has_account and not onboarding_completed,
+                'wait_for_approval': has_account and onboarding_completed and not is_verified
+            },
+            'endpoints': {
+                'create_account': '/api/stripe-connect/create-landlord-account',
+                'onboarding_link': '/api/stripe-connect/onboarding-link',
+                'check_status': '/api/stripe-connect/account-status'
+            }
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'KYC status check failed: {str(e)}'
         }), 500
 

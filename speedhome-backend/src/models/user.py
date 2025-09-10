@@ -42,6 +42,13 @@ class User(UserMixin, db.Model):
     reset_token = db.Column(db.String(100), nullable=True)
     reset_token_expires = db.Column(db.DateTime, nullable=True)
     
+    # Stripe Connect integration (for landlords)
+    stripe_account_id = db.Column(db.String(100), nullable=True)  # Stripe Connect account ID
+    stripe_account_status = db.Column(db.String(50), nullable=True)  # pending, active, restricted
+    stripe_onboarding_completed = db.Column(db.Boolean, default=False)
+    stripe_charges_enabled = db.Column(db.Boolean, default=False)
+    stripe_payouts_enabled = db.Column(db.Boolean, default=False)
+    
     # Preferences (JSON field)
     preferences = db.Column(db.Text, nullable=True)  # JSON string
 

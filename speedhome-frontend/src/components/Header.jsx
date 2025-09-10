@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import LoginModal from './LoginModal';
 import RegisterModal from './RegisterModal';
+import KYCSetupModal from './KYCSetupModal';
 import NotificationAPI from '../services/NotificationAPI';
 
 const Header = ({ notifications, setNotifications }) => {
@@ -14,6 +15,8 @@ const Header = ({ notifications, setNotifications }) => {
   const [showAccountDropdown, setShowAccountDropdown] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
+  const [showKYCSetup, setShowKYCSetup] = useState(false);
+  const [kycSetupData, setKYCSetupData] = useState(null);
 
   // --- NEW STATE FOR NOTIFICATIONS ---
   const [showNotificationDropdown, setShowNotificationDropdown] = useState(false);
@@ -114,18 +117,85 @@ const Header = ({ notifications, setNotifications }) => {
     setShowAccountDropdown(false);
   };
   
-  const handleAuthSuccess = async (userData) => {
+  const handleAuthSuccess = async (userData, registrationResult) => {
     setShowLoginModal(false);
     setShowRegisterModal(false);
     setShowAccountDropdown(false);
     
-    setTimeout(() => {
-      if (userData.role === 'landlord') {
-        navigate('/landlord');
-      } else {
-        navigate('/dashboard');
+    // Check if this is a landlord registration that needs KYC setup
+    if (registrationResult && registrationResult.setupRequired && userData.role === 'landlord') {
+      // Show KYC setup modal after a brief delay
+      setTimeout(() => {
+        setKYCSetupData(registrationResult);
+        setShowKYCSetup(true);
+      }, 500);
+    } else {
+      // Normal flow - redirect to dashboard
+      setTimeout(() => {
+        if (userData.role === 'landlord') {
+          navigate('/landlord');
+        } else {
+          navigate('/dashboard');
+        }
+      }, 100);
+    }
+  };
+
+  const handleKYCSetupClose = () => {
+    setShowKYCSetup(false);
+    setKYCSetupData(null);
+    // Navigate to dashboard after closing KYC modal
+    if (user && user.role === 'landlord') {
+      navigate('/landlord');
+    } else {
+      navigate('/dashboard');
+    }
+  };
+
+  const handleStartKYC = async () => {
+    try {
+      console.log('Starting KYC process...');
+      
+      // Step 1: Create Stripe Connect account
+      const createAccountResponse = await fetch('http://localhost:5001/api/stripe-connect/create-landlord-account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({})
+      });
+      
+      const accountResult = await createAccountResponse.json();
+      console.log('Create account result:', accountResult);
+      
+      if (!accountResult.success) {
+        alert('Failed to create payment account: ' + accountResult.error);
+        return;
       }
-    }, 100);
+      
+      // Step 2: Get onboarding link
+      const onboardingResponse = await fetch('http://localhost:5001/api/stripe-connect/onboarding-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({})
+      });
+      
+      const onboardingResult = await onboardingResponse.json();
+      console.log('Onboarding link result:', onboardingResult);
+      
+      if (!onboardingResult.success) {
+        alert('Failed to create onboarding link: ' + onboardingResult.error);
+        return;
+      }
+      
+      // Step 3: Close modal and redirect to Stripe onboarding
+      handleKYCSetupClose();
+      window.location.href = onboardingResult.url;
+      
+    } catch (error) {
+      console.error('KYC setup error:', error);
+      alert('An error occurred during setup. Please try again.');
+    }
   };
   
   const switchToRegister = () => {
@@ -284,6 +354,15 @@ const Header = ({ notifications, setNotifications }) => {
           onClose={() => setShowRegisterModal(false)}
           onSuccess={handleAuthSuccess}
           onSwitchToLogin={switchToLogin}
+        />
+      )}
+
+      {showKYCSetup && (
+        <KYCSetupModal
+          isOpen={showKYCSetup}
+          onClose={handleKYCSetupClose}
+          setupData={kycSetupData}
+          onStartKYC={handleStartKYC}
         />
       )}
     </header>

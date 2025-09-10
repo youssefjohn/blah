@@ -20,6 +20,7 @@ from decimal import Decimal
 from ..models.conversation import Conversation
 from ..services.deposit_notification_service import DepositNotificationService
 from ..services.fund_release_service import fund_release_service
+from ..services.stripe_connect_service import stripe_connect_service
 from ..services.deposit_deadline_service import deposit_deadline_service
 
 # Create blueprint
@@ -1046,6 +1047,22 @@ def release_deposit(deposit_id):
         if release_type == 'full' and amount != deposit.amount:
             return jsonify({'success': False, 'error': 'Amount must equal full deposit for full release'}), 400
         
+        # Process Stripe Connect refund to tenant
+        if deposit.payment_intent_id and deposit.landlord_stripe_account_id:
+            refund_result = stripe_connect_service.refund_deposit_to_tenant({
+                'payment_intent_id': deposit.payment_intent_id,
+                'landlord_account_id': deposit.landlord_stripe_account_id,
+                'amount': amount,
+                'reason': 'requested_by_customer',
+                'deposit_id': deposit.id
+            })
+            
+            if not refund_result['success']:
+                return jsonify({
+                    'success': False,
+                    'error': f'Failed to process refund: {refund_result["error"]}'
+                }), 400
+        
         # Update deposit status - full release means refund to tenant
         deposit.status = DepositTransactionStatus.REFUNDED
         deposit.refunded_amount = amount  # Full release goes to TENANT
@@ -1077,6 +1094,94 @@ def release_deposit(deposit_id):
         logger.error(f"Error releasing deposit: {str(e)}")
         db.session.rollback()
         return jsonify({'success': False, 'error': 'Failed to release deposit'}), 500
+
+
+@deposit_bp.route('/<int:deposit_id>/claim', methods=['POST'])
+def claim_deposit(deposit_id):
+    """Allow landlord to claim deposit funds (payout to landlord)"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+    
+    user_id = session['user_id']
+    
+    try:
+        deposit = DepositTransaction.query.get(deposit_id)
+        if not deposit:
+            return jsonify({'success': False, 'error': 'Deposit not found'}), 404
+        
+        # Check if user is the landlord
+        if deposit.landlord_id != user_id:
+            return jsonify({'success': False, 'error': 'Only landlord can claim deposit'}), 403
+        
+        # Check if deposit can be claimed
+        if deposit.status != DepositTransactionStatus.HELD_IN_ESCROW:
+            return jsonify({'success': False, 'error': 'Deposit cannot be claimed in current status'}), 400
+        
+        # Check if tenancy has actually ended before allowing claim
+        agreement = TenancyAgreement.query.get(deposit.tenancy_agreement_id)
+        if agreement and agreement.lease_end_date:
+            days_until_end = (agreement.lease_end_date - datetime.now().date()).days
+            if days_until_end >= 0:
+                return jsonify({
+                    'success': False, 
+                    'error': 'Deposit can only be claimed after the tenancy has ended.'
+                }), 400
+        
+        data = request.get_json()
+        claim_type = data.get('claim_type', 'full')
+        amount = float(data.get('amount', deposit.amount))
+        reason = data.get('reason', 'Property damages/cleaning required')
+        
+        if claim_type == 'full' and amount != deposit.amount:
+            return jsonify({'success': False, 'error': 'Amount must equal full deposit for full claim'}), 400
+        
+        # Process Stripe Connect payout to landlord
+        if deposit.payment_intent_id and deposit.landlord_stripe_account_id:
+            payout_result = stripe_connect_service.release_deposit_to_landlord({
+                'payment_intent_id': deposit.payment_intent_id,
+                'landlord_account_id': deposit.landlord_stripe_account_id,
+                'amount': amount,
+                'reason': reason,
+                'deposit_id': deposit.id
+            })
+            
+            if not payout_result['success']:
+                return jsonify({
+                    'success': False,
+                    'error': f'Failed to process payout: {payout_result["error"]}'
+                }), 400
+        
+        # Update deposit status - claim means payout to landlord
+        deposit.status = DepositTransactionStatus.RELEASED
+        deposit.released_amount = amount  # Claim goes to LANDLORD
+        deposit.released_at = datetime.utcnow()
+        
+        db.session.commit()
+        
+        # Send notification to tenant and landlord
+        DepositNotificationService.notify_deposit_resolved(
+            deposit_transaction_id=deposit.id,
+            tenant_id=deposit.tenant_id,
+            landlord_id=deposit.landlord_id,
+            tenant_refund=0,
+            landlord_payout=amount,
+            property_address=deposit.tenancy_agreement.property_address,
+            tenancy_agreement_id=deposit.tenancy_agreement_id,
+            property_id=deposit.property_id
+        )
+        
+        logger.info(f"Claimed deposit {deposit_id} amount {amount} for landlord {user_id}")
+        
+        return jsonify({
+            'success': True,
+            'deposit': deposit.to_dict(),
+            'message': 'Deposit claimed successfully'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error claiming deposit: {str(e)}")
+        db.session.rollback()
+        return jsonify({'success': False, 'error': 'Failed to claim deposit'}), 500
 
 
 @deposit_bp.route('/claims/<int:claim_id>', methods=['GET'])

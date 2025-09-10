@@ -1,5 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+
+// Common countries for the phone selector
+const countries = [
+  { code: 'MY', flag: '🇲🇾', name: 'Malaysia', dial: '+60' },
+  { code: 'SG', flag: '🇸🇬', name: 'Singapore', dial: '+65' },
+  { code: 'US', flag: '🇺🇸', name: 'United States', dial: '+1' },
+  { code: 'GB', flag: '🇬🇧', name: 'United Kingdom', dial: '+44' },
+  { code: 'AU', flag: '🇦🇺', name: 'Australia', dial: '+61' },
+  { code: 'TH', flag: '🇹🇭', name: 'Thailand', dial: '+66' },
+  { code: 'ID', flag: '🇮🇩', name: 'Indonesia', dial: '+62' },
+  { code: 'PH', flag: '🇵🇭', name: 'Philippines', dial: '+63' },
+  { code: 'VN', flag: '🇻🇳', name: 'Vietnam', dial: '+84' },
+  { code: 'IN', flag: '🇮🇳', name: 'India', dial: '+91' },
+  { code: 'CN', flag: '🇨🇳', name: 'China', dial: '+86' },
+  { code: 'JP', flag: '🇯🇵', name: 'Japan', dial: '+81' },
+  { code: 'KR', flag: '🇰🇷', name: 'South Korea', dial: '+82' }
+];
 
 const RegisterModal = ({ isOpen, onClose, onSuccess, onSwitchToLogin }) => {
   const { register } = useAuth();
@@ -15,6 +32,21 @@ const RegisterModal = ({ isOpen, onClose, onSuccess, onSwitchToLogin }) => {
   });
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Phone number country selector state
+  const [selectedCountry, setSelectedCountry] = useState(countries[0]); // Default to Malaysia
+  const [showCountryDropdown, setShowCountryDropdown] = useState(false);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest('.country-selector')) {
+        setShowCountryDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -26,6 +58,37 @@ const RegisterModal = ({ isOpen, onClose, onSuccess, onSwitchToLogin }) => {
       setErrors(prev => ({
         ...prev,
         [name]: ''
+      }));
+    }
+  };
+
+  const handleCountrySelect = (country) => {
+    setSelectedCountry(country);
+    setShowCountryDropdown(false);
+    
+    // Update the phone field with the new country code
+    if (formData.phone) {
+      // Remove the old country code and replace with new one
+      const localNumber = formData.phone.replace(selectedCountry.dial, '');
+      setFormData(prev => ({
+        ...prev,
+        phone: country.dial + localNumber
+      }));
+    }
+  };
+
+  const handlePhoneChange = (e) => {
+    const localNumber = e.target.value;
+    // Store the full international number
+    const fullNumber = selectedCountry.dial + localNumber;
+    setFormData(prev => ({
+      ...prev,
+      phone: fullNumber
+    }));
+    if (errors.phone) {
+      setErrors(prev => ({
+        ...prev,
+        phone: ''
       }));
     }
   };
@@ -88,9 +151,10 @@ const RegisterModal = ({ isOpen, onClose, onSuccess, onSwitchToLogin }) => {
           phone: ''
         });
         setErrors({});
-        onSuccess(result.user);
+        
+        // Pass the full result to onSuccess so Header can handle KYC setup
+        onSuccess(result.user, result);
         onClose();
-        alert('Registration successful! Welcome to SpeedHome!');
       } else {
         setErrors({ general: result.error });
       }
@@ -247,15 +311,49 @@ const RegisterModal = ({ isOpen, onClose, onSuccess, onSwitchToLogin }) => {
             <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
               Phone Number
             </label>
-            <input
-              type="tel"
-              id="phone"
-              name="phone"
-              value={formData.phone}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Enter your phone number"
-            />
+            <div className="flex">
+              <div className="relative country-selector">
+                <button
+                  type="button"
+                  onClick={() => setShowCountryDropdown(!showCountryDropdown)}
+                  className="h-full inline-flex items-center px-3 py-2 border border-r-0 border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700 text-sm rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:z-10"
+                >
+                  <span className="text-base mr-1">{selectedCountry.flag}</span>
+                  <span className="font-medium">{selectedCountry.dial}</span>
+                  <svg className="ml-1 h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                
+                {showCountryDropdown && (
+                  <div className="absolute top-full left-0 mt-1 w-64 bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto">
+                    {countries.map((country) => (
+                      <button
+                        key={country.code}
+                        type="button"
+                        onClick={() => handleCountrySelect(country)}
+                        className="w-full flex items-center px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 focus:outline-none"
+                      >
+                        <span className="mr-3">{country.flag}</span>
+                        <span className="flex-1 text-left">{country.name}</span>
+                        <span className="text-gray-500">{country.dial}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              
+              <input
+                type="tel"
+                id="phone"
+                name="phone"
+                value={formData.phone.replace(selectedCountry.dial, '')}
+                onChange={handlePhoneChange}
+                className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-r-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="123 456 789"
+              />
+            </div>
+            <p className="text-xs text-gray-500 mt-1">Select your country and enter your mobile number</p>
           </div>
           
           <div>

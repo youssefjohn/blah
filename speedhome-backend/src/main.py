@@ -36,6 +36,7 @@ from src.routes.deposit import deposit_bp
 from src.routes.tenant_deposit import tenant_deposit_bp
 from src.routes.deposit_payment import deposit_payment_bp
 from src.routes.admin_deposit import admin_deposit_bp
+from src.routes.stripe_connect import stripe_connect_bp
 
 # Import admin components
 from src.admin.admin_config import init_admin
@@ -71,6 +72,7 @@ app.register_blueprint(deposit_bp)
 app.register_blueprint(tenant_deposit_bp)
 app.register_blueprint(deposit_payment_bp)
 app.register_blueprint(admin_deposit_bp)
+app.register_blueprint(stripe_connect_bp)
 
 # Register admin authentication blueprint
 app.register_blueprint(admin_auth_bp)
